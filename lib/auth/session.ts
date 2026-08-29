@@ -191,88 +191,112 @@ export async function refreshSessionFromProfile(profile: Profile) {
   await setSessionCookie(token);
 }
 
-export async function seedDemoAccounts() {
-  try {
-    const store = await readStore();
-    if (store.profiles.length > 0) return { seeded: false };
+const DEMO_ACCOUNTS: Array<Omit<Profile, "passwordHash" | "id">> = [
+  {
+    email: "brand@fweta.test",
+    displayName: "Desert Brands",
+    bio: "Namibian DTC brand running creator campaigns.",
+    avatarUrl: null,
+    roles: ["brand"],
+    primaryRole: "brand",
+    notifyEmail: true,
+    notifyWithdrawals: true,
+    notifyBookings: true,
+    createdAt: "",
+    updatedAt: "",
+    suspended: false,
+  },
+  {
+    email: "creator@fweta.test",
+    displayName: "Amara Nangolo",
+    bio: "Windhoek creator · lifestyle & short-form.",
+    avatarUrl: null,
+    roles: ["clipper", "influencer"],
+    primaryRole: "influencer",
+    notifyEmail: true,
+    notifyWithdrawals: true,
+    notifyBookings: true,
+    createdAt: "",
+    updatedAt: "",
+    suspended: false,
+  },
+  {
+    email: "clipper@fweta.test",
+    displayName: "Kai Clips",
+    bio: "Clipping specialist across TikTok & Reels.",
+    avatarUrl: null,
+    roles: ["clipper"],
+    primaryRole: "clipper",
+    notifyEmail: true,
+    notifyWithdrawals: true,
+    notifyBookings: true,
+    createdAt: "",
+    updatedAt: "",
+    suspended: false,
+  },
+  {
+    email: "admin@fweta.test",
+    displayName: "Fweta Admin",
+    bio: "Platform operations",
+    avatarUrl: null,
+    roles: ["admin"],
+    primaryRole: "admin",
+    notifyEmail: true,
+    notifyWithdrawals: true,
+    notifyBookings: true,
+    createdAt: "",
+    updatedAt: "",
+    suspended: false,
+  },
+];
 
+let seedInFlight: Promise<{ seeded: boolean }> | null = null;
+
+async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
+  try {
     const passwordHash = await bcrypt.hash("password123", 10);
     const now = nowIso();
-
-    const accounts: Array<Omit<Profile, "passwordHash"> & { passwordHash?: string }> = [
-      {
-        id: newId(),
-        email: "brand@fweta.test",
-        displayName: "Desert Brands",
-        bio: "Namibian DTC brand running creator campaigns.",
-        avatarUrl: null,
-        roles: ["brand"],
-        primaryRole: "brand",
-        notifyEmail: true,
-        notifyWithdrawals: true,
-        notifyBookings: true,
-        createdAt: now,
-        updatedAt: now,
-        suspended: false,
-      },
-      {
-        id: newId(),
-        email: "creator@fweta.test",
-        displayName: "Amara Nangolo",
-        bio: "Windhoek creator · lifestyle & short-form.",
-        avatarUrl: null,
-        roles: ["clipper", "influencer"],
-        primaryRole: "influencer",
-        notifyEmail: true,
-        notifyWithdrawals: true,
-        notifyBookings: true,
-        createdAt: now,
-        updatedAt: now,
-        suspended: false,
-      },
-      {
-        id: newId(),
-        email: "clipper@fweta.test",
-        displayName: "Kai Clips",
-        bio: "Clipping specialist across TikTok & Reels.",
-        avatarUrl: null,
-        roles: ["clipper"],
-        primaryRole: "clipper",
-        notifyEmail: true,
-        notifyWithdrawals: true,
-        notifyBookings: true,
-        createdAt: now,
-        updatedAt: now,
-        suspended: false,
-      },
-      {
-        id: newId(),
-        email: "admin@fweta.test",
-        displayName: "Fweta Admin",
-        bio: "Platform operations",
-        avatarUrl: null,
-        roles: ["admin"],
-        primaryRole: "admin",
-        notifyEmail: true,
-        notifyWithdrawals: true,
-        notifyBookings: true,
-        createdAt: now,
-        updatedAt: now,
-        suspended: false,
-      },
-    ];
+    let added = 0;
 
     await updateStore((s) => {
-      for (const a of accounts) {
-        const profile: Profile = { ...a, passwordHash };
+      const seen = new Set<string>();
+      s.profiles = s.profiles.filter((p) => {
+        const email = p.email.trim().toLowerCase();
+        if (seen.has(email)) return false;
+        seen.add(email);
+        return true;
+      });
+
+      for (const account of DEMO_ACCOUNTS) {
+        const email = account.email.trim().toLowerCase();
+        if (s.profiles.some((p) => p.email.trim().toLowerCase() === email)) continue;
+
+        const profile: Profile = {
+          ...account,
+          id: newId(),
+          email,
+          createdAt: now,
+          updatedAt: now,
+          passwordHash,
+        };
         s.profiles.push(profile);
         ensureWallet(s, profile.id);
+        added += 1;
       }
     });
 
-    return { seeded: true };
+    return { seeded: added > 0 };
   } catch (err) {
     console.warn("[fweta] seedDemoAccounts failed:", err);
     return { seeded: false };
   }
+}
+
+export async function seedDemoAccounts() {
+  if (!seedInFlight) {
+    seedInFlight = seedDemoAccountsOnce().finally(() => {
+      seedInFlight = null;
+    });
+  }
+  return seedInFlight;
 }

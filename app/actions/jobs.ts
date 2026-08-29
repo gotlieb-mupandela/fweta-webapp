@@ -3,24 +3,45 @@
 import { revalidatePath } from "next/cache";
 
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
+import { fetchVideoViewsFromApify, isApifyConfigured } from "@/lib/social/apify";
 import { adjustWallet } from "@/lib/wallet/ledger";
 
 /**
  * Phase 7 automation — callable via /api/jobs/poll-views or cron.
- * Simulates social view growth for approved submissions and credits CPM earnings.
+ * Uses Apify when APIFY_API_TOKEN is set; otherwise simulates view growth.
  */
 export async function pollSubmissionViewsJob() {
   const store = await readStore();
   const approved = store.submissions.filter((s) => s.status === "approved");
+  const useApify = isApifyConfigured();
   let updated = 0;
+  let failed = 0;
 
   for (const submission of approved) {
     const campaign = store.campaigns.find((c) => c.id === submission.campaignId);
     if (!campaign || campaign.status !== "active") continue;
     if (campaign.budgetSpentCents >= campaign.budgetTotalCents) continue;
 
-    const growth = Math.floor(200 + Math.random() * 1800);
-    const newViews = submission.views + growth;
+    let newViews: number;
+
+    if (useApify) {
+      try {
+        const fetched = await fetchVideoViewsFromApify(submission.postUrl);
+        if (fetched == null) {
+          failed += 1;
+          continue;
+        }
+        newViews = fetched;
+      } catch {
+        failed += 1;
+        continue;
+      }
+    } else {
+      const growth = Math.floor(200 + Math.random() * 1800);
+      newViews = submission.views + growth;
+    }
+
+    if (newViews === submission.views) continue;
 
     await updateStore((s) => {
       s.viewSnapshots.push({
@@ -39,7 +60,12 @@ export async function pollSubmissionViewsJob() {
   }
 
   const earnings = await recalculateEarningsJob();
-  return { updated, ...earnings };
+  return {
+    updated,
+    failed,
+    mode: useApify ? ("apify" as const) : ("simulated" as const),
+    ...earnings,
+  };
 }
 
 export async function recalculateEarningsJob() {

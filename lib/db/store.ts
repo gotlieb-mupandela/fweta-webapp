@@ -3,10 +3,17 @@ import { promises as fs } from "fs";
 import path from "path";
 
 import type { DatabaseStore } from "./types";
+import {
+  isSupabaseStoreEnabled,
+  loadStoreFromSupabase,
+  saveStoreToSupabase,
+} from "./supabase-store";
 
 /**
- * On Vercel the app filesystem is read-only; only /tmp is writable (and ephemeral).
- * Keep an in-memory copy so warm serverless instances stay consistent within the process.
+ * Local dev: file store at data/store.json (+ in-memory cache).
+ * Vercel/production: set SUPABASE_SERVICE_ROLE_KEY to persist the shared JSON store
+ * in Supabase (see supabase/migrations/20260829140000_fweta_app_store.sql).
+ * Without it, each serverless instance has isolated /tmp data → 404 after creates.
  */
 const DATA_DIR =
   process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
@@ -57,6 +64,13 @@ async function persist(store: DatabaseStore) {
 }
 
 async function ensureStore(): Promise<DatabaseStore> {
+  if (isSupabaseStoreEnabled()) {
+    const fromRemote = await loadStoreFromSupabase();
+    const store = fromRemote ?? emptyStore();
+    globalThis.__fwetaStore = store;
+    return store;
+  }
+
   if (globalThis.__fwetaStore) {
     return globalThis.__fwetaStore;
   }
@@ -80,6 +94,12 @@ export async function updateStore(
     const store = await ensureStore();
     await mutator(store);
     globalThis.__fwetaStore = store;
+
+    if (isSupabaseStoreEnabled()) {
+      await saveStoreToSupabase(store);
+      return;
+    }
+
     await persist(store);
   });
   await writeQueue;
