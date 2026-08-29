@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { LogOut } from "lucide-react";
 
+import { logoutAction } from "@/app/actions/auth";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 
@@ -36,6 +39,23 @@ export default async function SettingsPage() {
           </li>
         ))}
       </ul>
+
+      <div className="mt-8 border-t border-border/70 pt-6 md:mt-10">
+        <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-light">
+          Account
+        </p>
+        <form action={logoutAction}>
+          <Button
+            type="submit"
+            variant="secondary"
+            size="md"
+            className="h-12 w-full justify-center gap-2 rounded-2xl border-border text-foreground hover:border-foreground/25 md:h-11 md:justify-start"
+          >
+            <LogOut className="size-4 text-muted" aria-hidden />
+            Log out
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }
