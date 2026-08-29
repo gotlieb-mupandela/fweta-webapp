@@ -1,0 +1,987 @@
+{
+  "profiles": [
+    {
+      "id": "41cf36e1-061f-4bef-af33-8d4987307ca0",
+      "email": "brand@fweta.test",
+      "displayName": "Desert Brands",
+      "bio": "Namibian DTC brand running creator campaigns.",
+      "avatarUrl": null,
+      "roles": [
+        "brand"
+      ],
+      "primaryRole": "brand",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.418Z",
+      "updatedAt": "2026-08-29T09:05:22.418Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$QaQY//g/eUQYnRGLCOOQi.ZvmI3h8GcqZd9xLEzj2yJW1lJ73wLTG"
+    },
+    {
+      "id": "51340db2-f49c-4164-b81e-65b8db620694",
+      "email": "creator@fweta.test",
+      "displayName": "Amara Nangolo",
+      "bio": "Windhoek creator · lifestyle & short-form.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper",
+        "influencer"
+      ],
+      "primaryRole": "influencer",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.418Z",
+      "updatedAt": "2026-08-29T09:05:22.418Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$QaQY//g/eUQYnRGLCOOQi.ZvmI3h8GcqZd9xLEzj2yJW1lJ73wLTG"
+    },
+    {
+      "id": "24ca7149-2fa3-41b8-8bbf-4f59ea9feb35",
+      "email": "clipper@fweta.test",
+      "displayName": "Kai Clips",
+      "bio": "Clipping specialist across TikTok & Reels.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper"
+      ],
+      "primaryRole": "clipper",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.418Z",
+      "updatedAt": "2026-08-29T09:05:22.418Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$QaQY//g/eUQYnRGLCOOQi.ZvmI3h8GcqZd9xLEzj2yJW1lJ73wLTG"
+    },
+    {
+      "id": "3d8d61c8-3338-4bdf-951b-a797124d3ab2",
+      "email": "admin@fweta.test",
+      "displayName": "Fweta Admin",
+      "bio": "Platform operations",
+      "avatarUrl": null,
+      "roles": [
+        "admin"
+      ],
+      "primaryRole": "admin",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.418Z",
+      "updatedAt": "2026-08-29T09:05:22.418Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$QaQY//g/eUQYnRGLCOOQi.ZvmI3h8GcqZd9xLEzj2yJW1lJ73wLTG"
+    },
+    {
+      "id": "1eb9ac8f-8421-4b5f-b95e-6273e10e7163",
+      "email": "brand@fweta.test",
+      "displayName": "Desert Brands",
+      "bio": "Namibian DTC brand running creator campaigns.",
+      "avatarUrl": null,
+      "roles": [
+        "brand"
+      ],
+      "primaryRole": "brand",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.418Z",
+      "updatedAt": "2026-08-29T09:05:22.418Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$DDx/8XxOfnHF2Ri.88CTSug5WMuuI7.L3/NNFMC0xE.hSRXDqyHta"
+    },
+    {
+      "id": "ab69ee4d-e1ed-464d-bdb5-47f6c9b136f9",
+      "email": "creator@fweta.test",
+      "displayName": "Amara Nangolo",
+      "bio": "Windhoek creator · lifestyle & short-form.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper",
+        "influencer"
+      ],
+      "primaryRole": "influencer",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.418Z",
+      "updatedAt": "2026-08-29T09:05:22.418Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$DDx/8XxOfnHF2Ri.88CTSug5WMuuI7.L3/NNFMC0xE.hSRXDqyHta"
+    },
+    {
+      "id": "c84acfab-7c3a-4bd4-ac6f-7b95b963e8b4",
+      "email": "clipper@fweta.test",
+      "displayName": "Kai Clips",
+      "bio": "Clipping specialist across TikTok & Reels.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper"
+      ],
+      "primaryRole": "clipper",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.418Z",
+      "updatedAt": "2026-08-29T09:05:22.418Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$DDx/8XxOfnHF2Ri.88CTSug5WMuuI7.L3/NNFMC0xE.hSRXDqyHta"
+    },
+    {
+      "id": "7460e7a3-ff29-4c36-841f-b54a82f82686",
+      "email": "admin@fweta.test",
+      "displayName": "Fweta Admin",
+      "bio": "Platform operations",
+      "avatarUrl": null,
+      "roles": [
+        "admin"
+      ],
+      "primaryRole": "admin",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.418Z",
+      "updatedAt": "2026-08-29T09:05:22.418Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$DDx/8XxOfnHF2Ri.88CTSug5WMuuI7.L3/NNFMC0xE.hSRXDqyHta"
+    },
+    {
+      "id": "b1a72e18-41ba-4080-98e9-898bf9abeeba",
+      "email": "brand@fweta.test",
+      "displayName": "Desert Brands",
+      "bio": "Namibian DTC brand running creator campaigns.",
+      "avatarUrl": null,
+      "roles": [
+        "brand"
+      ],
+      "primaryRole": "brand",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.306Z",
+      "updatedAt": "2026-08-29T09:05:22.306Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$GWFbUaRwG3Syo2Qlf2x0l.5TiuVHx32kHGxou949thyc31gPkv6F."
+    },
+    {
+      "id": "39253358-949d-4301-b336-688ab6c0b4a8",
+      "email": "creator@fweta.test",
+      "displayName": "Amara Nangolo",
+      "bio": "Windhoek creator · lifestyle & short-form.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper",
+        "influencer"
+      ],
+      "primaryRole": "influencer",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.306Z",
+      "updatedAt": "2026-08-29T09:05:22.306Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$GWFbUaRwG3Syo2Qlf2x0l.5TiuVHx32kHGxou949thyc31gPkv6F."
+    },
+    {
+      "id": "6a8a09e8-00bc-4548-8d34-1f550affa7c0",
+      "email": "clipper@fweta.test",
+      "displayName": "Kai Clips",
+      "bio": "Clipping specialist across TikTok & Reels.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper"
+      ],
+      "primaryRole": "clipper",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.306Z",
+      "updatedAt": "2026-08-29T09:05:22.306Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$GWFbUaRwG3Syo2Qlf2x0l.5TiuVHx32kHGxou949thyc31gPkv6F."
+    },
+    {
+      "id": "382b5527-e2f3-4423-8b3e-9c95f8eea3c2",
+      "email": "admin@fweta.test",
+      "displayName": "Fweta Admin",
+      "bio": "Platform operations",
+      "avatarUrl": null,
+      "roles": [
+        "admin"
+      ],
+      "primaryRole": "admin",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.306Z",
+      "updatedAt": "2026-08-29T09:05:22.306Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$GWFbUaRwG3Syo2Qlf2x0l.5TiuVHx32kHGxou949thyc31gPkv6F."
+    },
+    {
+      "id": "dc9da772-4478-4f81-87a3-54eebbf035c7",
+      "email": "brand@fweta.test",
+      "displayName": "Desert Brands",
+      "bio": "Namibian DTC brand running creator campaigns.",
+      "avatarUrl": null,
+      "roles": [
+        "brand"
+      ],
+      "primaryRole": "brand",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$zyXle8atdZqrLGi4B8BxCOpx.CrbGmMYuST1PbPclG15agTBsJvUu"
+    },
+    {
+      "id": "5abf5e46-8a22-4f5a-97e8-6b0313f59fe0",
+      "email": "creator@fweta.test",
+      "displayName": "Amara Nangolo",
+      "bio": "Windhoek creator · lifestyle & short-form.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper",
+        "influencer"
+      ],
+      "primaryRole": "influencer",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$zyXle8atdZqrLGi4B8BxCOpx.CrbGmMYuST1PbPclG15agTBsJvUu"
+    },
+    {
+      "id": "187f720e-245d-4298-a942-c3d2f967105a",
+      "email": "clipper@fweta.test",
+      "displayName": "Kai Clips",
+      "bio": "Clipping specialist across TikTok & Reels.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper"
+      ],
+      "primaryRole": "clipper",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$zyXle8atdZqrLGi4B8BxCOpx.CrbGmMYuST1PbPclG15agTBsJvUu"
+    },
+    {
+      "id": "5d63bf3e-2072-422b-ac94-bb46b508d430",
+      "email": "admin@fweta.test",
+      "displayName": "Fweta Admin",
+      "bio": "Platform operations",
+      "avatarUrl": null,
+      "roles": [
+        "admin"
+      ],
+      "primaryRole": "admin",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$zyXle8atdZqrLGi4B8BxCOpx.CrbGmMYuST1PbPclG15agTBsJvUu"
+    },
+    {
+      "id": "6eb1f0a7-0d55-4b5a-99d8-2b6c800b4d94",
+      "email": "brand@fweta.test",
+      "displayName": "Desert Brands",
+      "bio": "Namibian DTC brand running creator campaigns.",
+      "avatarUrl": null,
+      "roles": [
+        "brand"
+      ],
+      "primaryRole": "brand",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$o0t2kj4PTtjyY6DTAgkTAOsRzOP5QunXsdUzm4rwrcQcSvy5vBe4a"
+    },
+    {
+      "id": "3ab6849a-ce4f-4668-b10a-cc6dc63620d4",
+      "email": "creator@fweta.test",
+      "displayName": "Amara Nangolo",
+      "bio": "Windhoek creator · lifestyle & short-form.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper",
+        "influencer"
+      ],
+      "primaryRole": "influencer",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$o0t2kj4PTtjyY6DTAgkTAOsRzOP5QunXsdUzm4rwrcQcSvy5vBe4a"
+    },
+    {
+      "id": "1d345bf5-1bd5-4667-80dd-deb6d48f8e28",
+      "email": "clipper@fweta.test",
+      "displayName": "Kai Clips",
+      "bio": "Clipping specialist across TikTok & Reels.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper"
+      ],
+      "primaryRole": "clipper",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$o0t2kj4PTtjyY6DTAgkTAOsRzOP5QunXsdUzm4rwrcQcSvy5vBe4a"
+    },
+    {
+      "id": "d2d38705-2d14-4de9-ac82-635dcf110802",
+      "email": "admin@fweta.test",
+      "displayName": "Fweta Admin",
+      "bio": "Platform operations",
+      "avatarUrl": null,
+      "roles": [
+        "admin"
+      ],
+      "primaryRole": "admin",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$o0t2kj4PTtjyY6DTAgkTAOsRzOP5QunXsdUzm4rwrcQcSvy5vBe4a"
+    },
+    {
+      "id": "148ff153-61ed-4b1f-8ca4-c3a6dca6fc87",
+      "email": "brand@fweta.test",
+      "displayName": "Desert Brands",
+      "bio": "Namibian DTC brand running creator campaigns.",
+      "avatarUrl": null,
+      "roles": [
+        "brand"
+      ],
+      "primaryRole": "brand",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$rEe9PJvf7eLhLLW3HVXlS.rvxf3k/kws5jfK/5.IiH6tUzCZ7AEQ2"
+    },
+    {
+      "id": "12227fb0-b1a2-40c5-aebd-223401c9cccc",
+      "email": "creator@fweta.test",
+      "displayName": "Amara Nangolo",
+      "bio": "Windhoek creator · lifestyle & short-form.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper",
+        "influencer"
+      ],
+      "primaryRole": "influencer",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$rEe9PJvf7eLhLLW3HVXlS.rvxf3k/kws5jfK/5.IiH6tUzCZ7AEQ2"
+    },
+    {
+      "id": "506cae98-1cf0-4402-98cc-c3b40bdb4245",
+      "email": "clipper@fweta.test",
+      "displayName": "Kai Clips",
+      "bio": "Clipping specialist across TikTok & Reels.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper"
+      ],
+      "primaryRole": "clipper",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$rEe9PJvf7eLhLLW3HVXlS.rvxf3k/kws5jfK/5.IiH6tUzCZ7AEQ2"
+    },
+    {
+      "id": "7db80d5d-9a91-429a-9867-60c7e21463cc",
+      "email": "admin@fweta.test",
+      "displayName": "Fweta Admin",
+      "bio": "Platform operations",
+      "avatarUrl": null,
+      "roles": [
+        "admin"
+      ],
+      "primaryRole": "admin",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$rEe9PJvf7eLhLLW3HVXlS.rvxf3k/kws5jfK/5.IiH6tUzCZ7AEQ2"
+    },
+    {
+      "id": "ff4f0367-1c09-4660-a85a-c87c0b3378f3",
+      "email": "brand@fweta.test",
+      "displayName": "Desert Brands",
+      "bio": "Namibian DTC brand running creator campaigns.",
+      "avatarUrl": null,
+      "roles": [
+        "brand"
+      ],
+      "primaryRole": "brand",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$Mh.ylfQqYfG3Bn1GapH2Xefz0yHMf518szB9EHVXzfdBDsEhPfbmq"
+    },
+    {
+      "id": "0441485c-9238-435d-aeaf-bd3ec1317c8d",
+      "email": "creator@fweta.test",
+      "displayName": "Amara Nangolo",
+      "bio": "Windhoek creator · lifestyle & short-form.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper",
+        "influencer"
+      ],
+      "primaryRole": "influencer",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$Mh.ylfQqYfG3Bn1GapH2Xefz0yHMf518szB9EHVXzfdBDsEhPfbmq"
+    },
+    {
+      "id": "aad76dc0-ca0c-4ccb-8b1b-dad45f59eefb",
+      "email": "clipper@fweta.test",
+      "displayName": "Kai Clips",
+      "bio": "Clipping specialist across TikTok & Reels.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper"
+      ],
+      "primaryRole": "clipper",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$Mh.ylfQqYfG3Bn1GapH2Xefz0yHMf518szB9EHVXzfdBDsEhPfbmq"
+    },
+    {
+      "id": "7aaac580-9501-4f5c-b8d6-e2ac8de3698a",
+      "email": "admin@fweta.test",
+      "displayName": "Fweta Admin",
+      "bio": "Platform operations",
+      "avatarUrl": null,
+      "roles": [
+        "admin"
+      ],
+      "primaryRole": "admin",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.554Z",
+      "updatedAt": "2026-08-29T09:05:22.554Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$Mh.ylfQqYfG3Bn1GapH2Xefz0yHMf518szB9EHVXzfdBDsEhPfbmq"
+    },
+    {
+      "id": "85064cf8-f3ae-4fef-b166-ae810d0cff53",
+      "email": "brand@fweta.test",
+      "displayName": "Desert Brands",
+      "bio": "Namibian DTC brand running creator campaigns.",
+      "avatarUrl": null,
+      "roles": [
+        "brand"
+      ],
+      "primaryRole": "brand",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.737Z",
+      "updatedAt": "2026-08-29T09:05:22.737Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$o.pFfYHoVhAIPJYlGSak1eDNpKU7aebby77Onkde56SQz9IGQ0RO2"
+    },
+    {
+      "id": "ced1f58f-8f8f-4bc3-88c5-21e320a6a227",
+      "email": "creator@fweta.test",
+      "displayName": "Amara Nangolo",
+      "bio": "Windhoek creator · lifestyle & short-form.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper",
+        "influencer"
+      ],
+      "primaryRole": "influencer",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.737Z",
+      "updatedAt": "2026-08-29T09:05:22.737Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$o.pFfYHoVhAIPJYlGSak1eDNpKU7aebby77Onkde56SQz9IGQ0RO2"
+    },
+    {
+      "id": "b5e7e568-9f34-4f65-8a6d-bf1e7bab5db5",
+      "email": "clipper@fweta.test",
+      "displayName": "Kai Clips",
+      "bio": "Clipping specialist across TikTok & Reels.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper"
+      ],
+      "primaryRole": "clipper",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.737Z",
+      "updatedAt": "2026-08-29T09:05:22.737Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$o.pFfYHoVhAIPJYlGSak1eDNpKU7aebby77Onkde56SQz9IGQ0RO2"
+    },
+    {
+      "id": "4b0e7b72-a84e-4695-909d-7c3d16bb4a26",
+      "email": "admin@fweta.test",
+      "displayName": "Fweta Admin",
+      "bio": "Platform operations",
+      "avatarUrl": null,
+      "roles": [
+        "admin"
+      ],
+      "primaryRole": "admin",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.737Z",
+      "updatedAt": "2026-08-29T09:05:22.737Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$o.pFfYHoVhAIPJYlGSak1eDNpKU7aebby77Onkde56SQz9IGQ0RO2"
+    },
+    {
+      "id": "24134dc5-f0ee-439d-b6cb-c4e3748d19e2",
+      "email": "brand@fweta.test",
+      "displayName": "Desert Brands",
+      "bio": "Namibian DTC brand running creator campaigns.",
+      "avatarUrl": null,
+      "roles": [
+        "brand"
+      ],
+      "primaryRole": "brand",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.737Z",
+      "updatedAt": "2026-08-29T09:05:22.737Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$q1kFJ5./HJ1456J7StnfBuAjRQPMzo2DNSm4EOOM5PeNS.ok9zwB6"
+    },
+    {
+      "id": "bdff874c-8477-4a73-931a-1cc21b39bdd4",
+      "email": "creator@fweta.test",
+      "displayName": "Amara Nangolo",
+      "bio": "Windhoek creator · lifestyle & short-form.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper",
+        "influencer"
+      ],
+      "primaryRole": "influencer",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.737Z",
+      "updatedAt": "2026-08-29T09:05:22.737Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$q1kFJ5./HJ1456J7StnfBuAjRQPMzo2DNSm4EOOM5PeNS.ok9zwB6"
+    },
+    {
+      "id": "33a6fb92-b0ad-4dd7-bdec-33519de06937",
+      "email": "clipper@fweta.test",
+      "displayName": "Kai Clips",
+      "bio": "Clipping specialist across TikTok & Reels.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper"
+      ],
+      "primaryRole": "clipper",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.737Z",
+      "updatedAt": "2026-08-29T09:05:22.737Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$q1kFJ5./HJ1456J7StnfBuAjRQPMzo2DNSm4EOOM5PeNS.ok9zwB6"
+    },
+    {
+      "id": "4660b4df-1df8-4699-998c-721b068de960",
+      "email": "admin@fweta.test",
+      "displayName": "Fweta Admin",
+      "bio": "Platform operations",
+      "avatarUrl": null,
+      "roles": [
+        "admin"
+      ],
+      "primaryRole": "admin",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.737Z",
+      "updatedAt": "2026-08-29T09:05:22.737Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$q1kFJ5./HJ1456J7StnfBuAjRQPMzo2DNSm4EOOM5PeNS.ok9zwB6"
+    },
+    {
+      "id": "47e77697-c590-4faa-96ff-1334475f7e7a",
+      "email": "brand@fweta.test",
+      "displayName": "Desert Brands",
+      "bio": "Namibian DTC brand running creator campaigns.",
+      "avatarUrl": null,
+      "roles": [
+        "brand"
+      ],
+      "primaryRole": "brand",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.737Z",
+      "updatedAt": "2026-08-29T09:05:22.737Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$iE17MFUh5O9Y4RuLLDWXYuiLES5xUCA1FNB2DpXcjY36qMJ54pOsi"
+    },
+    {
+      "id": "6b269acd-d5ce-46b6-8f60-96a588559d5f",
+      "email": "creator@fweta.test",
+      "displayName": "Amara Nangolo",
+      "bio": "Windhoek creator · lifestyle & short-form.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper",
+        "influencer"
+      ],
+      "primaryRole": "influencer",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.737Z",
+      "updatedAt": "2026-08-29T09:05:22.737Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$iE17MFUh5O9Y4RuLLDWXYuiLES5xUCA1FNB2DpXcjY36qMJ54pOsi"
+    },
+    {
+      "id": "0e356809-84bd-402f-9304-31a71a835f5f",
+      "email": "clipper@fweta.test",
+      "displayName": "Kai Clips",
+      "bio": "Clipping specialist across TikTok & Reels.",
+      "avatarUrl": null,
+      "roles": [
+        "clipper"
+      ],
+      "primaryRole": "clipper",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.737Z",
+      "updatedAt": "2026-08-29T09:05:22.737Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$iE17MFUh5O9Y4RuLLDWXYuiLES5xUCA1FNB2DpXcjY36qMJ54pOsi"
+    },
+    {
+      "id": "65b6b307-0d98-4b4e-b5dc-a67690f71f40",
+      "email": "admin@fweta.test",
+      "displayName": "Fweta Admin",
+      "bio": "Platform operations",
+      "avatarUrl": null,
+      "roles": [
+        "admin"
+      ],
+      "primaryRole": "admin",
+      "notifyEmail": true,
+      "notifyWithdrawals": true,
+      "notifyBookings": true,
+      "createdAt": "2026-08-29T09:05:22.737Z",
+      "updatedAt": "2026-08-29T09:05:22.737Z",
+      "suspended": false,
+      "passwordHash": "$2b$10$iE17MFUh5O9Y4RuLLDWXYuiLES5xUCA1FNB2DpXcjY36qMJ54pOsi"
+    }
+  ],
+  "campaigns": [],
+  "submissions": [],
+  "viewSnapshots": [],
+  "wallets": [
+    {
+      "userId": "41cf36e1-061f-4bef-af33-8d4987307ca0",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.425Z"
+    },
+    {
+      "userId": "51340db2-f49c-4164-b81e-65b8db620694",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.425Z"
+    },
+    {
+      "userId": "24ca7149-2fa3-41b8-8bbf-4f59ea9feb35",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.425Z"
+    },
+    {
+      "userId": "3d8d61c8-3338-4bdf-951b-a797124d3ab2",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.425Z"
+    },
+    {
+      "userId": "1eb9ac8f-8421-4b5f-b95e-6273e10e7163",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.441Z"
+    },
+    {
+      "userId": "ab69ee4d-e1ed-464d-bdb5-47f6c9b136f9",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.441Z"
+    },
+    {
+      "userId": "c84acfab-7c3a-4bd4-ac6f-7b95b963e8b4",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.441Z"
+    },
+    {
+      "userId": "7460e7a3-ff29-4c36-841f-b54a82f82686",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.441Z"
+    },
+    {
+      "userId": "b1a72e18-41ba-4080-98e9-898bf9abeeba",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.738Z"
+    },
+    {
+      "userId": "39253358-949d-4301-b336-688ab6c0b4a8",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.738Z"
+    },
+    {
+      "userId": "6a8a09e8-00bc-4548-8d34-1f550affa7c0",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.738Z"
+    },
+    {
+      "userId": "382b5527-e2f3-4423-8b3e-9c95f8eea3c2",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.738Z"
+    },
+    {
+      "userId": "dc9da772-4478-4f81-87a3-54eebbf035c7",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.739Z"
+    },
+    {
+      "userId": "5abf5e46-8a22-4f5a-97e8-6b0313f59fe0",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.739Z"
+    },
+    {
+      "userId": "187f720e-245d-4298-a942-c3d2f967105a",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.739Z"
+    },
+    {
+      "userId": "5d63bf3e-2072-422b-ac94-bb46b508d430",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.739Z"
+    },
+    {
+      "userId": "6eb1f0a7-0d55-4b5a-99d8-2b6c800b4d94",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.761Z"
+    },
+    {
+      "userId": "3ab6849a-ce4f-4668-b10a-cc6dc63620d4",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.761Z"
+    },
+    {
+      "userId": "1d345bf5-1bd5-4667-80dd-deb6d48f8e28",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.761Z"
+    },
+    {
+      "userId": "d2d38705-2d14-4de9-ac82-635dcf110802",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.761Z"
+    },
+    {
+      "userId": "148ff153-61ed-4b1f-8ca4-c3a6dca6fc87",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.764Z"
+    },
+    {
+      "userId": "12227fb0-b1a2-40c5-aebd-223401c9cccc",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.764Z"
+    },
+    {
+      "userId": "506cae98-1cf0-4402-98cc-c3b40bdb4245",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.764Z"
+    },
+    {
+      "userId": "7db80d5d-9a91-429a-9867-60c7e21463cc",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.764Z"
+    },
+    {
+      "userId": "ff4f0367-1c09-4660-a85a-c87c0b3378f3",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.765Z"
+    },
+    {
+      "userId": "0441485c-9238-435d-aeaf-bd3ec1317c8d",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.765Z"
+    },
+    {
+      "userId": "aad76dc0-ca0c-4ccb-8b1b-dad45f59eefb",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.765Z"
+    },
+    {
+      "userId": "7aaac580-9501-4f5c-b8d6-e2ac8de3698a",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.765Z"
+    },
+    {
+      "userId": "85064cf8-f3ae-4fef-b166-ae810d0cff53",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.766Z"
+    },
+    {
+      "userId": "ced1f58f-8f8f-4bc3-88c5-21e320a6a227",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.766Z"
+    },
+    {
+      "userId": "b5e7e568-9f34-4f65-8a6d-bf1e7bab5db5",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.766Z"
+    },
+    {
+      "userId": "4b0e7b72-a84e-4695-909d-7c3d16bb4a26",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.766Z"
+    },
+    {
+      "userId": "24134dc5-f0ee-439d-b6cb-c4e3748d19e2",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.769Z"
+    },
+    {
+      "userId": "bdff874c-8477-4a73-931a-1cc21b39bdd4",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.769Z"
+    },
+    {
+      "userId": "33a6fb92-b0ad-4dd7-bdec-33519de06937",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.769Z"
+    },
+    {
+      "userId": "4660b4df-1df8-4699-998c-721b068de960",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.769Z"
+    },
+    {
+      "userId": "47e77697-c590-4faa-96ff-1334475f7e7a",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.772Z"
+    },
+    {
+      "userId": "6b269acd-d5ce-46b6-8f60-96a588559d5f",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.772Z"
+    },
+    {
+      "userId": "0e356809-84bd-402f-9304-31a71a835f5f",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.772Z"
+    },
+    {
+      "userId": "65b6b307-0d98-4b4e-b5dc-a67690f71f40",
+      "availableCents": 0,
+      "pendingCents": 0,
+      "updatedAt": "2026-08-29T09:05:22.772Z"
+    }
+  ],
+  "ledgerEntries": [],
+  "payoutMethods": [],
+  "withdrawalRequests": [],
+  "influencerProfiles": [],
+  "rateCards": [],
+  "bookings": [],
+  "brandDeposits": [],
+  "fraudFlags": []
+}

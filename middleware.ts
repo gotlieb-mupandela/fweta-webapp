@@ -1,19 +1,44 @@
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { jwtVerify } from "jose";
 
-import { createMiddlewareClient } from "@/lib/supabase/middleware";
+const COOKIE_NAME = "fweta_session";
+const AUTH_SECRET = new TextEncoder().encode(
+  process.env.AUTH_SECRET || "fweta-local-dev-secret-change-me",
+);
 
-/**
- * Refreshes Supabase auth session cookies.
- * Add route protection matchers when auth is implemented.
- */
+const protectedPrefixes = ["/dashboard"];
+
 export async function middleware(request: NextRequest) {
-  const { supabase, response } = createMiddlewareClient(request);
-  await supabase.auth.getUser();
-  return response;
+  const { pathname } = request.nextUrl;
+  const needsAuth = protectedPrefixes.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+
+  if (!needsAuth) {
+    return NextResponse.next();
+  }
+
+  const token = request.cookies.get(COOKIE_NAME)?.value;
+  if (!token) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  try {
+    await jwtVerify(token, AUTH_SECRET);
+    return NextResponse.next();
+  } catch {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
+    const res = NextResponse.redirect(url);
+    res.cookies.delete(COOKIE_NAME);
+    return res;
+  }
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  matcher: ["/dashboard/:path*"],
 };
