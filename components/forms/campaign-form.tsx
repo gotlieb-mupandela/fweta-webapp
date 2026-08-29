@@ -20,9 +20,10 @@ function nadToCents(value: string) {
 type Props = {
   mode: "create" | "edit";
   campaign?: Campaign;
+  walletAvailableCents?: number;
 };
 
-export function CampaignForm({ mode, campaign }: Props) {
+export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -55,6 +56,16 @@ export function CampaignForm({ mode, campaign }: Props) {
           endDate: String(fd.get("endDate") || "") || null,
           status: mode === "create" ? (String(fd.get("status") || "draft") as Campaign["status"]) : undefined,
         };
+
+        if (
+          mode === "create" &&
+          payload.status === "active" &&
+          walletAvailableCents !== undefined &&
+          payload.budgetTotalCents > walletAvailableCents
+        ) {
+          setError("Insufficient wallet balance for this budget. Record a deposit first.");
+          return;
+        }
 
         startTransition(async () => {
           const res =

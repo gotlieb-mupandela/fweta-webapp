@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
+import { fundCampaignFromWallet } from "@/lib/campaigns/fund";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { Campaign } from "@/lib/db/types";
 import {
@@ -60,7 +61,23 @@ export async function createCampaignAction(raw: unknown) {
   await updateStore((s) => {
     s.campaigns.push(campaign);
   });
+
+  if (campaign.status === "active") {
+    const funded = await fundCampaignFromWallet({
+      brandId: session.id,
+      campaignId: campaign.id,
+      budgetCents: campaign.budgetTotalCents,
+    });
+    if (!funded.ok) {
+      await updateStore((s) => {
+        s.campaigns = s.campaigns.filter((c) => c.id !== campaign.id);
+      });
+      return funded;
+    }
+  }
+
   revalidatePath("/dashboard/brand/campaigns");
+  revalidatePath("/dashboard/brand");
   return { ok: true as const, id: campaign.id };
 }
 
@@ -87,15 +104,32 @@ export async function updateCampaignAction(id: string, raw: unknown) {
 export async function setCampaignStatusAction(id: string, status: CampaignStatus) {
   const session = await requireSession();
   assertBrand(session.roles);
+
+  const store = await readStore();
+  const campaign = store.campaigns.find((c) => c.id === id);
+  if (!campaign) return { ok: false as const, error: "Campaign not found." };
+  if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
+    return { ok: false as const, error: "Not allowed." };
+  }
+
+  if (status === "active") {
+    const funded = await fundCampaignFromWallet({
+      brandId: campaign.brandId,
+      campaignId: campaign.id,
+      budgetCents: campaign.budgetTotalCents,
+    });
+    if (!funded.ok) return funded;
+  }
+
   await updateStore((s) => {
     const c = s.campaigns.find((x) => x.id === id);
     if (!c) return;
-    if (c.brandId !== session.id && !session.roles.includes("admin")) return;
     c.status = status;
     c.updatedAt = nowIso();
   });
   revalidatePath(`/dashboard/brand/campaigns/${id}`);
   revalidatePath("/dashboard/brand/campaigns");
+  revalidatePath("/dashboard/brand");
   return { ok: true as const };
 }
 
