@@ -53,7 +53,7 @@ export function DashboardSidebar({
   displayName: string;
 }) {
   const pathname = usePathname();
-  const config = ROLE_NAV[role];
+  const config = ROLE_NAV[role] ?? ROLE_NAV.clipper;
   const primary = config.tabs.filter((t) => !t.href.startsWith("/dashboard/settings"));
   const settingsTab = config.tabs.find((t) => t.href.startsWith("/dashboard/settings"));
 

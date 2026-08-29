@@ -9,7 +9,7 @@ import type { UserRole } from "@/types/enums";
 
 export function MobileTabBar({ role }: { role: UserRole }) {
   const pathname = usePathname();
-  const tabs = ROLE_NAV[role].tabs;
+  const tabs = (ROLE_NAV[role] ?? ROLE_NAV.clipper).tabs;
 
   return (
     <nav

@@ -157,7 +157,11 @@ export async function loadStoreFromSupabase(): Promise<DatabaseStore | null> {
 }
 
 export async function saveStoreToSupabase(store: DatabaseStore): Promise<boolean> {
-  const relationalOk = await saveRelationalStore(store);
+  // JSON blob upsert is safe; relational save deletes all rows first and can wipe data on failure.
   const jsonOk = await saveJsonBlob(store);
-  return relationalOk || jsonOk;
+  if (process.env.FWETA_RELATIONAL_SYNC === "true") {
+    const relationalOk = await saveRelationalStore(store);
+    return jsonOk || relationalOk;
+  }
+  return jsonOk;
 }

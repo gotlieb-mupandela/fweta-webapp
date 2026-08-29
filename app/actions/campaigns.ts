@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireSession } from "@/lib/auth/session";
+import { getSession, requireSession } from "@/lib/auth/session";
 import { fundCampaignFromWallet } from "@/lib/campaigns/fund";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { Campaign } from "@/lib/db/types";
@@ -14,13 +14,14 @@ import type { CampaignStatus } from "@/types/enums";
 
 function assertBrand(roles: string[]) {
   if (!roles.includes("brand") && !roles.includes("admin")) {
-    throw new Error("Brand role required");
+    return false;
   }
+  return true;
 }
 
 export async function listBrandCampaigns() {
-  const session = await requireSession();
-  assertBrand(session.roles);
+  const session = await getSession();
+  if (!session || !assertBrand(session.roles)) return [];
   const store = await readStore();
   return store.campaigns
     .filter((c) => (session.roles.includes("admin") ? true : c.brandId === session.id))
@@ -34,7 +35,7 @@ export async function getCampaign(id: string) {
 
 export async function createCampaignAction(raw: unknown) {
   const session = await requireSession();
-  assertBrand(session.roles);
+  if (!assertBrand(session.roles)) return { ok: false as const, error: "Brand role required." };
   const parsed = campaignCreateSchema.safeParse(raw);
   if (!parsed.success) return { ok: false as const, error: "Invalid campaign details." };
 
@@ -83,7 +84,7 @@ export async function createCampaignAction(raw: unknown) {
 
 export async function updateCampaignAction(id: string, raw: unknown) {
   const session = await requireSession();
-  assertBrand(session.roles);
+  if (!assertBrand(session.roles)) return { ok: false as const, error: "Brand role required." };
   const parsed = campaignUpdateSchema.safeParse(raw);
   if (!parsed.success) return { ok: false as const, error: "Invalid campaign details." };
 
@@ -103,7 +104,7 @@ export async function updateCampaignAction(id: string, raw: unknown) {
 
 export async function setCampaignStatusAction(id: string, status: CampaignStatus) {
   const session = await requireSession();
-  assertBrand(session.roles);
+  if (!assertBrand(session.roles)) return { ok: false as const, error: "Brand role required." };
 
   const store = await readStore();
   const campaign = store.campaigns.find((c) => c.id === id);
@@ -135,7 +136,7 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
 
 export async function duplicateCampaignAction(id: string) {
   const session = await requireSession();
-  assertBrand(session.roles);
+  if (!assertBrand(session.roles)) return { ok: false as const, error: "Brand role required." };
   const store = await readStore();
   const source = store.campaigns.find((c) => c.id === id && c.brandId === session.id);
   if (!source) return { ok: false as const, error: "Campaign not found." };

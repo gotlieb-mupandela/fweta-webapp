@@ -252,6 +252,9 @@ const DEMO_ACCOUNTS: Array<Omit<Profile, "passwordHash" | "id">> = [
 
 let seedInFlight: Promise<{ seeded: boolean }> | null = null;
 
+/** Precomputed bcrypt hash for demo password `password123` — avoids hashing on every cold start. */
+const DEMO_PASSWORD_HASH = "$2b$10$zG4dij3FDqNB0B41xbteQ.MqWV4oXM5XqSmLk96dYyuha0hGOxirW";
+
 async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
   try {
     const existing = await readStore();
@@ -275,7 +278,6 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
       return { seeded: false };
     }
 
-    const passwordHash = await bcrypt.hash("password123", 10);
     const now = nowIso();
     let added = 0;
 
@@ -294,7 +296,7 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
           email,
           createdAt: now,
           updatedAt: now,
-          passwordHash,
+          passwordHash: DEMO_PASSWORD_HASH,
         };
         s.profiles.push(profile);
         ensureWallet(s, profile.id);
