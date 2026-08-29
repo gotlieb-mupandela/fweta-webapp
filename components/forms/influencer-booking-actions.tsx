@@ -20,33 +20,40 @@ export function InfluencerBookingActions({
 
   if (status === "requested") {
     return (
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          variant="gold"
-          disabled={pending}
-          onClick={() =>
-            startTransition(async () => {
-              await respondBookingAction(bookingId, true);
-              router.refresh();
-            })
-          }
-        >
-          Accept
-        </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={pending}
-          onClick={() =>
-            startTransition(async () => {
-              await respondBookingAction(bookingId, false);
-              router.refresh();
-            })
-          }
-        >
-          Decline
-        </Button>
+      <div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="gold"
+            disabled={pending}
+            onClick={() => {
+              setError(null);
+              startTransition(async () => {
+                const res = await respondBookingAction(bookingId, true);
+                if (!res.ok) setError(res.error);
+                else router.refresh();
+              });
+            }}
+          >
+            Accept
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={pending}
+            onClick={() => {
+              setError(null);
+              startTransition(async () => {
+                const res = await respondBookingAction(bookingId, false);
+                if (!res.ok) setError(res.error);
+                else router.refresh();
+              });
+            }}
+          >
+            Decline
+          </Button>
+        </div>
+        <FieldError>{error}</FieldError>
       </div>
     );
   }
