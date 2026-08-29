@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 
 import { updateNotificationsAction } from "@/app/actions/settings";
 import { Button } from "@/components/ui/button";
-import { FieldError, Label } from "@/components/ui/input";
+import { FieldError } from "@/components/ui/input";
 
 export function NotificationsForm({
   notifyEmail,

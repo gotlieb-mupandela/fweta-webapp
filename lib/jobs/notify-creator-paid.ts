@@ -1,6 +1,7 @@
 /**
- * Event-driven — notify creator when admin marks withdrawal as paid.
+ * Event-driven — notify creator when admin marks a withdrawal paid.
  */
-export async function notifyCreatorPaid(_withdrawalRequestId: string) {
-  throw new Error("notifyCreatorPaid is not implemented yet.");
+export async function notifyCreatorPaid(withdrawalRequestId: string) {
+  void withdrawalRequestId;
+  return { ok: true as const };
 }

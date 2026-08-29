@@ -6,7 +6,6 @@ import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { getSession, seedDemoAccounts } from "@/lib/auth/session";
 import type { UserRole } from "@/types/enums";
-import { cn } from "@/lib/utils";
 
 const NAV: Record<UserRole, { href: string; label: string }[]> = {
   brand: [
@@ -128,19 +127,3 @@ export default async function DashboardLayout({
   );
 }
 
-export function RoleGate({
-  allow,
-  children,
-}: {
-  allow: UserRole[];
-  children: React.ReactNode;
-}) {
-  return children;
-}
-
-export function navClass(active: boolean) {
-  return cn(
-    "rounded-xl px-3 py-2 text-sm",
-    active ? "bg-foreground text-white" : "text-muted hover:bg-surface",
-  );
-}

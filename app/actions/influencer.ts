@@ -95,7 +95,7 @@ export async function addRateCardAction(raw: unknown) {
   if (!parsed.success) return { ok: false as const, error: "Invalid rate card." };
 
   const store = await readStore();
-  let profile = store.influencerProfiles.find((p) => p.userId === session.id);
+  const profile = store.influencerProfiles.find((p) => p.userId === session.id);
   if (!profile) {
     return { ok: false as const, error: "Create your public profile first." };
   }

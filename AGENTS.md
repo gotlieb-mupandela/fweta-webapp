@@ -273,20 +273,30 @@ TRIGGER_SECRET_KEY=                 # Or INNGEST_* keys
 
 ---
 
-## Open Product Decisions (TBD)
+## Open Product Decisions
 
-- Platform name / branding
-- Niche focus (general vs gaming/crypto/podcasts)
-- Brand deposit flow in v1 (manual vs payment gateway)
-- Influencer booking: instant book vs request/accept only
-- Auto-approve submissions after 48h (like Whop) or manual only in v1
-- Minimum withdrawal amount
-- Supported countries / currencies (ZAR focus?)
-
-Document decisions here when resolved.
+| Decision | Resolution |
+|----------|------------|
+| Platform name | **fweta** |
+| Niche | African creators · Windhoek-built · Namibia |
+| Brand deposit | Manual credit v1 (gateway Phase 13) |
+| Influencer booking | Request / accept (not instant book) |
+| Auto-approve submissions | Manual only in v1 |
+| Minimum withdrawal | N$100 |
+| Currency / countries | NAD · SA-style EFT fields |
 
 ---
 
 ## Status
 
-**Current stage:** Pre-build — architecture and product spec complete. Next.js scaffold partially in place. See **[PHASE.md](./PHASE.md)** for the full phased build plan (Phases 0–14). Next: complete Phase 0, then Supabase schema + auth (Phase 1).
+**Current stage:** Local MVP complete across Phases 0–12 (+ stubs for 13–14). File-backed store and cookie auth power the app until Supabase is connected. See **[PHASE.md](./PHASE.md)**.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
