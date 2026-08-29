@@ -1,17 +1,10 @@
 "use server";
 
-import bcrypt from "bcryptjs";
-import { cookies } from "next/headers";
-import { SignJWT, jwtVerify } from "jose";
-
-import { readStore, updateStore, newId, nowIso } from "@/lib/db/store";
-import type { Profile, Wallet } from "@/lib/db/types";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import type { Profile } from "@/lib/db/types";
+import { mapProfile, type ProfileRow } from "@/lib/db/mappers";
 import type { UserRole } from "@/types/enums";
-
-const COOKIE_NAME = "fweta_session";
-const AUTH_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "fweta-local-dev-secret-change-me",
-);
 
 export type SessionUser = {
   id: string;
@@ -21,53 +14,25 @@ export type SessionUser = {
   primaryRole: UserRole;
 };
 
-async function signSession(user: SessionUser) {
-  return new SignJWT({
-    email: user.email,
-    displayName: user.displayName,
-    roles: user.roles,
-    primaryRole: user.primaryRole,
-  })
-    .setProtectedHeader({ alg: "HS256" })
-    .setSubject(user.id)
-    .setIssuedAt()
-    .setExpirationTime("14d")
-    .sign(AUTH_SECRET);
-}
-
-async function setSessionCookie(token: string) {
-  const jar = await cookies();
-  jar.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 14,
-  });
-}
-
-export async function clearSession() {
-  const jar = await cookies();
-  jar.delete(COOKIE_NAME);
+async function profileToSession(profile: Profile): Promise<SessionUser> {
+  return {
+    id: profile.id,
+    email: profile.email,
+    displayName: profile.displayName,
+    roles: profile.roles,
+    primaryRole: profile.primaryRole,
+  };
 }
 
 export async function getSession(): Promise<SessionUser | null> {
-  const jar = await cookies();
-  const token = jar.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  try {
-    const { payload } = await jwtVerify(token, AUTH_SECRET);
-    if (!payload.sub || typeof payload.email !== "string") return null;
-    return {
-      id: payload.sub,
-      email: payload.email,
-      displayName: String(payload.displayName || ""),
-      roles: (payload.roles as UserRole[]) || [],
-      primaryRole: (payload.primaryRole as UserRole) || "clipper",
-    };
-  } catch {
-    return null;
-  }
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.getClaims();
+  const sub = data?.claims?.sub;
+  if (error || typeof sub !== "string") return null;
+
+  const profile = await getProfileById(sub);
+  if (!profile || profile.suspended) return null;
+  return profileToSession(profile);
 }
 
 export async function requireSession(): Promise<SessionUser> {
@@ -77,22 +42,14 @@ export async function requireSession(): Promise<SessionUser> {
 }
 
 export async function getProfileById(id: string): Promise<Profile | null> {
-  const store = await readStore();
-  return store.profiles.find((p) => p.id === id) ?? null;
-}
-
-function ensureWallet(store: { wallets: Wallet[] }, userId: string) {
-  let wallet = store.wallets.find((w) => w.userId === userId);
-  if (!wallet) {
-    wallet = {
-      userId,
-      availableCents: 0,
-      pendingCents: 0,
-      updatedAt: nowIso(),
-    };
-    store.wallets.push(wallet);
-  }
-  return wallet;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error || !data) return null;
+  return mapProfile(data as ProfileRow);
 }
 
 export async function signup(input: {
@@ -112,43 +69,42 @@ export async function signup(input: {
     return { ok: false, error: "Admin role cannot be self-assigned." };
   }
 
-  const store = await readStore();
-  if (store.profiles.some((p) => p.email === email)) {
-    return { ok: false, error: "An account with this email already exists." };
+  const supabase = await createClient();
+  const displayName = input.displayName.trim() || email.split("@")[0];
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password: input.password,
+    options: { data: { display_name: displayName } },
+  });
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  const userId = data.user?.id;
+  if (!userId || !data.session) {
+    return { ok: false, error: "Check your email to confirm the account." };
   }
 
-  const passwordHash = await bcrypt.hash(input.password, 10);
-  const now = nowIso();
-  const profile: Profile = {
-    id: newId(),
-    email,
-    passwordHash,
-    displayName: input.displayName.trim() || email.split("@")[0],
-    bio: "",
-    avatarUrl: null,
-    roles: input.roles,
-    primaryRole: input.roles[0],
-    notifyEmail: true,
-    notifyWithdrawals: true,
-    notifyBookings: true,
-    createdAt: now,
-    updatedAt: now,
-    suspended: false,
-  };
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const { data: row } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (row) break;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
 
-  await updateStore((s) => {
-    s.profiles.push(profile);
-    ensureWallet(s, profile.id);
-  });
-
-  const token = await signSession({
-    id: profile.id,
-    email: profile.email,
-    displayName: profile.displayName,
-    roles: profile.roles,
-    primaryRole: profile.primaryRole,
-  });
-  await setSessionCookie(token);
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({
+      display_name: displayName,
+      roles: input.roles,
+      primary_role: input.roles[0],
+    })
+    .eq("id", userId);
+  if (profileError) {
+    return { ok: false, error: profileError.message };
+  }
   return { ok: true };
 }
 
@@ -157,122 +113,113 @@ export async function login(input: {
   password: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const email = input.email.trim().toLowerCase();
-  const store = await readStore();
-  const profile = store.profiles.find((p) => p.email === email);
-  if (!profile) return { ok: false, error: "Invalid email or password." };
-  if (profile.suspended) return { ok: false, error: "Account suspended." };
-
-  const valid = await bcrypt.compare(input.password, profile.passwordHash);
-  if (!valid) return { ok: false, error: "Invalid email or password." };
-
-  const token = await signSession({
-    id: profile.id,
-    email: profile.email,
-    displayName: profile.displayName,
-    roles: profile.roles,
-    primaryRole: profile.primaryRole,
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password: input.password,
   });
-  await setSessionCookie(token);
+  if (error || !data.user) {
+    return { ok: false, error: "Invalid email or password." };
+  }
+
+  const profile = await getProfileById(data.user.id);
+  if (profile?.suspended) {
+    await supabase.auth.signOut();
+    return { ok: false, error: "Account suspended." };
+  }
   return { ok: true };
 }
 
 export async function logout() {
-  await clearSession();
+  const supabase = await createClient();
+  await supabase.auth.signOut();
 }
 
-export async function refreshSessionFromProfile(profile: Profile) {
-  const token = await signSession({
-    id: profile.id,
-    email: profile.email,
-    displayName: profile.displayName,
-    roles: profile.roles,
-    primaryRole: profile.primaryRole,
-  });
-  await setSessionCookie(token);
+export async function refreshSessionFromProfile() {
+  // Session is derived from the profiles row on each request.
 }
 
+const DEMO_PASSWORD = "password123";
+
+const DEMO_ACCOUNTS: Array<{
+  email: string;
+  displayName: string;
+  bio: string;
+  roles: UserRole[];
+  primaryRole: UserRole;
+}> = [
+  {
+    email: "brand@fweta.test",
+    displayName: "Desert Brands",
+    bio: "Namibian DTC brand running creator campaigns.",
+    roles: ["brand"],
+    primaryRole: "brand",
+  },
+  {
+    email: "creator@fweta.test",
+    displayName: "Amara Nangolo",
+    bio: "Windhoek creator · lifestyle & short-form.",
+    roles: ["clipper", "influencer"],
+    primaryRole: "influencer",
+  },
+  {
+    email: "clipper@fweta.test",
+    displayName: "Kai Clips",
+    bio: "Clipping specialist across TikTok & Reels.",
+    roles: ["clipper"],
+    primaryRole: "clipper",
+  },
+  {
+    email: "admin@fweta.test",
+    displayName: "Fweta Admin",
+    bio: "Platform operations",
+    roles: ["admin"],
+    primaryRole: "admin",
+  },
+];
+
+/** Idempotent. Safe to call from login; do not call during `next build`. */
 export async function seedDemoAccounts() {
   try {
-    const store = await readStore();
-    if (store.profiles.length > 0) return { seeded: false };
+    const admin = createAdminClient();
+    const { data: listed } = await admin.auth.admin.listUsers({ perPage: 200 });
+    const byEmail = new Map(
+      (listed?.users ?? []).map((u) => [u.email?.toLowerCase() ?? "", u]),
+    );
 
-    const passwordHash = await bcrypt.hash("password123", 10);
-    const now = nowIso();
-
-    const accounts: Array<Omit<Profile, "passwordHash"> & { passwordHash?: string }> = [
-      {
-        id: newId(),
-        email: "brand@fweta.test",
-        displayName: "Desert Brands",
-        bio: "Namibian DTC brand running creator campaigns.",
-        avatarUrl: null,
-        roles: ["brand"],
-        primaryRole: "brand",
-        notifyEmail: true,
-        notifyWithdrawals: true,
-        notifyBookings: true,
-        createdAt: now,
-        updatedAt: now,
-        suspended: false,
-      },
-      {
-        id: newId(),
-        email: "creator@fweta.test",
-        displayName: "Amara Nangolo",
-        bio: "Windhoek creator · lifestyle & short-form.",
-        avatarUrl: null,
-        roles: ["clipper", "influencer"],
-        primaryRole: "influencer",
-        notifyEmail: true,
-        notifyWithdrawals: true,
-        notifyBookings: true,
-        createdAt: now,
-        updatedAt: now,
-        suspended: false,
-      },
-      {
-        id: newId(),
-        email: "clipper@fweta.test",
-        displayName: "Kai Clips",
-        bio: "Clipping specialist across TikTok & Reels.",
-        avatarUrl: null,
-        roles: ["clipper"],
-        primaryRole: "clipper",
-        notifyEmail: true,
-        notifyWithdrawals: true,
-        notifyBookings: true,
-        createdAt: now,
-        updatedAt: now,
-        suspended: false,
-      },
-      {
-        id: newId(),
-        email: "admin@fweta.test",
-        displayName: "Fweta Admin",
-        bio: "Platform operations",
-        avatarUrl: null,
-        roles: ["admin"],
-        primaryRole: "admin",
-        notifyEmail: true,
-        notifyWithdrawals: true,
-        notifyBookings: true,
-        createdAt: now,
-        updatedAt: now,
-        suspended: false,
-      },
-    ];
-
-    await updateStore((s) => {
-      for (const a of accounts) {
-        const profile: Profile = { ...a, passwordHash };
-        s.profiles.push(profile);
-        ensureWallet(s, profile.id);
+    for (const account of DEMO_ACCOUNTS) {
+      let user = byEmail.get(account.email.toLowerCase());
+      if (!user) {
+        const { data, error } = await admin.auth.admin.createUser({
+          email: account.email,
+          password: DEMO_PASSWORD,
+          email_confirm: true,
+          user_metadata: { display_name: account.displayName },
+        });
+        if (error && !/already|registered/i.test(error.message)) {
+          console.warn("[fweta] seed user failed:", account.email, error.message);
+        }
+        user = data?.user ?? undefined;
+        if (!user) {
+          const { data: retry } = await admin.auth.admin.listUsers({ perPage: 200 });
+          user = retry?.users.find(
+            (u) => u.email?.toLowerCase() === account.email.toLowerCase(),
+          );
+        }
       }
-    });
+      if (!user) continue;
 
+      await admin.from("profiles").upsert({
+        id: user.id,
+        email: account.email,
+        display_name: account.displayName,
+        bio: account.bio,
+        roles: account.roles,
+        primary_role: account.primaryRole,
+      });
+    }
     return { seeded: true };
-  } catch (err) {
-    console.warn("[fweta] seedDemoAccounts failed:", err);
+  } catch {
     return { seeded: false };
   }
 }

@@ -1,18 +1,37 @@
 import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "crypto";
-import { promises as fs } from "fs";
-import path from "path";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { DatabaseStore } from "./types";
-
-/**
- * On Vercel the app filesystem is read-only; only /tmp is writable (and ephemeral).
- * Keep an in-memory copy so warm serverless instances stay consistent within the process.
- */
-const DATA_DIR =
-  process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
-    ? path.join("/tmp", "fweta-data")
-    : path.join(process.cwd(), "data");
-const STORE_PATH = path.join(DATA_DIR, "store.json");
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import type { DatabaseStore } from "@/lib/db/types";
+import {
+  mapBooking,
+  mapBrandDeposit,
+  mapCampaign,
+  mapFraudFlag,
+  mapInfluencerProfile,
+  mapLedger,
+  mapPayoutMethod,
+  mapProfile,
+  mapRateCard,
+  mapSubmission,
+  mapViewSnapshot,
+  mapWallet,
+  mapWithdrawal,
+  type BookingRow,
+  type BrandDepositRow,
+  type CampaignRow,
+  type FraudFlagRow,
+  type InfluencerProfileRow,
+  type LedgerRow,
+  type PayoutMethodRow,
+  type ProfileRow,
+  type RateCardRow,
+  type SubmissionRow,
+  type ViewSnapshotRow,
+  type WalletRow,
+  type WithdrawalRow,
+} from "@/lib/db/mappers";
 
 const emptyStore = (): DatabaseStore => ({
   profiles: [],
@@ -30,63 +49,69 @@ const emptyStore = (): DatabaseStore => ({
   fraudFlags: [],
 });
 
-declare global {
-  // Persist store across hot reloads / warm serverless instances
-  var __fwetaStore: DatabaseStore | undefined;
+async function loadStore(supabase: SupabaseClient): Promise<DatabaseStore> {
+  const [
+    profiles,
+    campaigns,
+    submissions,
+    viewSnapshots,
+    wallets,
+    ledgerEntries,
+    payoutMethods,
+    withdrawalRequests,
+    influencerProfiles,
+    rateCards,
+    bookings,
+    brandDeposits,
+    fraudFlags,
+  ] = await Promise.all([
+    supabase.from("profiles").select("*"),
+    supabase.from("campaigns").select("*"),
+    supabase.from("submissions").select("*"),
+    supabase.from("view_snapshots").select("*"),
+    supabase.from("wallets").select("*"),
+    supabase.from("ledger_entries").select("*"),
+    supabase.from("payout_methods").select("*"),
+    supabase.from("withdrawal_requests").select("*"),
+    supabase.from("influencer_profiles").select("*"),
+    supabase.from("rate_cards").select("*"),
+    supabase.from("bookings").select("*"),
+    supabase.from("brand_deposits").select("*"),
+    supabase.from("fraud_flags").select("*"),
+  ]);
+
+  return {
+    profiles: ((profiles.data ?? []) as ProfileRow[]).map(mapProfile),
+    campaigns: ((campaigns.data ?? []) as CampaignRow[]).map(mapCampaign),
+    submissions: ((submissions.data ?? []) as SubmissionRow[]).map(mapSubmission),
+    viewSnapshots: ((viewSnapshots.data ?? []) as ViewSnapshotRow[]).map(mapViewSnapshot),
+    wallets: ((wallets.data ?? []) as WalletRow[]).map(mapWallet),
+    ledgerEntries: ((ledgerEntries.data ?? []) as LedgerRow[]).map(mapLedger),
+    payoutMethods: ((payoutMethods.data ?? []) as PayoutMethodRow[]).map(mapPayoutMethod),
+    withdrawalRequests: ((withdrawalRequests.data ?? []) as WithdrawalRow[]).map(
+      mapWithdrawal,
+    ),
+    influencerProfiles: ((influencerProfiles.data ?? []) as InfluencerProfileRow[]).map(
+      mapInfluencerProfile,
+    ),
+    rateCards: ((rateCards.data ?? []) as RateCardRow[]).map(mapRateCard),
+    bookings: ((bookings.data ?? []) as BookingRow[]).map(mapBooking),
+    brandDeposits: ((brandDeposits.data ?? []) as BrandDepositRow[]).map(mapBrandDeposit),
+    fraudFlags: ((fraudFlags.data ?? []) as FraudFlagRow[]).map(mapFraudFlag),
+  };
 }
 
-let writeQueue: Promise<void> = Promise.resolve();
-
-async function loadFromDisk(): Promise<DatabaseStore | null> {
+export async function readStore(opts?: { admin?: boolean }): Promise<DatabaseStore> {
+  if (opts?.admin) {
+    return loadStore(createAdminClient());
+  }
   try {
-    const raw = await fs.readFile(STORE_PATH, "utf8");
-    return { ...emptyStore(), ...JSON.parse(raw) } as DatabaseStore;
+    return loadStore(await createClient());
   } catch {
-    return null;
+    return emptyStore();
   }
 }
 
-async function persist(store: DatabaseStore) {
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2), "utf8");
-  } catch (err) {
-    // Never crash the request if disk is unavailable — memory store still works.
-    console.warn("[fweta] persist skipped:", err instanceof Error ? err.message : err);
-  }
-}
-
-async function ensureStore(): Promise<DatabaseStore> {
-  if (globalThis.__fwetaStore) {
-    return globalThis.__fwetaStore;
-  }
-  const fromDisk = await loadFromDisk();
-  const store = fromDisk ?? emptyStore();
-  globalThis.__fwetaStore = store;
-  if (!fromDisk) {
-    await persist(store);
-  }
-  return store;
-}
-
-export async function readStore(): Promise<DatabaseStore> {
-  return ensureStore();
-}
-
-export async function updateStore(
-  mutator: (store: DatabaseStore) => void | Promise<void>,
-): Promise<DatabaseStore> {
-  writeQueue = writeQueue.then(async () => {
-    const store = await ensureStore();
-    await mutator(store);
-    globalThis.__fwetaStore = store;
-    await persist(store);
-  });
-  await writeQueue;
-  return ensureStore();
-}
-
-/** Simple reversible encryption for bank details at rest (local MVP). */
 function deriveKey() {
   const secret =
     process.env.PAYOUT_ENCRYPTION_KEY ||

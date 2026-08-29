@@ -1,31 +1,23 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { jwtVerify } from "jose";
 
-const COOKIE_NAME = "fweta_session";
-const AUTH_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "fweta-local-dev-secret-change-me",
-);
+import { hasSupabaseConfig } from "@/lib/supabase/env";
+import { updateSession } from "@/lib/supabase/middleware";
 
 const protectedPrefixes = ["/dashboard"];
 
 export async function middleware(request: NextRequest) {
+  const { response, userId } = hasSupabaseConfig()
+    ? await updateSession(request)
+    : { response: NextResponse.next({ request }), userId: null as string | null };
+
   const { pathname } = request.nextUrl;
 
-  // Product app entry — no marketing landing here (lives on fweta.com)
   if (pathname === "/") {
-    const token = request.cookies.get(COOKIE_NAME)?.value;
     const url = request.nextUrl.clone();
-    if (token) {
-      try {
-        await jwtVerify(token, AUTH_SECRET);
-        url.pathname = "/dashboard";
-        return NextResponse.redirect(url);
-      } catch {
-        // fall through to login
-      }
-    }
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    url.pathname = userId ? "/dashboard" : "/login";
+    const redirect = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
   }
 
   const needsAuth = protectedPrefixes.some(
@@ -33,30 +25,23 @@ export async function middleware(request: NextRequest) {
   );
 
   if (!needsAuth) {
-    return NextResponse.next();
+    return response;
   }
 
-  const token = request.cookies.get(COOKIE_NAME)?.value;
-  if (!token) {
+  if (!userId) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
+    const redirect = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
   }
 
-  try {
-    await jwtVerify(token, AUTH_SECRET);
-    return NextResponse.next();
-  } catch {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", pathname);
-    const res = NextResponse.redirect(url);
-    res.cookies.delete(COOKIE_NAME);
-    return res;
-  }
+  return response;
 }
 
 export const config = {
-  matcher: ["/", "/dashboard/:path*"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };

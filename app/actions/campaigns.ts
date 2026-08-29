@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
-import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
-import type { Campaign } from "@/lib/db/types";
+import { createClient } from "@/lib/supabase/server";
+import { mapCampaign, type CampaignRow } from "@/lib/db/mappers";
 import {
   campaignCreateSchema,
   campaignUpdateSchema,
@@ -20,15 +20,19 @@ function assertBrand(roles: string[]) {
 export async function listBrandCampaigns() {
   const session = await requireSession();
   assertBrand(session.roles);
-  const store = await readStore();
-  return store.campaigns
-    .filter((c) => (session.roles.includes("admin") ? true : c.brandId === session.id))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const supabase = await createClient();
+  let query = supabase.from("campaigns").select("*").order("created_at", { ascending: false });
+  if (!session.roles.includes("admin")) {
+    query = query.eq("brand_id", session.id);
+  }
+  const { data } = await query;
+  return ((data ?? []) as CampaignRow[]).map(mapCampaign);
 }
 
 export async function getCampaign(id: string) {
-  const store = await readStore();
-  return store.campaigns.find((c) => c.id === id) ?? null;
+  const supabase = await createClient();
+  const { data } = await supabase.from("campaigns").select("*").eq("id", id).maybeSingle();
+  return data ? mapCampaign(data as CampaignRow) : null;
 }
 
 export async function createCampaignAction(raw: unknown) {
@@ -37,31 +41,29 @@ export async function createCampaignAction(raw: unknown) {
   const parsed = campaignCreateSchema.safeParse(raw);
   if (!parsed.success) return { ok: false as const, error: "Invalid campaign details." };
 
-  const now = nowIso();
-  const campaign: Campaign = {
-    id: newId(),
-    brandId: session.id,
-    title: parsed.data.title,
-    description: parsed.data.description,
-    type: parsed.data.type,
-    category: parsed.data.category,
-    status: parsed.data.status ?? "draft",
-    budgetTotalCents: parsed.data.budgetTotalCents,
-    budgetSpentCents: 0,
-    cpmCents: parsed.data.cpmCents,
-    maxPayoutPerSubmissionCents: parsed.data.maxPayoutPerSubmissionCents,
-    platforms: parsed.data.platforms,
-    requirements: parsed.data.requirements ?? "",
-    endDate: parsed.data.endDate ?? null,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  await updateStore((s) => {
-    s.campaigns.push(campaign);
-  });
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("campaigns")
+    .insert({
+      brand_id: session.id,
+      title: parsed.data.title,
+      description: parsed.data.description,
+      type: parsed.data.type,
+      category: parsed.data.category,
+      status: parsed.data.status ?? "draft",
+      budget_total_cents: parsed.data.budgetTotalCents,
+      budget_spent_cents: 0,
+      cpm_cents: parsed.data.cpmCents,
+      max_payout_per_submission_cents: parsed.data.maxPayoutPerSubmissionCents,
+      platforms: parsed.data.platforms,
+      requirements: parsed.data.requirements ?? "",
+      end_date: parsed.data.endDate ?? null,
+    })
+    .select("id")
+    .single();
+  if (error || !data) return { ok: false as const, error: error?.message ?? "Failed to create." };
   revalidatePath("/dashboard/brand/campaigns");
-  return { ok: true as const, id: campaign.id };
+  return { ok: true as const, id: data.id as string };
 }
 
 export async function updateCampaignAction(id: string, raw: unknown) {
@@ -70,15 +72,27 @@ export async function updateCampaignAction(id: string, raw: unknown) {
   const parsed = campaignUpdateSchema.safeParse(raw);
   if (!parsed.success) return { ok: false as const, error: "Invalid campaign details." };
 
-  let found = false;
-  await updateStore((s) => {
-    const c = s.campaigns.find((x) => x.id === id);
-    if (!c) return;
-    if (c.brandId !== session.id && !session.roles.includes("admin")) return;
-    found = true;
-    Object.assign(c, parsed.data, { updatedAt: nowIso() });
-  });
-  if (!found) return { ok: false as const, error: "Campaign not found." };
+  const supabase = await createClient();
+  const patch: Record<string, unknown> = {};
+  const d = parsed.data;
+  if (d.title !== undefined) patch.title = d.title;
+  if (d.description !== undefined) patch.description = d.description;
+  if (d.type !== undefined) patch.type = d.type;
+  if (d.category !== undefined) patch.category = d.category;
+  if (d.status !== undefined) patch.status = d.status;
+  if (d.budgetTotalCents !== undefined) patch.budget_total_cents = d.budgetTotalCents;
+  if (d.cpmCents !== undefined) patch.cpm_cents = d.cpmCents;
+  if (d.maxPayoutPerSubmissionCents !== undefined) {
+    patch.max_payout_per_submission_cents = d.maxPayoutPerSubmissionCents;
+  }
+  if (d.platforms !== undefined) patch.platforms = d.platforms;
+  if (d.requirements !== undefined) patch.requirements = d.requirements;
+  if (d.endDate !== undefined) patch.end_date = d.endDate;
+
+  let query = supabase.from("campaigns").update(patch).eq("id", id);
+  if (!session.roles.includes("admin")) query = query.eq("brand_id", session.id);
+  const { data, error } = await query.select("id").maybeSingle();
+  if (error || !data) return { ok: false as const, error: "Campaign not found." };
   revalidatePath(`/dashboard/brand/campaigns/${id}`);
   revalidatePath("/dashboard/brand/campaigns");
   return { ok: true as const };
@@ -87,13 +101,10 @@ export async function updateCampaignAction(id: string, raw: unknown) {
 export async function setCampaignStatusAction(id: string, status: CampaignStatus) {
   const session = await requireSession();
   assertBrand(session.roles);
-  await updateStore((s) => {
-    const c = s.campaigns.find((x) => x.id === id);
-    if (!c) return;
-    if (c.brandId !== session.id && !session.roles.includes("admin")) return;
-    c.status = status;
-    c.updatedAt = nowIso();
-  });
+  const supabase = await createClient();
+  let query = supabase.from("campaigns").update({ status }).eq("id", id);
+  if (!session.roles.includes("admin")) query = query.eq("brand_id", session.id);
+  await query;
   revalidatePath(`/dashboard/brand/campaigns/${id}`);
   revalidatePath("/dashboard/brand/campaigns");
   return { ok: true as const };
@@ -102,25 +113,33 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
 export async function duplicateCampaignAction(id: string) {
   const session = await requireSession();
   assertBrand(session.roles);
-  const store = await readStore();
-  const source = store.campaigns.find((c) => c.id === id && c.brandId === session.id);
-  if (!source) return { ok: false as const, error: "Campaign not found." };
-
-  const now = nowIso();
-  const copy: Campaign = {
-    ...source,
-    id: newId(),
-    title: `${source.title} (copy)`,
-    status: "draft",
-    budgetSpentCents: 0,
-    createdAt: now,
-    updatedAt: now,
-  };
-  await updateStore((s) => {
-    s.campaigns.push(copy);
-  });
+  const source = await getCampaign(id);
+  if (!source || (source.brandId !== session.id && !session.roles.includes("admin"))) {
+    return { ok: false as const, error: "Campaign not found." };
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("campaigns")
+    .insert({
+      brand_id: session.id,
+      title: `${source.title} (copy)`,
+      description: source.description,
+      type: source.type,
+      category: source.category,
+      status: "draft",
+      budget_total_cents: source.budgetTotalCents,
+      budget_spent_cents: 0,
+      cpm_cents: source.cpmCents,
+      max_payout_per_submission_cents: source.maxPayoutPerSubmissionCents,
+      platforms: source.platforms,
+      requirements: source.requirements,
+      end_date: source.endDate,
+    })
+    .select("id")
+    .single();
+  if (error || !data) return { ok: false as const, error: error?.message ?? "Failed." };
   revalidatePath("/dashboard/brand/campaigns");
-  return { ok: true as const, id: copy.id };
+  return { ok: true as const, id: data.id as string };
 }
 
 export async function listActiveCampaignsPublic(filters?: {
@@ -128,9 +147,14 @@ export async function listActiveCampaignsPublic(filters?: {
   type?: string;
   q?: string;
 }) {
-  const store = await readStore();
-  return store.campaigns
-    .filter((c) => c.status === "active")
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("campaigns")
+    .select("*")
+    .eq("status", "active")
+    .order("created_at", { ascending: false });
+  return ((data ?? []) as CampaignRow[])
+    .map(mapCampaign)
     .filter((c) => (filters?.type ? c.type === filters.type : true))
     .filter((c) =>
       filters?.platform ? c.platforms.includes(filters.platform as never) : true,
@@ -141,6 +165,5 @@ export async function listActiveCampaignsPublic(filters?: {
             .toLowerCase()
             .includes(filters.q.toLowerCase())
         : true,
-    )
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    );
 }

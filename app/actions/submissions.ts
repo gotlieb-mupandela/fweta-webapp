@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
-import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
-import type { Submission } from "@/lib/db/types";
+import { createClient } from "@/lib/supabase/server";
+import { mapSubmission, type CampaignRow, type SubmissionRow } from "@/lib/db/mappers";
+import { mapCampaign } from "@/lib/db/mappers";
 import { submissionReviewSchema, submissionSchema } from "@/lib/validations/submission";
 
 export async function submitClipAction(raw: unknown) {
@@ -15,8 +16,13 @@ export async function submitClipAction(raw: unknown) {
   const parsed = submissionSchema.safeParse(raw);
   if (!parsed.success) return { ok: false as const, error: "Invalid submission." };
 
-  const store = await readStore();
-  const campaign = store.campaigns.find((c) => c.id === parsed.data.campaignId);
+  const supabase = await createClient();
+  const { data: campaignRow } = await supabase
+    .from("campaigns")
+    .select("*")
+    .eq("id", parsed.data.campaignId)
+    .maybeSingle();
+  const campaign = campaignRow ? mapCampaign(campaignRow as CampaignRow) : null;
   if (!campaign || campaign.status !== "active") {
     return { ok: false as const, error: "Campaign is not accepting submissions." };
   }
@@ -24,26 +30,20 @@ export async function submitClipAction(raw: unknown) {
     return { ok: false as const, error: "Platform not allowed for this campaign." };
   }
 
-  const now = nowIso();
-  const submission: Submission = {
-    id: newId(),
-    campaignId: parsed.data.campaignId,
-    clipperId: session.id,
-    postUrl: parsed.data.postUrl,
-    platform: parsed.data.platform,
-    status: "pending",
-    reviewNote: null,
-    views: 0,
-    earningsCents: 0,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  await updateStore((s) => {
-    s.submissions.push(submission);
-  });
+  const { data, error } = await supabase
+    .from("submissions")
+    .insert({
+      campaign_id: parsed.data.campaignId,
+      clipper_id: session.id,
+      post_url: parsed.data.postUrl,
+      platform: parsed.data.platform,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+  if (error || !data) return { ok: false as const, error: error?.message ?? "Failed." };
   revalidatePath("/dashboard/clipper/submissions");
-  return { ok: true as const, id: submission.id };
+  return { ok: true as const, id: data.id as string };
 }
 
 export async function reviewSubmissionAction(id: string, raw: unknown) {
@@ -51,32 +51,41 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
   const parsed = submissionReviewSchema.safeParse(raw);
   if (!parsed.success) return { ok: false as const, error: "Invalid review." };
 
-  const store = await readStore();
-  const submission = store.submissions.find((s) => s.id === id);
-  if (!submission) return { ok: false as const, error: "Not found." };
-  const campaign = store.campaigns.find((c) => c.id === submission.campaignId);
-  if (!campaign) return { ok: false as const, error: "Campaign missing." };
+  const supabase = await createClient();
+  const { data: submissionRow } = await supabase
+    .from("submissions")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (!submissionRow) return { ok: false as const, error: "Not found." };
+  const submission = mapSubmission(submissionRow as SubmissionRow);
+  const { data: campaignRow } = await supabase
+    .from("campaigns")
+    .select("*")
+    .eq("id", submission.campaignId)
+    .maybeSingle();
+  if (!campaignRow) return { ok: false as const, error: "Campaign missing." };
+  const campaign = mapCampaign(campaignRow as CampaignRow);
   if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
     return { ok: false as const, error: "Not allowed." };
   }
 
-  await updateStore((s) => {
-    const sub = s.submissions.find((x) => x.id === id);
-    if (!sub) return;
-    sub.status = parsed.data.status;
-    sub.reviewNote = parsed.data.reviewNote ?? null;
-    sub.updatedAt = nowIso();
-    if (parsed.data.status === "flagged") {
-      s.fraudFlags.push({
-        id: newId(),
-        submissionId: id,
-        reason: parsed.data.reviewNote || "Flagged by brand",
-        status: "open",
-        createdAt: nowIso(),
-        resolvedAt: null,
-      });
-    }
-  });
+  const { error } = await supabase
+    .from("submissions")
+    .update({
+      status: parsed.data.status,
+      review_note: parsed.data.reviewNote ?? null,
+    })
+    .eq("id", id);
+  if (error) return { ok: false as const, error: error.message };
+
+  if (parsed.data.status === "flagged") {
+    await supabase.from("fraud_flags").insert({
+      submission_id: id,
+      reason: parsed.data.reviewNote || "Flagged by brand",
+      status: "open",
+    });
+  }
 
   revalidatePath(`/dashboard/brand/campaigns/${campaign.id}/submissions`);
   return { ok: true as const };
@@ -84,19 +93,30 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
 
 export async function listClipperSubmissions() {
   const session = await requireSession();
-  const store = await readStore();
-  return store.submissions
-    .filter((s) => s.clipperId === session.id)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("submissions")
+    .select("*")
+    .eq("clipper_id", session.id)
+    .order("created_at", { ascending: false });
+  return ((data ?? []) as SubmissionRow[]).map(mapSubmission);
 }
 
 export async function listCampaignSubmissions(campaignId: string) {
   const session = await requireSession();
-  const store = await readStore();
-  const campaign = store.campaigns.find((c) => c.id === campaignId);
-  if (!campaign) return [];
+  const supabase = await createClient();
+  const { data: campaignRow } = await supabase
+    .from("campaigns")
+    .select("*")
+    .eq("id", campaignId)
+    .maybeSingle();
+  if (!campaignRow) return [];
+  const campaign = mapCampaign(campaignRow as CampaignRow);
   if (campaign.brandId !== session.id && !session.roles.includes("admin")) return [];
-  return store.submissions
-    .filter((s) => s.campaignId === campaignId)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const { data } = await supabase
+    .from("submissions")
+    .select("*")
+    .eq("campaign_id", campaignId)
+    .order("created_at", { ascending: false });
+  return ((data ?? []) as SubmissionRow[]).map(mapSubmission);
 }
