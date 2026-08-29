@@ -40,7 +40,7 @@ export function SignupForm() {
   return (
     <div className="auth-shell">
       <aside className="auth-brand animate-fade-in">
-        <Logo href="https://fweta.com" light className="relative z-10" />
+        <Logo href="https://fweta.com" light size="lg" className="relative z-10" />
         <div className="relative z-10 max-w-md space-y-5">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">Get started</p>
           <h2 className="font-display text-4xl leading-tight text-white xl:text-5xl">
@@ -62,7 +62,7 @@ export function SignupForm() {
       <div className="auth-panel bg-atmosphere">
         <div className="auth-card animate-soft-scale">
           <div className="mb-8 flex items-center justify-between md:hidden">
-            <Logo />
+            <Logo size="sm" />
             <Link href="/login" className="text-sm text-muted">
               Log in
             </Link>

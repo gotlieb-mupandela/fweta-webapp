@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft, Settings } from "lucide-react";
 
+import { Logo } from "@/components/brand/logo";
 import { getBackHref, getScreenTitle } from "@/lib/dashboard/nav";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +35,12 @@ export function MobileTopBar({ displayName }: { displayName: string }) {
             <ChevronLeft className="size-6" strokeWidth={1.75} />
           </button>
         ) : (
-          <div className="w-11" aria-hidden />
+          <Logo
+            href="/dashboard"
+            size="sm"
+            markOnly
+            className="tab-press -ml-0.5 flex size-11 items-center justify-center rounded-xl active:bg-surface-2"
+          />
         )}
 
         <h1

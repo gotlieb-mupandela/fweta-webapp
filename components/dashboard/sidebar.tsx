@@ -60,7 +60,7 @@ export function DashboardSidebar({
   return (
     <aside className="sticky top-0 hidden h-dvh w-[260px] shrink-0 flex-col border-r border-border/80 bg-white/90 backdrop-blur-xl md:flex">
       <div className="flex h-16 items-center px-5">
-        <Logo href="/dashboard" />
+        <Logo href="/dashboard" size="sm" />
       </div>
 
       <div className="px-4 pb-4">

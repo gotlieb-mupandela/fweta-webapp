@@ -1,33 +1,59 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
+
+const MARK_SRC = "/brand/fweta-mark.webp";
+
+/** Official mark is ~531×581 — keep aspect when sizing by height. */
+const MARK_ASPECT = 531 / 581;
+
+const SIZES = {
+  sm: 28,
+  md: 32,
+  lg: 56,
+} as const;
 
 export function Logo({
   className,
   href = "/login",
   light = false,
+  size = "md",
+  markOnly = false,
 }: {
   className?: string;
   href?: string;
+  /** Dark brand panels — white wordmark beside the gold mark. */
   light?: boolean;
+  size?: keyof typeof SIZES;
+  /** Chrome-tight slots (e.g. mobile top bar). */
+  markOnly?: boolean;
 }) {
+  const markH = SIZES[size];
+  const markW = Math.round(markH * MARK_ASPECT);
+
   const content = (
     <>
-      <span
+      <Image
+        src={MARK_SRC}
+        alt=""
+        width={markW}
+        height={markH}
+        className="shrink-0 object-contain"
+        priority={size === "lg"}
         aria-hidden
-        className="font-display text-[1.65rem] italic leading-none text-gold"
-        style={{ fontWeight: 600 }}
-      >
-        f
-      </span>
-      <span
-        className={cn(
-          "text-[1.05rem] font-semibold tracking-tight",
-          light ? "text-white" : "text-foreground",
-        )}
-      >
-        fweta
-      </span>
+      />
+      {!markOnly ? (
+        <span
+          className={cn(
+            "font-semibold tracking-tight",
+            size === "lg" ? "text-xl" : size === "sm" ? "text-[0.95rem]" : "text-[1.05rem]",
+            light ? "text-white" : "text-foreground",
+          )}
+        >
+          fweta
+        </span>
+      ) : null}
     </>
   );
 
@@ -36,14 +62,14 @@ export function Logo({
 
   if (external) {
     return (
-      <a href={href} className={classes}>
+      <a href={href} className={classes} aria-label="fweta">
         {content}
       </a>
     );
   }
 
   return (
-    <Link href={href} className={classes}>
+    <Link href={href} className={classes} aria-label="fweta">
       {content}
     </Link>
   );
