@@ -4,7 +4,14 @@ import path from "path";
 
 import type { DatabaseStore } from "./types";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+/**
+ * On Vercel the app filesystem is read-only; only /tmp is writable (and ephemeral).
+ * Keep an in-memory copy so warm serverless instances stay consistent within the process.
+ */
+const DATA_DIR =
+  process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
+    ? path.join("/tmp", "fweta-data")
+    : path.join(process.cwd(), "data");
 const STORE_PATH = path.join(DATA_DIR, "store.json");
 
 const emptyStore = (): DatabaseStore => ({
@@ -23,18 +30,43 @@ const emptyStore = (): DatabaseStore => ({
   fraudFlags: [],
 });
 
+declare global {
+  // eslint-disable-next-line no-var
+  var __fwetaStore: DatabaseStore | undefined;
+}
+
 let writeQueue: Promise<void> = Promise.resolve();
 
-async function ensureStore(): Promise<DatabaseStore> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+async function loadFromDisk(): Promise<DatabaseStore | null> {
   try {
     const raw = await fs.readFile(STORE_PATH, "utf8");
     return { ...emptyStore(), ...JSON.parse(raw) } as DatabaseStore;
   } catch {
-    const store = emptyStore();
-    await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2), "utf8");
-    return store;
+    return null;
   }
+}
+
+async function persist(store: DatabaseStore) {
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2), "utf8");
+  } catch (err) {
+    // Never crash the request if disk is unavailable — memory store still works.
+    console.warn("[fweta] persist skipped:", err instanceof Error ? err.message : err);
+  }
+}
+
+async function ensureStore(): Promise<DatabaseStore> {
+  if (globalThis.__fwetaStore) {
+    return globalThis.__fwetaStore;
+  }
+  const fromDisk = await loadFromDisk();
+  const store = fromDisk ?? emptyStore();
+  globalThis.__fwetaStore = store;
+  if (!fromDisk) {
+    await persist(store);
+  }
+  return store;
 }
 
 export async function readStore(): Promise<DatabaseStore> {
@@ -47,7 +79,8 @@ export async function updateStore(
   writeQueue = writeQueue.then(async () => {
     const store = await ensureStore();
     await mutator(store);
-    await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2), "utf8");
+    globalThis.__fwetaStore = store;
+    await persist(store);
   });
   await writeQueue;
   return ensureStore();

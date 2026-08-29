@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { getSession, seedDemoAccounts } from "@/lib/auth/session";
 
 export default async function MarketingHomePage() {
-  await seedDemoAccounts();
+  try {
+    await seedDemoAccounts();
+  } catch {
+    // Never block the marketing page on store/seed failures (e.g. cold Vercel).
+  }
   const session = await getSession();
 
   return (

@@ -192,82 +192,87 @@ export async function refreshSessionFromProfile(profile: Profile) {
 }
 
 export async function seedDemoAccounts() {
-  const store = await readStore();
-  if (store.profiles.length > 0) return { seeded: false };
+  try {
+    const store = await readStore();
+    if (store.profiles.length > 0) return { seeded: false };
 
-  const passwordHash = await bcrypt.hash("password123", 10);
-  const now = nowIso();
+    const passwordHash = await bcrypt.hash("password123", 10);
+    const now = nowIso();
 
-  const accounts: Array<Omit<Profile, "passwordHash"> & { passwordHash?: string }> = [
-    {
-      id: newId(),
-      email: "brand@fweta.test",
-      displayName: "Desert Brands",
-      bio: "Namibian DTC brand running creator campaigns.",
-      avatarUrl: null,
-      roles: ["brand"],
-      primaryRole: "brand",
-      notifyEmail: true,
-      notifyWithdrawals: true,
-      notifyBookings: true,
-      createdAt: now,
-      updatedAt: now,
-      suspended: false,
-    },
-    {
-      id: newId(),
-      email: "creator@fweta.test",
-      displayName: "Amara Nangolo",
-      bio: "Windhoek creator · lifestyle & short-form.",
-      avatarUrl: null,
-      roles: ["clipper", "influencer"],
-      primaryRole: "influencer",
-      notifyEmail: true,
-      notifyWithdrawals: true,
-      notifyBookings: true,
-      createdAt: now,
-      updatedAt: now,
-      suspended: false,
-    },
-    {
-      id: newId(),
-      email: "clipper@fweta.test",
-      displayName: "Kai Clips",
-      bio: "Clipping specialist across TikTok & Reels.",
-      avatarUrl: null,
-      roles: ["clipper"],
-      primaryRole: "clipper",
-      notifyEmail: true,
-      notifyWithdrawals: true,
-      notifyBookings: true,
-      createdAt: now,
-      updatedAt: now,
-      suspended: false,
-    },
-    {
-      id: newId(),
-      email: "admin@fweta.test",
-      displayName: "Fweta Admin",
-      bio: "Platform operations",
-      avatarUrl: null,
-      roles: ["admin"],
-      primaryRole: "admin",
-      notifyEmail: true,
-      notifyWithdrawals: true,
-      notifyBookings: true,
-      createdAt: now,
-      updatedAt: now,
-      suspended: false,
-    },
-  ];
+    const accounts: Array<Omit<Profile, "passwordHash"> & { passwordHash?: string }> = [
+      {
+        id: newId(),
+        email: "brand@fweta.test",
+        displayName: "Desert Brands",
+        bio: "Namibian DTC brand running creator campaigns.",
+        avatarUrl: null,
+        roles: ["brand"],
+        primaryRole: "brand",
+        notifyEmail: true,
+        notifyWithdrawals: true,
+        notifyBookings: true,
+        createdAt: now,
+        updatedAt: now,
+        suspended: false,
+      },
+      {
+        id: newId(),
+        email: "creator@fweta.test",
+        displayName: "Amara Nangolo",
+        bio: "Windhoek creator · lifestyle & short-form.",
+        avatarUrl: null,
+        roles: ["clipper", "influencer"],
+        primaryRole: "influencer",
+        notifyEmail: true,
+        notifyWithdrawals: true,
+        notifyBookings: true,
+        createdAt: now,
+        updatedAt: now,
+        suspended: false,
+      },
+      {
+        id: newId(),
+        email: "clipper@fweta.test",
+        displayName: "Kai Clips",
+        bio: "Clipping specialist across TikTok & Reels.",
+        avatarUrl: null,
+        roles: ["clipper"],
+        primaryRole: "clipper",
+        notifyEmail: true,
+        notifyWithdrawals: true,
+        notifyBookings: true,
+        createdAt: now,
+        updatedAt: now,
+        suspended: false,
+      },
+      {
+        id: newId(),
+        email: "admin@fweta.test",
+        displayName: "Fweta Admin",
+        bio: "Platform operations",
+        avatarUrl: null,
+        roles: ["admin"],
+        primaryRole: "admin",
+        notifyEmail: true,
+        notifyWithdrawals: true,
+        notifyBookings: true,
+        createdAt: now,
+        updatedAt: now,
+        suspended: false,
+      },
+    ];
 
-  await updateStore((s) => {
-    for (const a of accounts) {
-      const profile: Profile = { ...a, passwordHash };
-      s.profiles.push(profile);
-      ensureWallet(s, profile.id);
-    }
-  });
+    await updateStore((s) => {
+      for (const a of accounts) {
+        const profile: Profile = { ...a, passwordHash };
+        s.profiles.push(profile);
+        ensureWallet(s, profile.id);
+      }
+    });
 
-  return { seeded: true };
+    return { seeded: true };
+  } catch (err) {
+    console.warn("[fweta] seedDemoAccounts failed:", err);
+    return { seeded: false };
+  }
 }
