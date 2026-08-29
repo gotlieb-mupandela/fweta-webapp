@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 
 import { pollSubmissionViewsJob } from "@/app/actions/jobs";
 
+export const maxDuration = 300;
+
 function authorizeCron(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
