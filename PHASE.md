@@ -2,7 +2,7 @@
 
 This document expands [AGENTS.md](./AGENTS.md) into an actionable build sequence from scaffold through full platform. Each phase lists deliverables, routes, and exit criteria.
 
-**Current stage:** Phases 0–14 implemented for local MVP (file-backed store + cookie auth). Supabase SSR clients and env are wired; data still lives in the file store until auth/data migrate. Schema concepts match AGENTS.md.
+**Current stage:** Phases 0–14 implemented for local MVP (file-backed store + cookie auth). Supabase SSR clients are wired. Schema SQL is in `supabase/migrations/20260829000000_init.sql` (RLS + grants); applying it to the hosted project needs a Supabase access token or database password.
 
 ---
 
