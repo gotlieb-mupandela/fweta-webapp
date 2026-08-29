@@ -264,7 +264,8 @@ Not required for MVP — track in product design for later.
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+# NEXT_PUBLIC_SUPABASE_ANON_KEY=    # legacy alias
 SUPABASE_SERVICE_ROLE_KEY=          # Server only — never expose
 TRIGGER_SECRET_KEY=                 # Or INNGEST_* keys
 # Future: social API keys for view polling
