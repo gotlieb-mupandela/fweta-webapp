@@ -1,0 +1,17 @@
+{
+  "name": "Content Rewards Platform",
+  "install": "npm ci && if [ ! -f .env.local ]; then printf 'NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co\\nNEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder-anon-key\\nNEXT_PUBLIC_APP_URL=http://localhost:3000\\n' > .env.local; fi",
+  "terminals": [
+    {
+      "name": "next-dev",
+      "command": "npm run dev",
+      "description": "Next.js dev server on http://localhost:3000"
+    }
+  ],
+  "ports": [
+    {
+      "name": "web",
+      "port": 3000
+    }
+  ]
+}
