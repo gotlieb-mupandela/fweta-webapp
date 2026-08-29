@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, Instrument_Serif } from "next/font/google";
 
 import "./globals.css";
@@ -23,6 +23,18 @@ export const metadata: Metadata = {
   },
   description: "fweta workspace — campaigns, bookings, and payouts.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://app.fweta.com"),
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "fweta",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#f7f7f4",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

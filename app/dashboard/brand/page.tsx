@@ -58,17 +58,14 @@ export default async function BrandDashboardPage() {
           <ul className="space-y-3">
             {campaigns.slice(0, 5).map((c) => (
               <li key={c.id}>
-                <Link
-                  href={`/dashboard/brand/campaigns/${c.id}`}
-                  className="flex items-center justify-between rounded-2xl border border-border bg-white px-4 py-3 hover:border-foreground/20"
-                >
-                  <div>
+                <Link href={`/dashboard/brand/campaigns/${c.id}`} className="list-row">
+                  <div className="min-w-0">
                     <p className="text-sm font-medium">{c.title}</p>
                     <p className="text-xs text-muted">
                       {c.status} · {formatMoney(c.budgetSpentCents)} / {formatMoney(c.budgetTotalCents)}
                     </p>
                   </div>
-                  <span className="text-xs text-muted">{c.type}</span>
+                  <span className="shrink-0 text-xs capitalize text-muted">{c.type}</span>
                 </Link>
               </li>
             ))}
@@ -86,12 +83,9 @@ export default async function BrandDashboardPage() {
           </div>
           <ul className="space-y-3">
             {bookings.slice(0, 5).map((b) => (
-              <li
-                key={b.id}
-                className="flex items-center justify-between rounded-2xl border border-border bg-white px-4 py-3"
-              >
-                <div>
-                  <p className="text-sm font-medium">{b.status}</p>
+              <li key={b.id} className="list-row">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium capitalize">{b.status.replace(/_/g, " ")}</p>
                   <p className="text-xs text-muted">{formatMoney(b.amountCents)}</p>
                 </div>
               </li>

@@ -21,15 +21,17 @@ export default async function SettingsPage() {
   return (
     <div>
       <PageHeader title="Settings" description={`Signed in as ${session.email}`} />
-      <ul className="space-y-3">
+      <ul className="space-y-2">
         {LINKS.map((l) => (
           <li key={l.href}>
-            <Link
-              href={l.href}
-              className="block rounded-2xl border border-border bg-white px-4 py-4 hover:border-foreground/20"
-            >
-              <p className="font-medium">{l.label}</p>
-              <p className="text-sm text-muted">{l.desc}</p>
+            <Link href={l.href} className="list-row">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">{l.label}</p>
+                <p className="text-xs text-muted">{l.desc}</p>
+              </div>
+              <span className="text-muted-light" aria-hidden>
+                ›
+              </span>
             </Link>
           </li>
         ))}

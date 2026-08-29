@@ -56,14 +56,13 @@ export default async function ClipperDashboardPage() {
             {submissions.slice(0, 5).map((s) => {
               const campaign = store.campaigns.find((c) => c.id === s.campaignId);
               return (
-                <li
-                  key={s.id}
-                  className="rounded-2xl border border-border bg-white px-4 py-3"
-                >
-                  <p className="text-sm font-medium">{campaign?.title ?? "Campaign"}</p>
-                  <p className="text-xs text-muted">
-                    {s.status} · {formatNumber(s.views)} views · {formatMoney(s.earningsCents)}
-                  </p>
+                <li key={s.id} className="list-row">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{campaign?.title ?? "Campaign"}</p>
+                    <p className="text-xs text-muted">
+                      {s.status} · {formatNumber(s.views)} views · {formatMoney(s.earningsCents)}
+                    </p>
+                  </div>
                 </li>
               );
             })}

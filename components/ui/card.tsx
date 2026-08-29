@@ -63,18 +63,19 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-9 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-      <div className="space-y-2">
-        <h1 className="font-display text-[2.15rem] leading-none tracking-tight text-foreground md:text-4xl">
+    <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between md:mb-9">
+      <div className="space-y-1.5 md:space-y-2">
+        {/* Mobile uses top bar title — keep denser screen heading on md+ */}
+        <h1 className="hidden font-display text-[2rem] leading-none tracking-tight text-foreground md:block md:text-[2.35rem]">
           {title}
         </h1>
         {description ? (
-          <p className="max-w-2xl text-sm leading-relaxed text-muted md:text-[15px]">
+          <p className="max-w-2xl text-[13px] leading-relaxed text-muted md:text-sm md:text-[15px]">
             {description}
           </p>
         ) : null}
       </div>
-      {action}
+      {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
     </div>
   );
 }

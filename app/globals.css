@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fbfbfa;
+  --background: #f7f7f4;
   --foreground: #0a0a0a;
   --muted: #6b7280;
   --muted-light: #9ca3af;
@@ -10,12 +10,15 @@
   --gold: #b8962e;
   --gold-soft: #f5efd9;
   --surface: #ffffff;
-  --surface-2: #f3f3f0;
+  --surface-2: #f0f0ec;
   --danger: #b42318;
   --success: #067647;
   --radius-btn: 1rem;
   --radius-pill: 9999px;
   --shadow-soft: 0 1px 2px rgba(10, 10, 10, 0.04), 0 12px 40px rgba(10, 10, 10, 0.04);
+  --tab-bar-h: 3.75rem;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
 }
 
 @theme inline {
@@ -225,4 +228,92 @@ h3,
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--gold), transparent);
   opacity: 0.55;
+}
+
+/* —— App shell —— */
+
+.app-canvas {
+  background:
+    radial-gradient(720px 360px at 100% -10%, color-mix(in srgb, var(--gold) 10%, transparent), transparent 55%),
+    linear-gradient(180deg, #f9f9f6 0%, var(--background) 42%, #f3f3ef 100%);
+}
+
+.app-main {
+  padding-bottom: calc(var(--tab-bar-h) + var(--safe-bottom) + 1.25rem);
+}
+
+@media (min-width: 768px) {
+  .app-main {
+    padding-bottom: 2rem;
+  }
+}
+
+.mobile-tab-bar {
+  padding-bottom: max(0.35rem, var(--safe-bottom));
+  background: color-mix(in srgb, #ffffff 78%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: 0 -8px 28px rgba(10, 10, 10, 0.04);
+}
+
+.tab-press {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.tab-press:active {
+  transform: scale(0.94);
+}
+
+.list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 3.25rem;
+  border-radius: 1.15rem;
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 0.85rem 1rem;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.list-row:active {
+  transform: scale(0.985);
+  background: var(--surface-2);
+}
+
+@media (hover: hover) {
+  .list-row:hover {
+    border-color: color-mix(in srgb, var(--foreground) 18%, var(--border));
+  }
+}
+
+.pb-safe {
+  padding-bottom: var(--safe-bottom);
+}
+
+.pt-safe {
+  padding-top: var(--safe-top);
+}
+
+/* Mobile auth — full-bleed form, less “website card” */
+@media (max-width: 959px) {
+  .auth-panel {
+    align-items: stretch;
+    padding: 0;
+    min-height: 100dvh;
+    min-height: 100svh;
+  }
+
+  .auth-card {
+    max-width: none;
+    min-height: 100dvh;
+    min-height: 100svh;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: calc(1.25rem + var(--safe-top)) 1.35rem calc(1.75rem + var(--safe-bottom));
+  }
 }
