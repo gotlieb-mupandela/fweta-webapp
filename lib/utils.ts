@@ -6,6 +6,10 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatMoney(cents: number, currency = "NAD") {
+  const amount = (cents / 100).toFixed(2);
+  if (currency === "NAD" || currency === "ZAR") {
+    return `N$${amount}`;
+  }
   return new Intl.NumberFormat("en-NA", {
     style: "currency",
     currency,
