@@ -2,15 +2,15 @@ import Link from "next/link";
 
 import { CheckCapsule, Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
-import { getSession, seedDemoAccounts } from "@/lib/auth/session";
+import { getSession } from "@/lib/auth/session";
 
 export default async function MarketingHomePage() {
+  let session: Awaited<ReturnType<typeof getSession>> = null;
   try {
-    await seedDemoAccounts();
+    session = await getSession();
   } catch {
-    // Never block the marketing page on store/seed failures (e.g. cold Vercel).
+    // Keep marketing page online if session/cookies fail on serverless.
   }
-  const session = await getSession();
 
   return (
     <div className="bg-atmosphere min-h-screen">

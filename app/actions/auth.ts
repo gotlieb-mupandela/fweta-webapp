@@ -9,12 +9,14 @@ import {
   getSession,
   getProfileById,
   refreshSessionFromProfile,
+  seedDemoAccounts,
 } from "@/lib/auth/session";
 import { loginSchema, signupSchema } from "@/lib/validations/auth";
 import { updateStore, nowIso } from "@/lib/db/store";
 import type { UserRole } from "@/types/enums";
 
 export async function loginAction(input: { email: string; password: string }) {
+  await seedDemoAccounts().catch(() => undefined);
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: "Invalid email or password." };
   return login(parsed.data);
