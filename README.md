@@ -2,10 +2,12 @@
 
 Creator economy marketplace — brands fund campaigns, influencers set rates, clippers earn per verified view.
 
+**Production:** https://app.fweta.com
+
 ## Stack
 
 - Next.js (App Router) + TypeScript + Tailwind
-- Local file store (`data/store.json`) + cookie auth for MVP
+- Local file store (`data/store.json` locally, `/tmp` on Vercel) + cookie auth for MVP
 - Zod validation + server actions
 - Design: white / black / gold · Instrument Serif + DM Sans
 
