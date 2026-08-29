@@ -11,9 +11,9 @@ import {
 
 /**
  * Local dev: file store at data/store.json (+ in-memory cache).
- * Vercel/production: set SUPABASE_SERVICE_ROLE_KEY to persist the shared JSON store
- * in Supabase (see supabase/migrations/20260829140000_fweta_app_store.sql).
- * Without it, each serverless instance has isolated /tmp data → 404 after creates.
+ * Vercel/production: set SUPABASE_SERVICE_ROLE_KEY to persist via Supabase.
+ * - Relational tables (fweta_*) when migration 20260829150000 is applied
+ * - JSON backup in fweta_app_store (migration 20260829140000)
  */
 const DATA_DIR =
   process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
