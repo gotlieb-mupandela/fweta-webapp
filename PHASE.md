@@ -2,7 +2,7 @@
 
 This document expands [AGENTS.md](./AGENTS.md) into an actionable build sequence from scaffold through full platform. Each phase lists deliverables, routes, and exit criteria.
 
-**Current stage:** Phases 0–14 implemented for local MVP (file-backed store + cookie auth). Supabase SSR clients are wired. Hosted schema is applied on project `zfblydqwxpcrqczqsfab` (`supabase/migrations`). App data still uses the file store until auth/data migrate.
+**Current stage:** Phases 0–14 implemented. Auth, profiles, campaigns, wallets, and related data persist in Supabase (project `zfblydqwxpcrqczqsfab`). Local file store is no longer used.
 
 ---
 
@@ -11,7 +11,7 @@ This document expands [AGENTS.md](./AGENTS.md) into an actionable build sequence
 | Phase | Name | Goal | Status |
 |-------|------|------|--------|
 | 0 | Scaffold | Next.js, Tailwind, folder structure, dev server | Done |
-| 1 | Auth & Foundation | Auth, roles, profiles, basic dashboards | Done (local auth) |
+| 1 | Auth & Foundation | Auth, roles, profiles, basic dashboards | Done (Supabase Auth) |
 | 2 | Campaigns (Brand) | Campaign CRUD, budget, CPM rules | Done |
 | 3 | Submissions (Clipper) | Submit links, brand review, manual approval | Done |
 | 4 | Wallet & Payouts | Ledger, payout methods, withdrawals, admin queue | Done |
@@ -30,14 +30,14 @@ This document expands [AGENTS.md](./AGENTS.md) into an actionable build sequence
 
 ## Local runtime notes
 
-- **Auth:** Cookie JWT (`fweta_session`) with bcrypt passwords. Demo users seeded on first load (`*@fweta.test` / `password123`).
-- **Data:** File store at `data/store.json` (gitignored). Ledger discipline enforced in `lib/wallet/ledger.ts`.
-- **Jobs:** `POST /api/jobs/poll-views` runs view growth simulation + CPM earnings.
+- **Auth:** Supabase Auth cookies (`@supabase/ssr`). Demo users (`*@fweta.test` / `password123`) are upserted on login via the service role.
+- **Data:** Hosted Postgres (project `zfblydqwxpcrqczqsfab`). `readStore()` loads RLS-filtered rows; writes go through server actions + `adjust_wallet`.
+- **Jobs:** `POST /api/jobs/poll-views` (requires `Authorization: Bearer $JOBS_SECRET`) simulates view growth + CPM earnings.
 - **Booking model:** Request → accept/decline → deliver → brand approve (documented decision: not instant book).
 - **Currency:** NAD (Namibia). Minimum withdrawal N$100.
 - **Design:** fweta marketing language — white / black / gold, Instrument Serif + DM Sans.
 
-When migrating to Supabase: replace `lib/db/store.ts` and `lib/auth/session.ts` with Supabase clients; keep Zod schemas and UI.
+Vercel needs `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `JOBS_SECRET`.
 
 ---
 

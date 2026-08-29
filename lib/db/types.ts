@@ -12,7 +12,7 @@ import type {
 export type Profile = {
   id: string;
   email: string;
-  passwordHash: string;
+  passwordHash?: string;
   displayName: string;
   bio: string;
   avatarUrl: string | null;

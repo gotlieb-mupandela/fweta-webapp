@@ -267,6 +267,7 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 # NEXT_PUBLIC_SUPABASE_ANON_KEY=    # legacy alias
 SUPABASE_SERVICE_ROLE_KEY=          # Server only — never expose
+JOBS_SECRET=                        # Bearer token for POST /api/jobs/poll-views
 TRIGGER_SECRET_KEY=                 # Or INNGEST_* keys
 # Future: social API keys for view polling
 # Future: Stripe/PayFast for brand deposits
@@ -290,7 +291,7 @@ TRIGGER_SECRET_KEY=                 # Or INNGEST_* keys
 
 ## Status
 
-**Current stage:** Local MVP complete across Phases 0–12 (+ stubs for 13–14). File-backed store and cookie auth power the app until Supabase is connected. See **[PHASE.md](./PHASE.md)**.
+**Current stage:** Phases 0–12 on hosted Supabase Auth + Postgres (file store retired). See **[PHASE.md](./PHASE.md)**.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

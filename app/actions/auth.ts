@@ -8,11 +8,10 @@ import {
   signup,
   getSession,
   getProfileById,
-  refreshSessionFromProfile,
   seedDemoAccounts,
 } from "@/lib/auth/session";
+import { createClient } from "@/lib/supabase/server";
 import { loginSchema, signupSchema } from "@/lib/validations/auth";
-import { updateStore, nowIso } from "@/lib/db/store";
 import type { UserRole } from "@/types/enums";
 
 export async function loginAction(input: { email: string; password: string }) {
@@ -45,13 +44,11 @@ export async function switchPrimaryRoleAction(role: UserRole) {
   if (!profile || !profile.roles.includes(role)) {
     return { ok: false as const, error: "Role not enabled on this account." };
   }
-  await updateStore((s) => {
-    const p = s.profiles.find((x) => x.id === session.id);
-    if (!p) return;
-    p.primaryRole = role;
-    p.updatedAt = nowIso();
-  });
-  const updated = await getProfileById(session.id);
-  if (updated) await refreshSessionFromProfile(updated);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ primary_role: role })
+    .eq("id", session.id);
+  if (error) return { ok: false as const, error: error.message };
   return { ok: true as const };
 }

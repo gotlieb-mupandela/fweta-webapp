@@ -3,15 +3,19 @@
 import { revalidatePath } from "next/cache";
 
 import { getSession, requireSession } from "@/lib/auth/session";
+import { createClient } from "@/lib/supabase/server";
 import {
   decryptSecret,
   encryptSecret,
-  newId,
-  nowIso,
-  readStore,
-  updateStore,
 } from "@/lib/db/store";
-import type { PayoutMethod, WithdrawalRequest } from "@/lib/db/types";
+import {
+  mapLedger,
+  mapPayoutMethod,
+  mapWithdrawal,
+  type LedgerRow,
+  type PayoutMethodRow,
+  type WithdrawalRow,
+} from "@/lib/db/mappers";
 import { adjustWallet, getWallet } from "@/lib/wallet/ledger";
 import { payoutMethodSchema } from "@/lib/validations/payout-method";
 import { withdrawalSchema } from "@/lib/validations/withdrawal";
@@ -26,10 +30,13 @@ export async function getMyWallet() {
 
 export async function getMyLedger() {
   const session = await requireSession();
-  const store = await readStore();
-  return store.ledgerEntries
-    .filter((e) => e.userId === session.id)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("ledger_entries")
+    .select("*")
+    .eq("user_id", session.id)
+    .order("created_at", { ascending: false });
+  return ((data ?? []) as LedgerRow[]).map(mapLedger);
 }
 
 export async function adminCreditWalletAction(userId: string, amountCents: number, reason: string) {
@@ -52,41 +59,40 @@ export async function savePayoutMethodAction(raw: unknown) {
   const parsed = payoutMethodSchema.safeParse(raw);
   if (!parsed.success) return { ok: false as const, error: "Invalid bank details." };
 
-  const now = nowIso();
-  await updateStore((s) => {
-    const existing = s.payoutMethods.find((p) => p.userId === session.id);
-    const enc = encryptSecret(parsed.data.accountNumber);
-    if (existing) {
-      existing.bankName = parsed.data.bankName;
-      existing.branchCode = parsed.data.branchCode;
-      existing.accountNumberEnc = enc;
-      existing.accountHolderName = parsed.data.accountHolderName;
-      existing.accountType = parsed.data.accountType;
-      existing.updatedAt = now;
-    } else {
-      const method: PayoutMethod = {
-        id: newId(),
-        userId: session.id,
-        bankName: parsed.data.bankName,
-        branchCode: parsed.data.branchCode,
-        accountNumberEnc: enc,
-        accountHolderName: parsed.data.accountHolderName,
-        accountType: parsed.data.accountType,
-        createdAt: now,
-        updatedAt: now,
-      };
-      s.payoutMethods.push(method);
-    }
-  });
+  const supabase = await createClient();
+  const enc = encryptSecret(parsed.data.accountNumber);
+  const { data: existing } = await supabase
+    .from("payout_methods")
+    .select("id")
+    .eq("user_id", session.id)
+    .maybeSingle();
+
+  const payload = {
+    bank_name: parsed.data.bankName,
+    branch_code: parsed.data.branchCode,
+    account_number_enc: enc,
+    account_holder_name: parsed.data.accountHolderName,
+    account_type: parsed.data.accountType,
+  };
+
+  const { error } = existing
+    ? await supabase.from("payout_methods").update(payload).eq("id", existing.id)
+    : await supabase.from("payout_methods").insert({ user_id: session.id, ...payload });
+  if (error) return { ok: false as const, error: error.message };
   revalidatePath("/dashboard/settings/payout");
   return { ok: true as const };
 }
 
 export async function getMyPayoutMethodMasked() {
   const session = await requireSession();
-  const store = await readStore();
-  const method = store.payoutMethods.find((p) => p.userId === session.id);
-  if (!method) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("payout_methods")
+    .select("*")
+    .eq("user_id", session.id)
+    .maybeSingle();
+  if (!data) return null;
+  const method = mapPayoutMethod(data as PayoutMethodRow);
   let last4 = "****";
   try {
     last4 = maskAccountNumber(decryptSecret(method.accountNumberEnc));
@@ -103,13 +109,17 @@ export async function getMyPayoutMethodMasked() {
   };
 }
 
-/** Admin-only: decrypt for EFT processing — never log. */
 export async function getPayoutMethodForAdmin(userId: string) {
   const session = await requireSession();
   if (!session.roles.includes("admin")) return null;
-  const store = await readStore();
-  const method = store.payoutMethods.find((p) => p.userId === userId);
-  if (!method) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("payout_methods")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!data) return null;
+  const method = mapPayoutMethod(data as PayoutMethodRow);
   return {
     ...method,
     accountNumber: decryptSecret(method.accountNumberEnc),
@@ -124,11 +134,28 @@ export async function requestWithdrawalAction(raw: unknown) {
     return { ok: false as const, error: "Minimum withdrawal is N$100." };
   }
 
-  const store = await readStore();
-  const method = store.payoutMethods.find(
-    (p) => p.id === parsed.data.payoutMethodId && p.userId === session.id,
-  );
+  const supabase = await createClient();
+  const { data: method } = await supabase
+    .from("payout_methods")
+    .select("id")
+    .eq("id", parsed.data.payoutMethodId)
+    .eq("user_id", session.id)
+    .maybeSingle();
   if (!method) return { ok: false as const, error: "Add a payout method first." };
+
+  const { data: req, error: insertError } = await supabase
+    .from("withdrawal_requests")
+    .insert({
+      user_id: session.id,
+      payout_method_id: method.id,
+      amount_cents: parsed.data.amountCents,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+  if (insertError || !req) {
+    return { ok: false as const, error: insertError?.message ?? "Failed." };
+  }
 
   try {
     await adjustWallet({
@@ -138,65 +165,53 @@ export async function requestWithdrawalAction(raw: unknown) {
       type: "debit",
       reason: "Withdrawal requested",
       referenceType: "withdrawal",
+      referenceId: req.id,
     });
   } catch (e) {
+    await supabase.from("withdrawal_requests").delete().eq("id", req.id);
     return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
   }
 
-  const req: WithdrawalRequest = {
-    id: newId(),
-    userId: session.id,
-    payoutMethodId: method.id,
-    amountCents: parsed.data.amountCents,
-    status: "pending",
-    bankReference: null,
-    adminNote: null,
-    createdAt: nowIso(),
-    updatedAt: nowIso(),
-    paidAt: null,
-  };
-
-  await updateStore((s) => {
-    s.withdrawalRequests.push(req);
-    // Patch ledger reference id
-    const entry = [...s.ledgerEntries].reverse().find(
-      (e) => e.userId === session.id && e.referenceType === "withdrawal" && !e.referenceId,
-    );
-    if (entry) entry.referenceId = req.id;
-  });
-
   revalidatePath("/dashboard/settings/withdraw");
   revalidatePath("/dashboard/admin/withdrawals");
-  return { ok: true as const, id: req.id };
+  return { ok: true as const, id: req.id as string };
 }
 
 export async function listMyWithdrawals() {
   const session = await requireSession();
-  const store = await readStore();
-  return store.withdrawalRequests
-    .filter((w) => w.userId === session.id)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("withdrawal_requests")
+    .select("*")
+    .eq("user_id", session.id)
+    .order("created_at", { ascending: false });
+  return ((data ?? []) as WithdrawalRow[]).map(mapWithdrawal);
 }
 
 export async function listPendingWithdrawalsAdmin() {
   const session = await requireSession();
   if (!session.roles.includes("admin")) return [];
-  const store = await readStore();
-  return store.withdrawalRequests
-    .slice()
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("withdrawal_requests")
+    .select("*")
+    .order("created_at", { ascending: false });
+  return ((data ?? []) as WithdrawalRow[]).map(mapWithdrawal);
 }
 
-export async function markWithdrawalPaidAction(
-  id: string,
-  bankReference?: string,
-) {
+export async function markWithdrawalPaidAction(id: string, bankReference?: string) {
   const session = await requireSession();
   if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
 
-  const store = await readStore();
-  const req = store.withdrawalRequests.find((w) => w.id === id);
-  if (!req || req.status === "paid") return { ok: false as const, error: "Not found." };
+  const supabase = await createClient();
+  const { data: row } = await supabase
+    .from("withdrawal_requests")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (!row) return { ok: false as const, error: "Not found." };
+  const req = mapWithdrawal(row as WithdrawalRow);
+  if (req.status === "paid") return { ok: false as const, error: "Not found." };
 
   await adjustWallet({
     userId: req.userId,
@@ -208,14 +223,15 @@ export async function markWithdrawalPaidAction(
     referenceId: req.id,
   });
 
-  await updateStore((s) => {
-    const w = s.withdrawalRequests.find((x) => x.id === id);
-    if (!w) return;
-    w.status = "paid";
-    w.bankReference = bankReference || null;
-    w.paidAt = nowIso();
-    w.updatedAt = nowIso();
-  });
+  const { error } = await supabase
+    .from("withdrawal_requests")
+    .update({
+      status: "paid",
+      bank_reference: bankReference || null,
+      paid_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) return { ok: false as const, error: error.message };
 
   revalidatePath("/dashboard/admin/withdrawals");
   return { ok: true as const };
@@ -224,9 +240,15 @@ export async function markWithdrawalPaidAction(
 export async function rejectWithdrawalAction(id: string, note?: string) {
   const session = await requireSession();
   if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
-  const store = await readStore();
-  const req = store.withdrawalRequests.find((w) => w.id === id);
-  if (!req || req.status !== "pending") return { ok: false as const, error: "Not found." };
+  const supabase = await createClient();
+  const { data: row } = await supabase
+    .from("withdrawal_requests")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (!row) return { ok: false as const, error: "Not found." };
+  const req = mapWithdrawal(row as WithdrawalRow);
+  if (req.status !== "pending") return { ok: false as const, error: "Not found." };
 
   await adjustWallet({
     userId: req.userId,
@@ -238,13 +260,11 @@ export async function rejectWithdrawalAction(id: string, note?: string) {
     referenceId: req.id,
   });
 
-  await updateStore((s) => {
-    const w = s.withdrawalRequests.find((x) => x.id === id);
-    if (!w) return;
-    w.status = "rejected";
-    w.adminNote = note || null;
-    w.updatedAt = nowIso();
-  });
+  const { error } = await supabase
+    .from("withdrawal_requests")
+    .update({ status: "rejected", admin_note: note || null })
+    .eq("id", id);
+  if (error) return { ok: false as const, error: error.message };
 
   revalidatePath("/dashboard/admin/withdrawals");
   return { ok: true as const };
@@ -255,17 +275,18 @@ export async function brandDepositAction(amountCents: number, note?: string) {
   if (!session.roles.includes("brand")) return { ok: false as const, error: "Brand only." };
   if (amountCents <= 0) return { ok: false as const, error: "Invalid amount." };
 
-  const id = newId();
-  await updateStore((s) => {
-    s.brandDeposits.push({
-      id,
-      brandId: session.id,
-      amountCents,
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("brand_deposits")
+    .insert({
+      brand_id: session.id,
+      amount_cents: amountCents,
       note: note || "Manual deposit (v1)",
       status: "credited",
-      createdAt: nowIso(),
-    });
-  });
+    })
+    .select("id")
+    .single();
+  if (error || !data) return { ok: false as const, error: error?.message ?? "Failed." };
 
   await adjustWallet({
     userId: session.id,
@@ -273,14 +294,13 @@ export async function brandDepositAction(amountCents: number, note?: string) {
     type: "credit",
     reason: note || "Brand deposit (manual)",
     referenceType: "brand_deposit",
-    referenceId: id,
+    referenceId: data.id,
   });
 
   revalidatePath("/dashboard/brand/deposits");
   return { ok: true as const };
 }
 
-/** Safe: never expose bank details in this helper used by pages. */
 export async function currentUserId() {
   const session = await getSession();
   return session?.id ?? null;

@@ -1,27 +1,42 @@
-import { encryptSecret, decryptSecret, newId, nowIso, updateStore, readStore } from "@/lib/db/store";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { encryptSecret, decryptSecret } from "@/lib/db/store";
 import type { LedgerEntry, Wallet } from "@/lib/db/types";
+import { mapWallet, type WalletRow } from "@/lib/db/mappers";
 
-function getOrCreateWallet(store: { wallets: Wallet[] }, userId: string): Wallet {
-  let wallet = store.wallets.find((w) => w.userId === userId);
-  if (!wallet) {
-    wallet = {
+export async function getWallet(userId: string): Promise<Wallet> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("wallets")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (data) return mapWallet(data as WalletRow);
+
+  try {
+    const admin = createAdminClient();
+    const { data: created, error } = await admin
+      .from("wallets")
+      .upsert({ user_id: userId, available_cents: 0, pending_cents: 0 })
+      .select("*")
+      .single();
+    if (error || !created) {
+      return {
+        userId,
+        availableCents: 0,
+        pendingCents: 0,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    return mapWallet(created as WalletRow);
+  } catch {
+    return {
       userId,
       availableCents: 0,
       pendingCents: 0,
-      updatedAt: nowIso(),
+      updatedAt: new Date().toISOString(),
     };
-    store.wallets.push(wallet);
   }
-  return wallet;
-}
-
-export async function getWallet(userId: string): Promise<Wallet> {
-  const store = await readStore();
-  const existing = store.wallets.find((w) => w.userId === userId);
-  if (existing) return existing;
-  return updateStore((s) => {
-    getOrCreateWallet(s, userId);
-  }).then((s) => s.wallets.find((w) => w.userId === userId)!);
 }
 
 export async function adjustWallet(params: {
@@ -32,41 +47,33 @@ export async function adjustWallet(params: {
   reason: string;
   referenceType: LedgerEntry["referenceType"];
   referenceId?: string | null;
+  admin?: boolean;
 }): Promise<{ wallet: Wallet; entry: LedgerEntry }> {
-  let result!: { wallet: Wallet; entry: LedgerEntry };
-
-  await updateStore((store) => {
-    const wallet = getOrCreateWallet(store, params.userId);
-    const pendingDelta = params.pendingDelta ?? 0;
-
-    if (wallet.availableCents + params.availableDelta < 0) {
-      throw new Error("Insufficient available balance.");
-    }
-    if (wallet.pendingCents + pendingDelta < 0) {
-      throw new Error("Insufficient pending balance.");
-    }
-
-    wallet.availableCents += params.availableDelta;
-    wallet.pendingCents += pendingDelta;
-    wallet.updatedAt = nowIso();
-
-    const entry: LedgerEntry = {
-      id: newId(),
-      userId: params.userId,
-      amountCents: Math.abs(params.availableDelta || pendingDelta),
-      type: params.type,
-      reason: params.reason,
-      referenceType: params.referenceType,
-      referenceId: params.referenceId ?? null,
-      balanceAfterAvailableCents: wallet.availableCents,
-      balanceAfterPendingCents: wallet.pendingCents,
-      createdAt: nowIso(),
-    };
-    store.ledgerEntries.push(entry);
-    result = { wallet: { ...wallet }, entry };
+  const client = params.admin ? createAdminClient() : await createClient();
+  const { data, error } = await client.rpc("adjust_wallet", {
+    p_user_id: params.userId,
+    p_available_delta: params.availableDelta,
+    p_pending_delta: params.pendingDelta ?? 0,
+    p_type: params.type,
+    p_reason: params.reason,
+    p_reference_type: params.referenceType,
+    p_reference_id: params.referenceId ?? null,
   });
-
-  return result;
+  if (error) {
+    throw new Error(error.message);
+  }
+  const payload = data as {
+    wallet: Wallet;
+    entry: LedgerEntry & { createdAt?: string };
+  };
+  return {
+    wallet: payload.wallet,
+    entry: {
+      ...payload.entry,
+      createdAt: payload.entry.createdAt ?? new Date().toISOString(),
+      referenceId: payload.entry.referenceId ?? params.referenceId ?? null,
+    },
+  };
 }
 
-export { encryptSecret, decryptSecret, getOrCreateWallet };
+export { encryptSecret, decryptSecret };

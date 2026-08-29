@@ -31,10 +31,9 @@ export async function updateSession(request: NextRequest) {
   });
 
   // Do not run code between createServerClient and getClaims().
-  // Removing this call can log users out at random during SSR.
-  await supabase.auth.getClaims();
+  const { data } = await supabase.auth.getClaims();
 
-  return supabaseResponse;
+  return { response: supabaseResponse, userId: data?.claims?.sub ?? null };
 }
 
 export const createClient = (request: NextRequest) => {
