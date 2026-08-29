@@ -127,7 +127,6 @@ export async function addRateCardAction(raw: unknown) {
 }
 
 export async function toggleRateCardAction(id: string, active: boolean) {
-  const session = await requireSession();
   const profile = await getMyInfluencerProfile();
   if (!profile) return { ok: false as const, error: "Not found." };
   const supabase = await createClient();

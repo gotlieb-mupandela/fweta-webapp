@@ -1,9 +1,6 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
-import {
-  getSupabasePublishableKey,
-  getSupabaseUrl,
-} from "@/lib/supabase/env";
+import { getSupabaseUrl } from "@/lib/supabase/env";
 
 export function getServiceRoleKey() {
   return process.env.SUPABASE_SERVICE_ROLE_KEY;

@@ -135,7 +135,7 @@ export async function logout() {
   await supabase.auth.signOut();
 }
 
-export async function refreshSessionFromProfile(_profile: Profile) {
+export async function refreshSessionFromProfile() {
   // Session is derived from the profiles row on each request.
 }
 
