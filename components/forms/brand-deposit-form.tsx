@@ -17,7 +17,8 @@ export function BrandDepositForm() {
       className="max-w-md space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        const fd = new FormData(e.currentTarget);
+        const form = e.currentTarget;
+        const fd = new FormData(form);
         const amount = parseFloat(String(fd.get("amount") || ""));
         if (Number.isNaN(amount) || amount <= 0) {
           setError("Enter a valid amount.");
@@ -31,7 +32,7 @@ export function BrandDepositForm() {
           );
           if (!res.ok) setError(res.error);
           else {
-            e.currentTarget.reset();
+            form.reset();
             router.refresh();
           }
         });

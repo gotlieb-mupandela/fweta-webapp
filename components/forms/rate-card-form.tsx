@@ -17,7 +17,8 @@ export function RateCardForm() {
       className="space-y-4 rounded-3xl border border-border bg-white p-5"
       onSubmit={(e) => {
         e.preventDefault();
-        const fd = new FormData(e.currentTarget);
+        const form = e.currentTarget;
+        const fd = new FormData(form);
         const price = parseFloat(String(fd.get("price") || ""));
         if (Number.isNaN(price) || price <= 0) {
           setError("Enter a valid price.");
@@ -34,7 +35,7 @@ export function RateCardForm() {
           });
           if (!res.ok) setError(res.error);
           else {
-            e.currentTarget.reset();
+            form.reset();
             router.refresh();
           }
         });

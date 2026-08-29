@@ -16,7 +16,8 @@ export function PasswordChangeForm() {
       className="max-w-md space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        const fd = new FormData(e.currentTarget);
+        const form = e.currentTarget;
+        const fd = new FormData(form);
         setError(null);
         setSuccess(false);
         startTransition(async () => {
@@ -28,7 +29,7 @@ export function PasswordChangeForm() {
           if (!res.ok) setError(res.error);
           else {
             setSuccess(true);
-            e.currentTarget.reset();
+            form.reset();
           }
         });
       }}
