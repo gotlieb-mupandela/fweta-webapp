@@ -21,8 +21,8 @@ export const metadata: Metadata = {
     default: "fweta",
     template: "%s · fweta",
   },
-  description:
-    "Fweta connects African creators, businesses, and consumers through verified campaigns and transparent payouts.",
+  description: "fweta workspace — campaigns, bookings, and payouts.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://app.fweta.com"),
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

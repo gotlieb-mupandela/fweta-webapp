@@ -1,15 +1,17 @@
-# fweta
+# fweta app
 
-Creator economy marketplace — brands fund campaigns, influencers set rates, clippers earn per verified view.
+Product workspace for campaigns, influencer bookings, and payouts.
 
-**Production:** https://app.fweta.com
+**Production:** https://app.fweta.com  
+**Marketing site:** https://fweta.com (separate repo)
+
+This app starts at **auth** (`/` → login or dashboard). It is not the marketing landing page.
 
 ## Stack
 
 - Next.js (App Router) + TypeScript + Tailwind
-- Local file store (`data/store.json` locally, `/tmp` on Vercel) + cookie auth for MVP
+- File/memory store locally & on Vercel (`/tmp`) + cookie auth for MVP
 - Zod validation + server actions
-- Design: white / black / gold · Instrument Serif + DM Sans
 
 ## Quick start
 
@@ -17,8 +19,6 @@ Creator economy marketplace — brands fund campaigns, influencers set rates, cl
 npm install
 npm run dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000).
 
 ### Demo accounts
 
@@ -30,14 +30,6 @@ Password for all: `password123`
 | creator@fweta.test | Influencer + Clipper |
 | clipper@fweta.test | Clipper |
 | admin@fweta.test | Admin |
-
-### Jobs
-
-```bash
-curl -X POST http://localhost:3000/api/jobs/poll-views
-```
-
-Simulates view growth on approved submissions and credits CPM earnings via the ledger.
 
 ## Docs
 

@@ -2,9 +2,17 @@ import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 
-export function Logo({ className, href = "/" }: { className?: string; href?: string }) {
-  return (
-    <Link href={href} className={cn("inline-flex items-center gap-2", className)}>
+export function Logo({
+  className,
+  href = "/login",
+  light = false,
+}: {
+  className?: string;
+  href?: string;
+  light?: boolean;
+}) {
+  const content = (
+    <>
       <span
         aria-hidden
         className="font-display text-[1.65rem] italic leading-none text-gold"
@@ -12,9 +20,31 @@ export function Logo({ className, href = "/" }: { className?: string; href?: str
       >
         f
       </span>
-      <span className="text-[1.05rem] font-semibold tracking-tight text-foreground">
+      <span
+        className={cn(
+          "text-[1.05rem] font-semibold tracking-tight",
+          light ? "text-white" : "text-foreground",
+        )}
+      >
         fweta
       </span>
+    </>
+  );
+
+  const classes = cn("inline-flex items-center gap-2", className);
+  const external = href.startsWith("http");
+
+  if (external) {
+    return (
+      <a href={href} className={classes}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={href} className={classes}>
+      {content}
     </Link>
   );
 }

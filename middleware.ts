@@ -10,6 +10,24 @@ const protectedPrefixes = ["/dashboard"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Product app entry — no marketing landing here (lives on fweta.com)
+  if (pathname === "/") {
+    const token = request.cookies.get(COOKIE_NAME)?.value;
+    const url = request.nextUrl.clone();
+    if (token) {
+      try {
+        await jwtVerify(token, AUTH_SECRET);
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+      } catch {
+        // fall through to login
+      }
+    }
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
   const needsAuth = protectedPrefixes.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
@@ -40,5 +58,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/", "/dashboard/:path*"],
 };

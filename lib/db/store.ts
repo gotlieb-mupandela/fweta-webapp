@@ -31,7 +31,7 @@ const emptyStore = (): DatabaseStore => ({
 });
 
 declare global {
-  // eslint-disable-next-line no-var
+  // Persist store across hot reloads / warm serverless instances
   var __fwetaStore: DatabaseStore | undefined;
 }
 
