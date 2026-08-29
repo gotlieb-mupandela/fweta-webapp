@@ -64,16 +64,24 @@ async function persist(store: DatabaseStore) {
 }
 
 async function ensureStore(): Promise<DatabaseStore> {
-  if (isSupabaseStoreEnabled()) {
-    const fromRemote = await loadStoreFromSupabase();
-    const store = fromRemote ?? emptyStore();
-    globalThis.__fwetaStore = store;
-    return store;
-  }
-
   if (globalThis.__fwetaStore) {
     return globalThis.__fwetaStore;
   }
+
+  if (isSupabaseStoreEnabled()) {
+    try {
+      const fromRemote = await loadStoreFromSupabase();
+      const store = fromRemote ?? emptyStore();
+      globalThis.__fwetaStore = store;
+      return store;
+    } catch (err) {
+      console.warn("[fweta] ensureStore supabase failed:", err instanceof Error ? err.message : err);
+      const store = emptyStore();
+      globalThis.__fwetaStore = store;
+      return store;
+    }
+  }
+
   const fromDisk = await loadFromDisk();
   const store = fromDisk ?? emptyStore();
   globalThis.__fwetaStore = store;
@@ -96,7 +104,11 @@ export async function updateStore(
     globalThis.__fwetaStore = store;
 
     if (isSupabaseStoreEnabled()) {
-      await saveStoreToSupabase(store);
+      try {
+        await saveStoreToSupabase(store);
+      } catch (err) {
+        console.warn("[fweta] supabase save failed:", err instanceof Error ? err.message : err);
+      }
       return;
     }
 

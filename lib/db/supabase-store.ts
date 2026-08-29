@@ -35,9 +35,20 @@ function createServiceClient() {
   });
 }
 
-function normalizeStore(raw: unknown): DatabaseStore | null {
+export function normalizeStore(raw: unknown): DatabaseStore | null {
   if (!raw || typeof raw !== "object") return null;
-  return { ...emptyStore(), ...(raw as DatabaseStore) };
+  const base = emptyStore();
+  const input = raw as Record<string, unknown>;
+  const store = { ...base, ...input } as DatabaseStore;
+
+  // Supabase JSON may contain null arrays — coerce so .filter/.map never throw.
+  (Object.keys(base) as (keyof DatabaseStore)[]).forEach((key) => {
+    if (!Array.isArray(store[key])) {
+      (store as Record<string, unknown>)[key] = [];
+    }
+  });
+
+  return store;
 }
 
 function hasData(store: DatabaseStore): boolean {
@@ -49,6 +60,7 @@ function hasData(store: DatabaseStore): boolean {
 }
 
 async function loadJsonBlob(): Promise<DatabaseStore | null> {
+  try {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("fweta_app_store")
@@ -58,9 +70,14 @@ async function loadJsonBlob(): Promise<DatabaseStore | null> {
 
   if (error || !data?.data) return null;
   return normalizeStore(data.data);
+  } catch (err) {
+    console.warn("[fweta] JSON blob load failed:", err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 async function saveJsonBlob(store: DatabaseStore): Promise<boolean> {
+  try {
   const supabase = createServiceClient();
   const { error } = await supabase.from("fweta_app_store").upsert(
     {
@@ -75,9 +92,14 @@ async function saveJsonBlob(store: DatabaseStore): Promise<boolean> {
     return false;
   }
   return true;
+  } catch (err) {
+    console.warn("[fweta] JSON blob save failed:", err instanceof Error ? err.message : err);
+    return false;
+  }
 }
 
 async function loadRelationalStore(): Promise<DatabaseStore | null> {
+  try {
   const supabase = createServiceClient();
   const { data, error } = await supabase.rpc("fweta_load_store");
 
@@ -89,9 +111,14 @@ async function loadRelationalStore(): Promise<DatabaseStore | null> {
   }
 
   return normalizeStore(data);
+  } catch (err) {
+    console.warn("[fweta] Relational load failed:", err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 async function saveRelationalStore(store: DatabaseStore): Promise<boolean> {
+  try {
   const supabase = createServiceClient();
   const { error } = await supabase.rpc("fweta_save_store", { payload: store });
 
@@ -102,26 +129,39 @@ async function saveRelationalStore(store: DatabaseStore): Promise<boolean> {
     return false;
   }
   return true;
+  } catch (err) {
+    console.warn("[fweta] Relational save failed:", err instanceof Error ? err.message : err);
+    return false;
+  }
 }
 
 export async function loadStoreFromSupabase(): Promise<DatabaseStore | null> {
-  const relational = await loadRelationalStore();
-  if (relational && hasData(relational)) {
-    return relational;
-  }
+  try {
+    const relational = await loadRelationalStore();
+    if (relational && hasData(relational)) {
+      return relational;
+    }
 
-  const jsonBlob = await loadJsonBlob();
-  if (jsonBlob && hasData(jsonBlob)) {
-    // Migrate legacy JSON blob → relational tables when schema exists
-    await saveRelationalStore(jsonBlob).catch(() => undefined);
-    return jsonBlob;
-  }
+    const jsonBlob = await loadJsonBlob();
+    if (jsonBlob && hasData(jsonBlob)) {
+      // Migrate legacy JSON blob → relational tables when schema exists
+      await saveRelationalStore(jsonBlob).catch(() => undefined);
+      return jsonBlob;
+    }
 
-  return relational ?? jsonBlob;
+    return relational ?? jsonBlob;
+  } catch (err) {
+    console.warn("[fweta] loadStoreFromSupabase failed:", err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 export async function saveStoreToSupabase(store: DatabaseStore): Promise<boolean> {
-  const relationalOk = await saveRelationalStore(store);
+  // JSON blob upsert is safe; relational save deletes all rows first and can wipe data on failure.
   const jsonOk = await saveJsonBlob(store);
-  return relationalOk || jsonOk;
+  if (process.env.FWETA_RELATIONAL_SYNC === "true") {
+    const relationalOk = await saveRelationalStore(store);
+    return jsonOk || relationalOk;
+  }
+  return jsonOk;
 }

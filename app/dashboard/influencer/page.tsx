@@ -31,9 +31,14 @@ export default async function InfluencerDashboardPage() {
         title="Influencer overview"
         description="Manage your rate card, bookings, and earnings."
         action={
-          <Link href="/dashboard/influencer/profile">
-            <Button variant="secondary">Edit profile</Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/dashboard/settings/withdraw">
+              <Button variant="secondary">Withdraw</Button>
+            </Link>
+            <Link href="/dashboard/influencer/profile">
+              <Button>Edit profile</Button>
+            </Link>
+          </div>
         }
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

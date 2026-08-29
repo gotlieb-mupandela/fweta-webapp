@@ -252,22 +252,41 @@ const DEMO_ACCOUNTS: Array<Omit<Profile, "passwordHash" | "id">> = [
 
 let seedInFlight: Promise<{ seeded: boolean }> | null = null;
 
+/** Precomputed bcrypt hash for demo password `password123` — avoids hashing on every cold start. */
+const DEMO_PASSWORD_HASH = "$2b$10$zG4dij3FDqNB0B41xbteQ.MqWV4oXM5XqSmLk96dYyuha0hGOxirW";
+
 async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
   try {
-    const passwordHash = await bcrypt.hash("password123", 10);
+    const existing = await readStore();
+    const seen = new Set<string>();
+    const deduped = existing.profiles.filter((p) => {
+      const email = p.email.trim().toLowerCase();
+      if (seen.has(email)) return false;
+      seen.add(email);
+      return true;
+    });
+    const needsDedupe = deduped.length !== existing.profiles.length;
+
+    const missingAccounts = DEMO_ACCOUNTS.filter(
+      (account) =>
+        !existing.profiles.some(
+          (p) => p.email.trim().toLowerCase() === account.email.trim().toLowerCase(),
+        ),
+    );
+
+    if (!needsDedupe && missingAccounts.length === 0) {
+      return { seeded: false };
+    }
+
     const now = nowIso();
     let added = 0;
 
     await updateStore((s) => {
-      const seen = new Set<string>();
-      s.profiles = s.profiles.filter((p) => {
-        const email = p.email.trim().toLowerCase();
-        if (seen.has(email)) return false;
-        seen.add(email);
-        return true;
-      });
+      if (needsDedupe) {
+        s.profiles = deduped;
+      }
 
-      for (const account of DEMO_ACCOUNTS) {
+      for (const account of missingAccounts) {
         const email = account.email.trim().toLowerCase();
         if (s.profiles.some((p) => p.email.trim().toLowerCase() === email)) continue;
 
@@ -277,7 +296,7 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
           email,
           createdAt: now,
           updatedAt: now,
-          passwordHash,
+          passwordHash: DEMO_PASSWORD_HASH,
         };
         s.profiles.push(profile);
         ensureWallet(s, profile.id);
@@ -285,7 +304,7 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
       }
     });
 
-    return { seeded: added > 0 };
+    return { seeded: added > 0 || needsDedupe };
   } catch (err) {
     console.warn("[fweta] seedDemoAccounts failed:", err);
     return { seeded: false };

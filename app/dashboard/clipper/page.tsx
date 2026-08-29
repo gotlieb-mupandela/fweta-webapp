@@ -32,9 +32,14 @@ export default async function ClipperDashboardPage() {
         title="Clipper overview"
         description="Track submissions, views, and wallet balance."
         action={
-          <Link href="/dashboard/clipper/campaigns">
-            <Button>Browse campaigns</Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/dashboard/settings/withdraw">
+              <Button variant="secondary">Withdraw</Button>
+            </Link>
+            <Link href="/dashboard/clipper/campaigns">
+              <Button>Browse campaigns</Button>
+            </Link>
+          </div>
         }
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

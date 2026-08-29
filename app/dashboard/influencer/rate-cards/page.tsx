@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { listMyRateCards } from "@/app/actions/influencer";
+import { getMyInfluencerProfile, listMyRateCards } from "@/app/actions/influencer";
 import { RateCardForm } from "@/components/forms/rate-card-form";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
@@ -12,11 +13,20 @@ export default async function RateCardsPage() {
     redirect("/dashboard");
   }
 
-  const rates = await listMyRateCards();
+  const [rates, profile] = await Promise.all([listMyRateCards(), getMyInfluencerProfile()]);
 
   return (
     <div>
       <PageHeader title="Rate cards" description="Set your pricing for brand bookings." />
+
+      {!profile ? (
+        <p className="mb-6 text-sm text-muted">
+          <Link href="/dashboard/influencer/profile" className="text-gold hover:underline">
+            Create your public profile
+          </Link>{" "}
+          before adding rate cards.
+        </p>
+      ) : null}
 
       <div className="mb-10">
         <RateCardForm />

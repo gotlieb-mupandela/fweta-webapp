@@ -35,9 +35,14 @@ export default async function BrandDashboardPage() {
         title="Brand overview"
         description="Campaign spend, submission queue, and influencer bookings."
         action={
-          <Link href="/dashboard/brand/campaigns/new">
-            <Button>New campaign</Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/dashboard/brand/deposits">
+              <Button variant="secondary">Deposits</Button>
+            </Link>
+            <Link href="/dashboard/brand/campaigns/new">
+              <Button>New campaign</Button>
+            </Link>
+          </div>
         }
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

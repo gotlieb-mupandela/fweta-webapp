@@ -82,6 +82,7 @@ export type LedgerEntry = {
   referenceType:
     | "admin_credit"
     | "campaign_earning"
+    | "campaign_fund"
     | "withdrawal"
     | "booking_escrow"
     | "booking_release"
