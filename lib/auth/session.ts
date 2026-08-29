@@ -199,7 +199,7 @@ export async function seedDemoAccounts() {
         if (error && !/already|registered/i.test(error.message)) {
           console.warn("[fweta] seed user failed:", account.email, error.message);
         }
-        user = data?.user;
+        user = data?.user ?? undefined;
         if (!user) {
           const { data: retry } = await admin.auth.admin.listUsers({ perPage: 200 });
           user = retry?.users.find(
