@@ -5,13 +5,11 @@ import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 
 import { readStore, updateStore, newId, nowIso } from "@/lib/db/store";
+import { getAuthSecretKey } from "@/lib/auth/secret";
 import type { Profile, Wallet } from "@/lib/db/types";
 import type { UserRole } from "@/types/enums";
 
 const COOKIE_NAME = "fweta_session";
-const AUTH_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "fweta-local-dev-secret-change-me",
-);
 
 export type SessionUser = {
   id: string;
@@ -32,7 +30,7 @@ async function signSession(user: SessionUser) {
     .setSubject(user.id)
     .setIssuedAt()
     .setExpirationTime("14d")
-    .sign(AUTH_SECRET);
+    .sign(getAuthSecretKey());
 }
 
 async function setSessionCookie(token: string) {
@@ -55,8 +53,11 @@ export async function getSession(): Promise<SessionUser | null> {
   const jar = await cookies();
   const token = jar.get(COOKIE_NAME)?.value;
   if (!token) return null;
+  // Resolved outside try: a missing prod secret must throw loudly,
+  // never masquerade as "logged out".
+  const key = getAuthSecretKey();
   try {
-    const { payload } = await jwtVerify(token, AUTH_SECRET);
+    const { payload } = await jwtVerify(token, key);
     if (!payload.sub || typeof payload.email !== "string") return null;
     return {
       id: payload.sub,
@@ -136,10 +137,19 @@ export async function signup(input: {
     suspended: false,
   };
 
-  await updateStore((s) => {
-    s.profiles.push(profile);
-    ensureWallet(s, profile.id);
-  });
+  // Atomic duplicate check + insert: two concurrent signups for the same
+  // email previously both passed the pre-check and created duplicates.
+  try {
+    await updateStore((s) => {
+      if (s.profiles.some((p) => p.email === email)) {
+        throw new Error("An account with this email already exists.");
+      }
+      s.profiles.push(profile);
+      ensureWallet(s, profile.id);
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Signup failed." };
+  }
 
   const token = await signSession({
     id: profile.id,

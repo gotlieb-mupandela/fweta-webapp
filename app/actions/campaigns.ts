@@ -3,13 +3,15 @@
 import { revalidatePath } from "next/cache";
 
 import { getSession, requireSession } from "@/lib/auth/session";
-import { fundCampaignFromWallet } from "@/lib/campaigns/fund";
+import { isCampaignFunded } from "@/lib/campaigns/fund";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { Campaign } from "@/lib/db/types";
 import {
   campaignCreateSchema,
   campaignUpdateSchema,
 } from "@/lib/validations/campaign";
+import { applyWalletDelta } from "@/lib/wallet/ledger";
+import { formatMoney } from "@/lib/utils";
 import type { CampaignStatus } from "@/types/enums";
 
 function assertBrand(roles: string[]) {
@@ -59,22 +61,30 @@ export async function createCampaignAction(raw: unknown) {
     updatedAt: now,
   };
 
-  await updateStore((s) => {
-    s.campaigns.push(campaign);
-  });
-
-  if (campaign.status === "active") {
-    const funded = await fundCampaignFromWallet({
-      brandId: session.id,
-      campaignId: campaign.id,
-      budgetCents: campaign.budgetTotalCents,
+  // Atomic: create + fund in one write so a crash can't leave an
+  // unfunded "active" campaign or orphan a wallet debit.
+  try {
+    await updateStore((s) => {
+      s.campaigns.push(campaign);
+      if (campaign.status === "active" && !isCampaignFunded(s, campaign.id)) {
+        const wallet = s.wallets.find((w) => w.userId === session.id);
+        if (!wallet || wallet.availableCents < campaign.budgetTotalCents) {
+          throw new Error(
+            `Insufficient wallet balance. You need ${formatMoney(campaign.budgetTotalCents)} available — record a deposit first.`,
+          );
+        }
+        applyWalletDelta(s, {
+          userId: session.id,
+          availableDelta: -campaign.budgetTotalCents,
+          type: "debit",
+          reason: "Campaign budget allocated",
+          referenceType: "campaign_fund",
+          referenceId: campaign.id,
+        });
+      }
     });
-    if (!funded.ok) {
-      await updateStore((s) => {
-        s.campaigns = s.campaigns.filter((c) => c.id !== campaign.id);
-      });
-      return funded;
-    }
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Could not fund campaign." };
   }
 
   revalidatePath("/dashboard/brand/campaigns");
@@ -106,28 +116,37 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
   const session = await requireSession();
   if (!assertBrand(session.roles)) return { ok: false as const, error: "Brand role required." };
 
-  const store = await readStore();
-  const campaign = store.campaigns.find((c) => c.id === id);
-  if (!campaign) return { ok: false as const, error: "Campaign not found." };
-  if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
-    return { ok: false as const, error: "Not allowed." };
-  }
-
-  if (status === "active") {
-    const funded = await fundCampaignFromWallet({
-      brandId: campaign.brandId,
-      campaignId: campaign.id,
-      budgetCents: campaign.budgetTotalCents,
+  try {
+    await updateStore((s) => {
+      const c = s.campaigns.find((x) => x.id === id);
+      if (!c) throw new Error("Campaign not found.");
+      if (c.brandId !== session.id && !session.roles.includes("admin")) {
+        throw new Error("Not allowed.");
+      }
+      // Atomic fund + activate: previously two writes, so a crash could
+      // debit the wallet without flipping status (or vice versa).
+      if (status === "active" && c.status !== "active" && !isCampaignFunded(s, c.id)) {
+        const wallet = s.wallets.find((w) => w.userId === c.brandId);
+        if (!wallet || wallet.availableCents < c.budgetTotalCents) {
+          throw new Error(
+            `Insufficient wallet balance. You need ${formatMoney(c.budgetTotalCents)} available — record a deposit first.`,
+          );
+        }
+        applyWalletDelta(s, {
+          userId: c.brandId,
+          availableDelta: -c.budgetTotalCents,
+          type: "debit",
+          reason: "Campaign budget allocated",
+          referenceType: "campaign_fund",
+          referenceId: c.id,
+        });
+      }
+      c.status = status;
+      c.updatedAt = nowIso();
     });
-    if (!funded.ok) return funded;
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
   }
-
-  await updateStore((s) => {
-    const c = s.campaigns.find((x) => x.id === id);
-    if (!c) return;
-    c.status = status;
-    c.updatedAt = nowIso();
-  });
   revalidatePath(`/dashboard/brand/campaigns/${id}`);
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/brand");

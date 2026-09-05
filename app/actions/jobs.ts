@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import { fetchVideoViewsFromApify, isApifyConfigured } from "@/lib/social/apify";
-import { adjustWallet } from "@/lib/wallet/ledger";
+import { applyWalletDelta } from "@/lib/wallet/ledger";
 
 /**
  * Phase 7 automation — callable via /api/jobs/poll-views or cron.
@@ -14,49 +14,59 @@ export async function pollSubmissionViewsJob() {
   const store = await readStore();
   const approved = store.submissions.filter((s) => s.status === "approved");
   const useApify = isApifyConfigured();
-  let updated = 0;
   let failed = 0;
 
+  // Phase 1: fetch (network-bound, no writes). One bad URL never aborts the job.
+  const pending = new Map<string, number>();
   for (const submission of approved) {
-    const campaign = store.campaigns.find((c) => c.id === submission.campaignId);
-    if (!campaign || campaign.status !== "active") continue;
-    if (campaign.budgetSpentCents >= campaign.budgetTotalCents) continue;
+    try {
+      const campaign = store.campaigns.find((c) => c.id === submission.campaignId);
+      if (!campaign || campaign.status !== "active") continue;
+      if (campaign.budgetSpentCents >= campaign.budgetTotalCents) continue;
 
-    let newViews: number;
-
-    if (useApify) {
-      try {
-        const fetched = await fetchVideoViewsFromApify(submission.postUrl);
-        if (fetched == null) {
+      let newViews: number;
+      if (useApify) {
+        try {
+          const fetched = await fetchVideoViewsFromApify(submission.postUrl);
+          if (fetched == null) {
+            failed += 1;
+            continue;
+          }
+          // Guard against scraper regressions (views should not go backwards).
+          newViews = Math.max(fetched, submission.views);
+        } catch {
           failed += 1;
           continue;
         }
-        newViews = fetched;
-      } catch {
-        failed += 1;
-        continue;
+      } else {
+        const growth = Math.floor(200 + Math.random() * 1800);
+        newViews = submission.views + growth;
       }
-    } else {
-      const growth = Math.floor(200 + Math.random() * 1800);
-      newViews = submission.views + growth;
+
+      if (newViews === submission.views) continue;
+      pending.set(submission.id, newViews);
+    } catch {
+      failed += 1;
     }
+  }
 
-    if (newViews === submission.views) continue;
-
+  // Phase 2: single atomic write for all view updates (was N sequential writes,
+  // each triggering a full Supabase save — slow and timeout-prone).
+  let updated = 0;
+  if (pending.size > 0) {
+    const at = nowIso();
     await updateStore((s) => {
-      s.viewSnapshots.push({
-        id: newId(),
-        submissionId: submission.id,
-        views: newViews,
-        recordedAt: nowIso(),
-      });
-      const sub = s.submissions.find((x) => x.id === submission.id);
-      if (sub) {
-        sub.views = newViews;
-        sub.updatedAt = nowIso();
+      for (const [id, views] of pending) {
+        const sub = s.submissions.find((x) => x.id === id);
+        if (!sub) continue;
+        // Re-check inside the transaction; skip regressions per-record.
+        if (views <= sub.views) continue;
+        s.viewSnapshots.push({ id: newId(), submissionId: id, views, recordedAt: at });
+        sub.views = views;
+        sub.updatedAt = at;
       }
     });
-    updated += 1;
+    updated = pending.size;
   }
 
   const earnings = await recalculateEarningsJob();
@@ -70,44 +80,50 @@ export async function pollSubmissionViewsJob() {
 
 export async function recalculateEarningsJob() {
   const store = await readStore();
+  const ids = store.submissions.filter((s) => s.status === "approved").map((s) => s.id);
   let credited = 0;
 
-  for (const submission of store.submissions.filter((s) => s.status === "approved")) {
-    const campaign = store.campaigns.find((c) => c.id === submission.campaignId);
-    if (!campaign) continue;
+  // Single write per submission (was two: wallet then record). Math is
+  // recomputed inside the transaction from current budget so concurrent
+  // runs can't overspend the campaign.
+  for (const id of ids) {
+    let delta = 0;
+    try {
+      await updateStore((s) => {
+        const sub = s.submissions.find((x) => x.id === id);
+        if (!sub || sub.status !== "approved") return;
+        const camp = s.campaigns.find((c) => c.id === sub.campaignId);
+        if (!camp) return;
 
-    // CPM math: earnings = views / 1000 * cpm, capped per submission and remaining budget
-    const raw = Math.floor((submission.views / 1000) * campaign.cpmCents);
-    const cappedByVideo = Math.min(raw, campaign.maxPayoutPerSubmissionCents);
-    const remainingBudget = campaign.budgetTotalCents - campaign.budgetSpentCents;
-    const targetEarnings = Math.min(cappedByVideo, remainingBudget + submission.earningsCents);
-    const delta = targetEarnings - submission.earningsCents;
-    if (delta <= 0) continue;
+        // CPM math: earnings = views / 1000 * cpm, capped per submission and remaining budget
+        const raw = Math.floor((sub.views / 1000) * camp.cpmCents);
+        const cappedByVideo = Math.min(raw, camp.maxPayoutPerSubmissionCents);
+        const remainingBudget = camp.budgetTotalCents - camp.budgetSpentCents;
+        const targetEarnings = Math.min(cappedByVideo, remainingBudget + sub.earningsCents);
+        const d = targetEarnings - sub.earningsCents;
+        if (d <= 0) return;
 
-    await adjustWallet({
-      userId: submission.clipperId,
-      availableDelta: delta,
-      type: "credit",
-      reason: `Campaign earnings · ${campaign.title}`,
-      referenceType: "campaign_earning",
-      referenceId: submission.id,
-    });
-
-    await updateStore((s) => {
-      const sub = s.submissions.find((x) => x.id === submission.id);
-      const camp = s.campaigns.find((c) => c.id === campaign.id);
-      if (sub) {
+        applyWalletDelta(s, {
+          userId: sub.clipperId,
+          availableDelta: d,
+          type: "credit",
+          reason: `Campaign earnings · ${camp.title}`,
+          referenceType: "campaign_earning",
+          referenceId: sub.id,
+        });
         sub.earningsCents = targetEarnings;
         sub.updatedAt = nowIso();
-      }
-      if (camp) {
-        camp.budgetSpentCents += delta;
+        camp.budgetSpentCents += d;
         if (camp.budgetSpentCents >= camp.budgetTotalCents) {
           camp.status = "completed";
         }
         camp.updatedAt = nowIso();
-      }
-    });
+        delta = d;
+      });
+    } catch {
+      // One bad submission (e.g. wallet invariant) skips; rest still credit.
+      continue;
+    }
     credited += delta;
   }
 

@@ -1,14 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
+import { getAuthSecretKey } from "@/lib/auth/secret";
+
 const COOKIE_NAME = "fweta_session";
-const AUTH_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "fweta-local-dev-secret-change-me",
-);
 
 const protectedPrefixes = ["/dashboard"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Product app entry — no marketing landing here (lives on fweta.com)
@@ -17,11 +16,11 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     if (token) {
       try {
-        await jwtVerify(token, AUTH_SECRET);
+        await jwtVerify(token, getAuthSecretKey());
         url.pathname = "/dashboard";
         return NextResponse.redirect(url);
       } catch {
-        // fall through to login
+        // fall through to login (covers invalid token AND missing prod secret)
       }
     }
     url.pathname = "/login";
@@ -44,8 +43,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Resolved outside try: a missing prod secret must throw loudly (500),
+  // never masquerade as "not logged in" via the redirect below.
+  const key = getAuthSecretKey();
   try {
-    await jwtVerify(token, AUTH_SECRET);
+    await jwtVerify(token, key);
     return NextResponse.next();
   } catch {
     const url = request.nextUrl.clone();

@@ -2,6 +2,8 @@ import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "crypt
 import { promises as fs } from "fs";
 import path from "path";
 
+import { getPayoutSecret } from "@/lib/auth/secret";
+
 import type { DatabaseStore } from "./types";
 import {
   isSupabaseStoreEnabled,
@@ -43,12 +45,37 @@ declare global {
 }
 
 let writeQueue: Promise<void> = Promise.resolve();
+let initPromise: Promise<DatabaseStore> | null = null;
+
+function cloneStore(store: DatabaseStore): DatabaseStore {
+  // Prevent callers mutating the cached store outside updateStore().
+  // Store is small (local MVP) so structuredClone cost is negligible.
+  return structuredClone(store);
+}
 
 async function loadFromDisk(): Promise<DatabaseStore | null> {
+  let raw: string;
   try {
-    const raw = await fs.readFile(STORE_PATH, "utf8");
-    return { ...emptyStore(), ...JSON.parse(raw) } as DatabaseStore;
+    raw = await fs.readFile(STORE_PATH, "utf8");
   } catch {
+    return null;
+  }
+  try {
+    return { ...emptyStore(), ...JSON.parse(raw) } as DatabaseStore;
+  } catch (err) {
+    // Corrupted JSON: back it up instead of silently overwriting and losing data.
+    try {
+      await fs.mkdir(DATA_DIR, { recursive: true });
+      const backup = path.join(DATA_DIR, `store.corrupt-${Date.now()}.json`);
+      await fs.writeFile(backup, raw, "utf8");
+      console.warn(`[fweta] store.json corrupt, backed up to ${backup}`);
+    } catch {
+      // best-effort backup only
+    }
+    console.warn(
+      "[fweta] store.json parse failed, starting empty:",
+      err instanceof Error ? err.message : err,
+    );
     return null;
   }
 }
@@ -56,14 +83,17 @@ async function loadFromDisk(): Promise<DatabaseStore | null> {
 async function persist(store: DatabaseStore) {
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
-    await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2), "utf8");
+    // Atomic write: tmp + rename so a crash never leaves half-written JSON.
+    const tmp = `${STORE_PATH}.${process.pid}.tmp`;
+    await fs.writeFile(tmp, JSON.stringify(store, null, 2), "utf8");
+    await fs.rename(tmp, STORE_PATH);
   } catch (err) {
     // Never crash the request if disk is unavailable — memory store still works.
     console.warn("[fweta] persist skipped:", err instanceof Error ? err.message : err);
   }
 }
 
-async function ensureStore(): Promise<DatabaseStore> {
+async function initStore(): Promise<DatabaseStore> {
   if (globalThis.__fwetaStore) {
     return globalThis.__fwetaStore;
   }
@@ -91,14 +121,29 @@ async function ensureStore(): Promise<DatabaseStore> {
   return store;
 }
 
+async function ensureStore(): Promise<DatabaseStore> {
+  if (globalThis.__fwetaStore) {
+    return globalThis.__fwetaStore;
+  }
+  if (!initPromise) {
+    initPromise = initStore().finally(() => {
+      initPromise = null;
+    });
+  }
+  return initPromise;
+}
+
 export async function readStore(): Promise<DatabaseStore> {
-  return ensureStore();
+  const store = await ensureStore();
+  return cloneStore(store);
 }
 
 export async function updateStore(
   mutator: (store: DatabaseStore) => void | Promise<void>,
 ): Promise<DatabaseStore> {
-  writeQueue = writeQueue.then(async () => {
+  // Chain onto a never-rejected queue: a throwing mutator must not poison
+  // all future writes (previously `writeQueue.then(...)` stayed rejected).
+  const run = writeQueue.catch(() => undefined).then(async () => {
     const store = await ensureStore();
     await mutator(store);
     globalThis.__fwetaStore = store;
@@ -114,17 +159,16 @@ export async function updateStore(
 
     await persist(store);
   });
-  await writeQueue;
+  // Keep the queue healthy for the next caller, but still surface this error.
+  writeQueue = run.catch(() => undefined);
+  await run;
   return ensureStore();
 }
 
 /** Simple reversible encryption for bank details at rest (local MVP). */
 function deriveKey() {
-  const secret =
-    process.env.PAYOUT_ENCRYPTION_KEY ||
-    process.env.AUTH_SECRET ||
-    "fweta-local-dev-secret-change-me";
-  return scryptSync(secret, "fweta-payout-salt", 32);
+  // Same scrypt parameters as before so existing local ciphertext still decrypts.
+  return scryptSync(getPayoutSecret(), "fweta-payout-salt", 32);
 }
 
 export function encryptSecret(plain: string): string {
@@ -137,6 +181,7 @@ export function encryptSecret(plain: string): string {
 
 export function decryptSecret(payload: string): string {
   const buf = Buffer.from(payload, "base64");
+  if (buf.length < 28) throw new Error("Invalid encrypted payload.");
   const iv = buf.subarray(0, 12);
   const tag = buf.subarray(12, 28);
   const data = buf.subarray(28);

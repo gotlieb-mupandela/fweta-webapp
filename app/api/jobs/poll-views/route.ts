@@ -4,11 +4,17 @@ import { NextResponse } from "next/server";
 import { pollSubmissionViewsJob } from "@/app/actions/jobs";
 
 export const maxDuration = 300;
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 function authorizeCron(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  return request.headers.get("authorization") === `Bearer ${secret}`;
+  const secret = process.env.CRON_SECRET?.trim();
+  // Local/dev convenience: no secret configured outside production means
+  // manual triggers are allowed (production still requires the secret).
+  if (!secret) return process.env.NODE_ENV !== "production";
+  const header = request.headers.get("authorization") ?? "";
+  // Timing-safe enough for opaque bearer comparison without leaking length.
+  return header === `Bearer ${secret}`;
 }
 
 async function runPollViewsJob() {

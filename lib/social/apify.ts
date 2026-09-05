@@ -16,6 +16,12 @@ export async function fetchVideoViewsFromApify(postUrl: string): Promise<number 
   if (!token) {
     throw new Error("APIFY_API_TOKEN is not configured");
   }
+  try {
+    const parsed = new URL(postUrl);
+    if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("bad protocol");
+  } catch {
+    throw new Error("Invalid post URL");
+  }
 
   const actorId = process.env.APIFY_ACTOR_ID ?? DEFAULT_ACTOR;
   const endpoint = new URL(
@@ -24,15 +30,30 @@ export async function fetchVideoViewsFromApify(postUrl: string): Promise<number 
   endpoint.searchParams.set("token", token);
   endpoint.searchParams.set("timeout", "120");
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      video_url: postUrl,
-      video_quality: "metadata",
-      max_comments: 0,
-    }),
-  });
+  // Bound the upstream call: without this a hung Apify run can hold the
+  // cron/job slot until Vercel kills it at maxDuration.
+  const controller = new AbortController();
+  const timeoutMs = Number(process.env.APIFY_TIMEOUT_MS ?? 30000);
+  const timer = setTimeout(() => controller.abort(), Number.isFinite(timeoutMs) ? timeoutMs : 30000);
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        video_url: postUrl,
+        video_quality: "metadata",
+        max_comments: 0,
+      }),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    throw new Error(
+      e instanceof Error && e.name === "AbortError" ? "Apify request timed out" : "Apify request failed",
+    );
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!response.ok) {
     const detail = await response.text();

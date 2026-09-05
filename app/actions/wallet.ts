@@ -12,7 +12,7 @@ import {
   updateStore,
 } from "@/lib/db/store";
 import type { PayoutMethod, WithdrawalRequest } from "@/lib/db/types";
-import { adjustWallet, getWallet } from "@/lib/wallet/ledger";
+import { adjustWallet, applyWalletDelta, getWallet } from "@/lib/wallet/ledger";
 import { payoutMethodSchema } from "@/lib/validations/payout-method";
 import { withdrawalSchema } from "@/lib/validations/withdrawal";
 import { maskAccountNumber } from "@/lib/utils";
@@ -110,10 +110,14 @@ export async function getPayoutMethodForAdmin(userId: string) {
   const store = await readStore();
   const method = store.payoutMethods.find((p) => p.userId === userId);
   if (!method) return null;
-  return {
-    ...method,
-    accountNumber: decryptSecret(method.accountNumberEnc),
-  };
+  try {
+    return {
+      ...method,
+      accountNumber: decryptSecret(method.accountNumberEnc),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function requestWithdrawalAction(raw: unknown) {
@@ -130,19 +134,6 @@ export async function requestWithdrawalAction(raw: unknown) {
   );
   if (!method) return { ok: false as const, error: "Add a payout method first." };
 
-  try {
-    await adjustWallet({
-      userId: session.id,
-      availableDelta: -parsed.data.amountCents,
-      pendingDelta: parsed.data.amountCents,
-      type: "debit",
-      reason: "Withdrawal requested",
-      referenceType: "withdrawal",
-    });
-  } catch (e) {
-    return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
-  }
-
   const req: WithdrawalRequest = {
     id: newId(),
     userId: session.id,
@@ -156,14 +147,24 @@ export async function requestWithdrawalAction(raw: unknown) {
     paidAt: null,
   };
 
-  await updateStore((s) => {
-    s.withdrawalRequests.push(req);
-    // Patch ledger reference id
-    const entry = [...s.ledgerEntries].reverse().find(
-      (e) => e.userId === session.id && e.referenceType === "withdrawal" && !e.referenceId,
-    );
-    if (entry) entry.referenceId = req.id;
-  });
+  // Atomic: wallet move + withdrawal record + ledger link in one write.
+  try {
+    await updateStore((s) => {
+      const { entry } = applyWalletDelta(s, {
+        userId: session.id,
+        availableDelta: -parsed.data.amountCents,
+        pendingDelta: parsed.data.amountCents,
+        type: "debit",
+        reason: "Withdrawal requested",
+        referenceType: "withdrawal",
+        referenceId: req.id,
+      });
+      entry.referenceId = req.id;
+      s.withdrawalRequests.push(req);
+    });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
+  }
 
   revalidatePath("/dashboard/settings/withdraw");
   revalidatePath("/dashboard/admin/withdrawals");
@@ -197,25 +198,29 @@ export async function markWithdrawalPaidAction(
   const store = await readStore();
   const req = store.withdrawalRequests.find((w) => w.id === id);
   if (!req || req.status === "paid") return { ok: false as const, error: "Not found." };
+  if (req.status !== "pending") return { ok: false as const, error: "Already handled." };
 
-  await adjustWallet({
-    userId: req.userId,
-    availableDelta: 0,
-    pendingDelta: -req.amountCents,
-    type: "debit",
-    reason: "Withdrawal paid via EFT",
-    referenceType: "withdrawal",
-    referenceId: req.id,
-  });
-
-  await updateStore((s) => {
-    const w = s.withdrawalRequests.find((x) => x.id === id);
-    if (!w) return;
-    w.status = "paid";
-    w.bankReference = bankReference || null;
-    w.paidAt = nowIso();
-    w.updatedAt = nowIso();
-  });
+  try {
+    await updateStore((s) => {
+      applyWalletDelta(s, {
+        userId: req.userId,
+        availableDelta: 0,
+        pendingDelta: -req.amountCents,
+        type: "debit",
+        reason: "Withdrawal paid via EFT",
+        referenceType: "withdrawal",
+        referenceId: req.id,
+      });
+      const w = s.withdrawalRequests.find((x) => x.id === id);
+      if (!w) throw new Error("Withdrawal not found.");
+      w.status = "paid";
+      w.bankReference = bankReference || null;
+      w.paidAt = nowIso();
+      w.updatedAt = nowIso();
+    });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
+  }
 
   revalidatePath("/dashboard/admin/withdrawals");
   return { ok: true as const };
@@ -228,23 +233,26 @@ export async function rejectWithdrawalAction(id: string, note?: string) {
   const req = store.withdrawalRequests.find((w) => w.id === id);
   if (!req || req.status !== "pending") return { ok: false as const, error: "Not found." };
 
-  await adjustWallet({
-    userId: req.userId,
-    availableDelta: req.amountCents,
-    pendingDelta: -req.amountCents,
-    type: "credit",
-    reason: "Withdrawal rejected — funds restored",
-    referenceType: "withdrawal",
-    referenceId: req.id,
-  });
-
-  await updateStore((s) => {
-    const w = s.withdrawalRequests.find((x) => x.id === id);
-    if (!w) return;
-    w.status = "rejected";
-    w.adminNote = note || null;
-    w.updatedAt = nowIso();
-  });
+  try {
+    await updateStore((s) => {
+      applyWalletDelta(s, {
+        userId: req.userId,
+        availableDelta: req.amountCents,
+        pendingDelta: -req.amountCents,
+        type: "credit",
+        reason: "Withdrawal rejected — funds restored",
+        referenceType: "withdrawal",
+        referenceId: req.id,
+      });
+      const w = s.withdrawalRequests.find((x) => x.id === id);
+      if (!w) throw new Error("Withdrawal not found.");
+      w.status = "rejected";
+      w.adminNote = note || null;
+      w.updatedAt = nowIso();
+    });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
+  }
 
   revalidatePath("/dashboard/admin/withdrawals");
   return { ok: true as const };
@@ -256,25 +264,28 @@ export async function brandDepositAction(amountCents: number, note?: string) {
   if (amountCents <= 0) return { ok: false as const, error: "Invalid amount." };
 
   const id = newId();
-  await updateStore((s) => {
-    s.brandDeposits.push({
-      id,
-      brandId: session.id,
-      amountCents,
-      note: note || "Manual deposit (v1)",
-      status: "credited",
-      createdAt: nowIso(),
+  try {
+    await updateStore((s) => {
+      s.brandDeposits.push({
+        id,
+        brandId: session.id,
+        amountCents,
+        note: note || "Manual deposit (v1)",
+        status: "credited",
+        createdAt: nowIso(),
+      });
+      applyWalletDelta(s, {
+        userId: session.id,
+        availableDelta: amountCents,
+        type: "credit",
+        reason: note || "Brand deposit (manual)",
+        referenceType: "brand_deposit",
+        referenceId: id,
+      });
     });
-  });
-
-  await adjustWallet({
-    userId: session.id,
-    availableDelta: amountCents,
-    type: "credit",
-    reason: note || "Brand deposit (manual)",
-    referenceType: "brand_deposit",
-    referenceId: id,
-  });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
+  }
 
   revalidatePath("/dashboard/brand/deposits");
   return { ok: true as const };

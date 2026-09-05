@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/session";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { Booking } from "@/lib/db/types";
-import { adjustWallet } from "@/lib/wallet/ledger";
+import { applyWalletDelta } from "@/lib/wallet/ledger";
 import { bookingSchema } from "@/lib/validations/booking";
 
 /**
@@ -33,22 +33,6 @@ export async function requestBookingAction(raw: unknown) {
   );
   if (!rate) return { ok: false as const, error: "Rate card not available." };
 
-  try {
-    await adjustWallet({
-      userId: session.id,
-      availableDelta: -rate.priceCents,
-      pendingDelta: rate.priceCents,
-      type: "debit",
-      reason: `Booking escrow · ${rate.title}`,
-      referenceType: "booking_escrow",
-    });
-  } catch (e) {
-    return {
-      ok: false as const,
-      error: e instanceof Error ? e.message : "Insufficient brand wallet balance. Deposit first.",
-    };
-  }
-
   const booking: Booking = {
     id: newId(),
     brandId: session.id,
@@ -63,16 +47,26 @@ export async function requestBookingAction(raw: unknown) {
     updatedAt: nowIso(),
   };
 
-  await updateStore((s) => {
-    s.bookings.push(booking);
-    const entry = [...s.ledgerEntries].reverse().find(
-      (e) =>
-        e.userId === session.id &&
-        e.referenceType === "booking_escrow" &&
-        !e.referenceId,
-    );
-    if (entry) entry.referenceId = booking.id;
-  });
+  // Atomic: escrow move + booking record in one write (no orphan escrow).
+  try {
+    await updateStore((s) => {
+      applyWalletDelta(s, {
+        userId: session.id,
+        availableDelta: -rate.priceCents,
+        pendingDelta: rate.priceCents,
+        type: "debit",
+        reason: `Booking escrow · ${rate.title}`,
+        referenceType: "booking_escrow",
+        referenceId: booking.id,
+      });
+      s.bookings.push(booking);
+    });
+  } catch (e) {
+    return {
+      ok: false as const,
+      error: e instanceof Error ? e.message : "Insufficient brand wallet balance. Deposit first.",
+    };
+  }
 
   revalidatePath("/dashboard/brand/bookings");
   revalidatePath("/dashboard/influencer/bookings");
@@ -91,23 +85,33 @@ export async function respondBookingAction(id: string, accept: boolean) {
   }
 
   if (!accept) {
-    await adjustWallet({
-      userId: booking.brandId,
-      availableDelta: booking.amountCents,
-      pendingDelta: -booking.amountCents,
-      type: "credit",
-      reason: "Booking declined — escrow refunded",
-      referenceType: "booking_refund",
-      referenceId: booking.id,
+    try {
+      await updateStore((s) => {
+        applyWalletDelta(s, {
+          userId: booking.brandId,
+          availableDelta: booking.amountCents,
+          pendingDelta: -booking.amountCents,
+          type: "credit",
+          reason: "Booking declined — escrow refunded",
+          referenceType: "booking_refund",
+          referenceId: booking.id,
+        });
+        const b = s.bookings.find((x) => x.id === id);
+        if (!b) throw new Error("Booking not found.");
+        b.status = "cancelled";
+        b.updatedAt = nowIso();
+      });
+    } catch (e) {
+      return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
+    }
+  } else {
+    await updateStore((s) => {
+      const b = s.bookings.find((x) => x.id === id);
+      if (!b) return;
+      b.status = "accepted";
+      b.updatedAt = nowIso();
     });
   }
-
-  await updateStore((s) => {
-    const b = s.bookings.find((x) => x.id === id);
-    if (!b) return;
-    b.status = accept ? "accepted" : "cancelled";
-    b.updatedAt = nowIso();
-  });
 
   revalidatePath("/dashboard/influencer/bookings");
   revalidatePath("/dashboard/brand/bookings");
@@ -144,33 +148,41 @@ export async function approveBookingAction(id: string) {
     return { ok: false as const, error: "Waiting for delivery." };
   }
 
-  // Release brand escrow pending
-  await adjustWallet({
-    userId: booking.brandId,
-    availableDelta: 0,
-    pendingDelta: -booking.amountCents,
-    type: "debit",
-    reason: "Booking approved — escrow released",
-    referenceType: "booking_release",
-    referenceId: booking.id,
-  });
-
-  // Credit influencer available
-  await adjustWallet({
-    userId: booking.influencerId,
-    availableDelta: booking.amountCents,
-    type: "credit",
-    reason: "Booking payment received",
-    referenceType: "booking_release",
-    referenceId: booking.id,
-  });
-
-  await updateStore((s) => {
-    const b = s.bookings.find((x) => x.id === id);
-    if (!b) return;
-    b.status = "approved";
-    b.updatedAt = nowIso();
-  });
+  // Atomic: release brand escrow + credit influencer + mark approved.
+  // Previously three separate writes — a crash mid-way left money half-moved.
+  try {
+    await updateStore((s) => {
+      const b = s.bookings.find((x) => x.id === id);
+      if (!b || b.status !== "delivered") throw new Error("Waiting for delivery.");
+      applyWalletDelta(s, {
+        userId: b.brandId,
+        availableDelta: 0,
+        pendingDelta: -b.amountCents,
+        type: "debit",
+        reason: "Booking approved — escrow released",
+        referenceType: "booking_release",
+        referenceId: b.id,
+      });
+      applyWalletDelta(s, {
+        userId: b.influencerId,
+        availableDelta: b.amountCents,
+        type: "credit",
+        reason: "Booking payment received",
+        referenceType: "booking_release",
+        referenceId: b.id,
+      });
+      b.status = "approved";
+      b.updatedAt = nowIso();
+    });
+  } catch (e) {
+    // Preserve the "not found / waiting" UX for stale reads.
+    const fresh = (await readStore()).bookings.find((x) => x.id === id);
+    if (!fresh || fresh.brandId !== session.id)
+      return { ok: false as const, error: "Not found." };
+    if (fresh.status !== "delivered" && !(e instanceof Error && e.message.includes("balance")))
+      return { ok: false as const, error: "Waiting for delivery." };
+    return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
+  }
 
   revalidatePath("/dashboard/brand/bookings");
   revalidatePath("/dashboard/influencer/bookings");
