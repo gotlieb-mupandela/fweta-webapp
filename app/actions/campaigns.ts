@@ -89,6 +89,8 @@ export async function createCampaignAction(raw: unknown) {
 
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/brand");
+  revalidatePath("/dashboard/clipper/campaigns");
+  revalidatePath("/campaigns");
   return { ok: true as const, id: campaign.id };
 }
 
@@ -109,6 +111,9 @@ export async function updateCampaignAction(id: string, raw: unknown) {
   if (!found) return { ok: false as const, error: "Campaign not found." };
   revalidatePath(`/dashboard/brand/campaigns/${id}`);
   revalidatePath("/dashboard/brand/campaigns");
+  revalidatePath("/dashboard/clipper/campaigns");
+  revalidatePath("/campaigns");
+  revalidatePath(`/campaigns/${id}`);
   return { ok: true as const };
 }
 
@@ -150,6 +155,9 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
   revalidatePath(`/dashboard/brand/campaigns/${id}`);
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/brand");
+  revalidatePath("/dashboard/clipper/campaigns");
+  revalidatePath("/campaigns");
+  revalidatePath(`/campaigns/${id}`);
   return { ok: true as const };
 }
 
@@ -175,6 +183,54 @@ export async function duplicateCampaignAction(id: string) {
   });
   revalidatePath("/dashboard/brand/campaigns");
   return { ok: true as const, id: copy.id };
+}
+
+export async function deleteCampaignAction(id: string) {
+  const session = await requireSession();
+  if (!assertBrand(session.roles)) return { ok: false as const, error: "Brand role required." };
+
+  try {
+    await updateStore((s) => {
+      const idx = s.campaigns.findIndex((x) => x.id === id);
+      if (idx === -1) throw new Error("Campaign not found.");
+      const campaign = s.campaigns[idx];
+      if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
+        throw new Error("Not allowed.");
+      }
+      const related = s.submissions.filter((sub) => sub.campaignId === id);
+      if (related.some((sub) => sub.status === "approved" && sub.earningsCents > 0)) {
+        throw new Error(
+          "Cannot delete a campaign that has already paid clippers. Mark it completed instead.",
+        );
+      }
+      if (isCampaignFunded(s, campaign.id)) {
+        const remaining = Math.max(0, campaign.budgetTotalCents - campaign.budgetSpentCents);
+        if (remaining > 0) {
+          applyWalletDelta(s, {
+            userId: campaign.brandId,
+            availableDelta: remaining,
+            type: "credit",
+            reason: "Campaign deleted — unused budget returned",
+            referenceType: "campaign_fund",
+            referenceId: campaign.id,
+          });
+        }
+      }
+      const submissionIds = new Set(related.map((sub) => sub.id));
+      s.submissions = s.submissions.filter((sub) => sub.campaignId !== id);
+      s.viewSnapshots = s.viewSnapshots.filter((snap) => !submissionIds.has(snap.submissionId));
+      s.campaigns.splice(idx, 1);
+    });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
+  }
+
+  revalidatePath("/dashboard/brand/campaigns");
+  revalidatePath("/dashboard/brand");
+  revalidatePath("/dashboard/clipper/campaigns");
+  revalidatePath("/dashboard/clipper/submissions");
+  revalidatePath("/campaigns");
+  return { ok: true as const };
 }
 
 export async function listActiveCampaignsPublic(filters?: {

@@ -7,13 +7,39 @@ import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { Submission } from "@/lib/db/types";
 import { submissionReviewSchema, submissionSchema } from "@/lib/validations/submission";
 
+function normalizePostUrl(url: string): string {
+  try {
+    const parsed = new URL(url.trim());
+    parsed.hash = "";
+    const normalized = parsed.toString();
+    return normalized.endsWith("/") ? normalized.slice(0, -1) : normalized;
+  } catch {
+    return url.trim();
+  }
+}
+
+function revalidateClipperSurfaces(campaignId?: string) {
+  revalidatePath("/dashboard/clipper");
+  revalidatePath("/dashboard/clipper/campaigns");
+  revalidatePath("/dashboard/clipper/submissions");
+  revalidatePath("/dashboard/clipper/earnings");
+  revalidatePath("/campaigns");
+  if (campaignId) {
+    revalidatePath(`/campaigns/${campaignId}`);
+    revalidatePath(`/dashboard/brand/campaigns/${campaignId}/submissions`);
+  }
+}
+
 export async function submitClipAction(raw: unknown) {
   const session = await requireSession();
-  if (!session.roles.includes("clipper") && !session.roles.includes("influencer")) {
+  if (!session.roles.includes("clipper") && !session.roles.includes("influencer") && !session.roles.includes("admin")) {
     return { ok: false as const, error: "Creator role required." };
   }
   const parsed = submissionSchema.safeParse(raw);
   if (!parsed.success) return { ok: false as const, error: "Invalid submission." };
+
+  const postUrl = normalizePostUrl(parsed.data.postUrl);
+  if (!postUrl) return { ok: false as const, error: "Enter a valid post URL." };
 
   const store = await readStore();
   const campaign = store.campaigns.find((c) => c.id === parsed.data.campaignId);
@@ -23,13 +49,25 @@ export async function submitClipAction(raw: unknown) {
   if (!campaign.platforms.includes(parsed.data.platform)) {
     return { ok: false as const, error: "Platform not allowed for this campaign." };
   }
+  if (campaign.budgetSpentCents >= campaign.budgetTotalCents) {
+    return { ok: false as const, error: "This campaign's budget is exhausted." };
+  }
+  const alreadySubmitted = store.submissions.some(
+    (s) =>
+      s.clipperId === session.id &&
+      s.campaignId === campaign.id &&
+      normalizePostUrl(s.postUrl) === postUrl,
+  );
+  if (alreadySubmitted) {
+    return { ok: false as const, error: "You already submitted this link to this campaign." };
+  }
 
   const now = nowIso();
   const submission: Submission = {
     id: newId(),
     campaignId: parsed.data.campaignId,
     clipperId: session.id,
-    postUrl: parsed.data.postUrl,
+    postUrl,
     platform: parsed.data.platform,
     status: "pending",
     reviewNote: null,
@@ -39,10 +77,27 @@ export async function submitClipAction(raw: unknown) {
     updatedAt: now,
   };
 
-  await updateStore((s) => {
-    s.submissions.push(submission);
-  });
-  revalidatePath("/dashboard/clipper/submissions");
+  try {
+    await updateStore((s) => {
+      const camp = s.campaigns.find((c) => c.id === parsed.data.campaignId);
+      if (!camp || camp.status !== "active") {
+        throw new Error("Campaign is not accepting submissions.");
+      }
+      const duplicate = s.submissions.some(
+        (x) =>
+          x.clipperId === session.id &&
+          x.campaignId === camp.id &&
+          normalizePostUrl(x.postUrl) === postUrl,
+      );
+      if (duplicate) {
+        throw new Error("You already submitted this link to this campaign.");
+      }
+      s.submissions.push(submission);
+    });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Could not submit clip." };
+  }
+  revalidateClipperSurfaces(campaign.id);
   return { ok: true as const, id: submission.id };
 }
 
@@ -79,6 +134,7 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
   });
 
   revalidatePath(`/dashboard/brand/campaigns/${campaign.id}/submissions`);
+  revalidateClipperSurfaces(campaign.id);
   return { ok: true as const };
 }
 

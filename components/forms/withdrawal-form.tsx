@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 
 import { requestWithdrawalAction } from "@/app/actions/wallet";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label } from "@/components/ui/input";
+import { FieldError, FieldSuccess, Input, Label } from "@/components/ui/input";
 
 export function WithdrawalForm({
   payoutMethodId,
@@ -16,6 +16,7 @@ export function WithdrawalForm({
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -31,6 +32,7 @@ export function WithdrawalForm({
           return;
         }
         setError(null);
+        setSuccess(false);
         startTransition(async () => {
           const res = await requestWithdrawalAction({
             amountCents: Math.round(amount * 100),
@@ -39,6 +41,7 @@ export function WithdrawalForm({
           if (!res.ok) setError(res.error);
           else {
             form.reset();
+            setSuccess(true);
             router.refresh();
           }
         });
@@ -59,6 +62,7 @@ export function WithdrawalForm({
         <p className="mt-1 text-xs text-muted">Minimum N$100. Available balance applies.</p>
       </div>
       <FieldError>{error}</FieldError>
+      <FieldSuccess>{success ? "Withdrawal requested. An admin will process the EFT." : null}</FieldSuccess>
       <Button type="submit" disabled={pending}>
         {pending ? "Requesting…" : "Request withdrawal"}
       </Button>

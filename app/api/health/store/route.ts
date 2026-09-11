@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { diagnoseLocalStore } from "@/lib/db/store";
 import {
   diagnoseSupabaseStore,
   isSupabaseStoreEnabled,
@@ -7,11 +8,21 @@ import {
 
 export async function GET() {
   if (!isSupabaseStoreEnabled()) {
+    const local = await diagnoseLocalStore();
     return NextResponse.json({
-      ok: false,
+      ok: local.persisted,
       mode: "local",
-      message: "SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL missing — using in-memory/file store only on serverless.",
-      checks: {},
+      profileCount: local.profileCount,
+      campaignCount: local.campaignCount,
+      submissionCount: local.submissionCount,
+      walletCount: local.walletCount,
+      ledgerCount: local.ledgerCount,
+      checks: {
+        filePersist: local.persisted ? "ok" : "store.json not on disk yet",
+      },
+      message: local.persisted
+        ? "Using local file store (data/store.json). Data survives server restarts."
+        : "Local store has not been written to disk yet.",
     });
   }
 

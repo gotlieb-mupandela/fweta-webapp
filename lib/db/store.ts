@@ -197,3 +197,22 @@ export function newId(): string {
 export function nowIso(): string {
   return new Date().toISOString();
 }
+
+export async function diagnoseLocalStore() {
+  const store = await readStore();
+  let persisted = false;
+  try {
+    await fs.access(STORE_PATH);
+    persisted = true;
+  } catch {
+    persisted = false;
+  }
+  return {
+    persisted,
+    profileCount: store.profiles.length,
+    campaignCount: store.campaigns.length,
+    submissionCount: store.submissions.length,
+    walletCount: store.wallets.length,
+    ledgerCount: store.ledgerEntries.length,
+  };
+}

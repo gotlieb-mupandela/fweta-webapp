@@ -24,6 +24,7 @@ export function SignupForm() {
   const initialRoles = useMemo<UserRole[]>(() => {
     if (preset === "brand") return ["brand"];
     if (preset === "creator") return ["clipper", "influencer"];
+    if (preset === "influencer") return ["influencer"];
     return ["clipper"];
   }, [preset]);
 
