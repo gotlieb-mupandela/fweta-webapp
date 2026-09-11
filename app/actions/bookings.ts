@@ -189,6 +189,46 @@ export async function approveBookingAction(id: string) {
   return { ok: true as const };
 }
 
+export async function cancelBookingAction(id: string) {
+  const session = await requireSession();
+  const store = await readStore();
+  const booking = store.bookings.find((b) => b.id === id);
+  if (!booking || booking.brandId !== session.id) {
+    return { ok: false as const, error: "Not found." };
+  }
+  if (booking.status !== "requested" && booking.status !== "accepted") {
+    return { ok: false as const, error: "This booking can no longer be cancelled." };
+  }
+
+  try {
+    await updateStore((s) => {
+      const b = s.bookings.find((x) => x.id === id);
+      if (!b) throw new Error("Booking not found.");
+      if (b.status !== "requested" && b.status !== "accepted") {
+        throw new Error("This booking can no longer be cancelled.");
+      }
+      applyWalletDelta(s, {
+        userId: b.brandId,
+        availableDelta: b.amountCents,
+        pendingDelta: -b.amountCents,
+        type: "credit",
+        reason: "Booking cancelled — escrow refunded",
+        referenceType: "booking_refund",
+        referenceId: b.id,
+      });
+      b.status = "cancelled";
+      b.updatedAt = nowIso();
+    });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
+  }
+
+  revalidatePath("/dashboard/brand/bookings");
+  revalidatePath("/dashboard/influencer/bookings");
+  revalidatePath("/dashboard/brand");
+  return { ok: true as const };
+}
+
 export async function listBrandBookings() {
   const session = await requireSession();
   const store = await readStore();

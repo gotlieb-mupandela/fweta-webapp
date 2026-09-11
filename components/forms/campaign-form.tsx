@@ -21,9 +21,17 @@ type Props = {
   mode: "create" | "edit";
   campaign?: Campaign;
   walletAvailableCents?: number;
+  funded?: boolean;
+  moneyLocked?: boolean;
 };
 
-export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
+export function CampaignForm({
+  mode,
+  campaign,
+  walletAvailableCents,
+  funded = false,
+  moneyLocked = false,
+}: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -116,9 +124,15 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
             step="0.01"
             min="0.01"
             required
+            readOnly={moneyLocked}
             defaultValue={campaign ? (campaign.budgetTotalCents / 100).toFixed(2) : ""}
             placeholder="1000.00"
           />
+          {mode === "edit" && funded && !moneyLocked ? (
+            <p className="mt-1 text-xs text-muted">
+              Raising the budget debits your wallet. Lowering it (not below spend) refunds the difference.
+            </p>
+          ) : null}
         </div>
         <div>
           <Label htmlFor="cpm">CPM (NAD)</Label>
@@ -129,6 +143,7 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
             step="0.01"
             min="0.01"
             required
+            readOnly={moneyLocked}
             defaultValue={campaign ? (campaign.cpmCents / 100).toFixed(2) : ""}
             placeholder="50.00"
           />
@@ -142,6 +157,7 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
             step="0.01"
             min="0.01"
             required
+            readOnly={moneyLocked}
             defaultValue={campaign ? (campaign.maxPayoutPerSubmissionCents / 100).toFixed(2) : ""}
             placeholder="200.00"
           />

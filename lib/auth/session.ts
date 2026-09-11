@@ -6,7 +6,7 @@ import { SignJWT, jwtVerify } from "jose";
 
 import { readStore, updateStore, newId, nowIso } from "@/lib/db/store";
 import { getAuthSecretKey } from "@/lib/auth/secret";
-import type { Profile, Wallet } from "@/lib/db/types";
+import type { DatabaseStore, InfluencerProfile, Profile, RateCardItem, Wallet } from "@/lib/db/types";
 import type { UserRole } from "@/types/enums";
 
 const COOKIE_NAME = "fweta_session";
@@ -201,69 +201,153 @@ export async function refreshSessionFromProfile(profile: Profile) {
   await setSessionCookie(token);
 }
 
-const DEMO_ACCOUNTS: Array<Omit<Profile, "passwordHash" | "id">> = [
+const DEMO_SEEDS: Array<{
+  localPart: string;
+  displayName: string;
+  bio: string;
+  roles: UserRole[];
+  primaryRole: UserRole;
+}> = [
   {
-    email: "brand@fweta.test",
+    localPart: "brand",
     displayName: "Desert Brands",
     bio: "Namibian DTC brand running creator campaigns.",
-    avatarUrl: null,
     roles: ["brand"],
     primaryRole: "brand",
-    notifyEmail: true,
-    notifyWithdrawals: true,
-    notifyBookings: true,
-    createdAt: "",
-    updatedAt: "",
-    suspended: false,
   },
   {
-    email: "creator@fweta.test",
+    localPart: "creator",
     displayName: "Amara Nangolo",
     bio: "Windhoek creator · lifestyle & short-form.",
-    avatarUrl: null,
     roles: ["clipper", "influencer"],
     primaryRole: "influencer",
-    notifyEmail: true,
-    notifyWithdrawals: true,
-    notifyBookings: true,
-    createdAt: "",
-    updatedAt: "",
-    suspended: false,
   },
   {
-    email: "clipper@fweta.test",
+    localPart: "clipper",
     displayName: "Kai Clips",
     bio: "Clipping specialist across TikTok & Reels.",
-    avatarUrl: null,
     roles: ["clipper"],
     primaryRole: "clipper",
-    notifyEmail: true,
-    notifyWithdrawals: true,
-    notifyBookings: true,
-    createdAt: "",
-    updatedAt: "",
-    suspended: false,
   },
   {
-    email: "admin@fweta.test",
+    localPart: "admin",
     displayName: "Fweta Admin",
     bio: "Platform operations",
-    avatarUrl: null,
     roles: ["admin"],
     primaryRole: "admin",
+  },
+];
+
+const DEMO_DOMAINS = ["fweta.test", "fweta.com"] as const;
+
+const DEMO_ACCOUNTS: Array<Omit<Profile, "passwordHash" | "id">> = DEMO_DOMAINS.flatMap((domain) =>
+  DEMO_SEEDS.map((seed) => ({
+    email: `${seed.localPart}@${domain}`,
+    displayName: seed.displayName,
+    bio: seed.bio,
+    avatarUrl: null,
+    roles: seed.roles,
+    primaryRole: seed.primaryRole,
     notifyEmail: true,
     notifyWithdrawals: true,
     notifyBookings: true,
     createdAt: "",
     updatedAt: "",
     suspended: false,
-  },
-];
+  })),
+);
+
+const DEMO_EMAILS = new Set(DEMO_ACCOUNTS.map((account) => account.email));
 
 let seedInFlight: Promise<{ seeded: boolean }> | null = null;
 
 /** Precomputed bcrypt hash for demo password `password123` — avoids hashing on every cold start. */
 const DEMO_PASSWORD_HASH = "$2b$10$zG4dij3FDqNB0B41xbteQ.MqWV4oXM5XqSmLk96dYyuha0hGOxirW";
+
+function seedDemoInfluencerMarketplace(store: DatabaseStore) {
+  const creators = store.profiles.filter(
+    (p) => p.email === "creator@fweta.test" || p.email === "creator@fweta.com",
+  );
+  let changed = false;
+  for (const creator of creators) {
+    if (seedOneCreatorMarketplace(store, creator)) changed = true;
+  }
+  return changed;
+}
+
+function seedOneCreatorMarketplace(store: DatabaseStore, creator: Profile): boolean {
+
+  const now = nowIso();
+  let changed = false;
+  let profile = store.influencerProfiles.find((p) => p.userId === creator.id);
+
+  if (!profile) {
+    let slug = "amara-nangolo";
+    let i = 1;
+    while (store.influencerProfiles.some((p) => p.slug === slug)) {
+      slug = `amara-nangolo-${i++}`;
+    }
+    profile = {
+      id: newId(),
+      userId: creator.id,
+      slug,
+      displayName: creator.displayName,
+      headline: "Lifestyle & short-form from Windhoek",
+      bio: creator.bio || "Windhoek creator · lifestyle & short-form.",
+      niche: "Lifestyle",
+      location: "Windhoek, Namibia",
+      avatarUrl: null,
+      socials: {
+        tiktok: "https://www.tiktok.com/@amara",
+        instagram: "https://www.instagram.com/amara",
+      },
+      featuredWork: [],
+      published: true,
+      createdAt: now,
+      updatedAt: now,
+    } satisfies InfluencerProfile;
+    store.influencerProfiles.push(profile);
+    changed = true;
+  } else if (!profile.published) {
+    profile.published = true;
+    profile.updatedAt = now;
+    changed = true;
+  }
+
+  const hasRate = store.rateCards.some((r) => r.influencerProfileId === profile.id);
+  if (!hasRate) {
+    const cards: RateCardItem[] = [
+      {
+        id: newId(),
+        influencerProfileId: profile.id,
+        title: "TikTok post",
+        description: "One sponsored TikTok with two revisions.",
+        type: "per_post",
+        platform: "tiktok",
+        priceCents: 50000,
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: newId(),
+        influencerProfileId: profile.id,
+        title: "Instagram Reel",
+        description: "One Reel, 15–30 seconds, usage rights 30 days.",
+        type: "per_reel",
+        platform: "instagram",
+        priceCents: 80000,
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+    store.rateCards.push(...cards);
+    changed = true;
+  }
+
+  return changed;
+}
 
 async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
   try {
@@ -284,12 +368,34 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
         ),
     );
 
-    if (!needsDedupe && missingAccounts.length === 0) {
+    const needsPasswordReset = existing.profiles.some((p) => {
+      const email = p.email.trim().toLowerCase();
+      if (!DEMO_EMAILS.has(email)) return false;
+      if (p.passwordHash !== DEMO_PASSWORD_HASH) return true;
+      const template = DEMO_ACCOUNTS.find((account) => account.email === email);
+      return Boolean(template?.roles.includes("admin") && !p.roles.includes("admin"));
+    });
+
+    const creators = existing.profiles.filter(
+      (p) => p.email === "creator@fweta.test" || p.email === "creator@fweta.com",
+    );
+    const needsMarketplace = creators.some((creator) => {
+      const creatorProfile = existing.influencerProfiles.find((p) => p.userId === creator.id);
+      return (
+        !creatorProfile ||
+        !creatorProfile.published ||
+        !existing.rateCards.some((r) => r.influencerProfileId === creatorProfile.id)
+      );
+    });
+
+    if (!needsDedupe && missingAccounts.length === 0 && !needsMarketplace && !needsPasswordReset) {
       return { seeded: false };
     }
 
     const now = nowIso();
     let added = 0;
+    let reset = 0;
+    let marketplace = false;
 
     await updateStore((s) => {
       if (needsDedupe) {
@@ -312,9 +418,31 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
         ensureWallet(s, profile.id);
         added += 1;
       }
+
+      for (const p of s.profiles) {
+        const email = p.email.trim().toLowerCase();
+        if (!DEMO_EMAILS.has(email)) continue;
+        const template = DEMO_ACCOUNTS.find((account) => account.email === email);
+        let touched = false;
+        if (p.passwordHash !== DEMO_PASSWORD_HASH) {
+          p.passwordHash = DEMO_PASSWORD_HASH;
+          touched = true;
+        }
+        if (template?.roles.includes("admin") && !p.roles.includes("admin")) {
+          p.roles = Array.from(new Set<UserRole>([...p.roles, "admin"]));
+          p.primaryRole = "admin";
+          touched = true;
+        }
+        if (touched) {
+          p.updatedAt = now;
+          reset += 1;
+        }
+      }
+
+      marketplace = seedDemoInfluencerMarketplace(s);
     });
 
-    return { seeded: added > 0 || needsDedupe };
+    return { seeded: added > 0 || reset > 0 || needsDedupe || marketplace };
   } catch (err) {
     console.warn("[fweta] seedDemoAccounts failed:", err);
     return { seeded: false };

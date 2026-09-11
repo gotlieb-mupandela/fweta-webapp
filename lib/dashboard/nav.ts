@@ -81,6 +81,13 @@ export const ROLE_NAV: Record<UserRole, RoleNavConfig> = {
         match: "prefix",
       },
       {
+        href: "/dashboard/brand/submissions",
+        label: "Reviews",
+        shortLabel: "Reviews",
+        icon: FileText,
+        match: "prefix",
+      },
+      {
         href: "/dashboard/settings/wallet",
         label: "Wallet",
         shortLabel: "Wallet",
@@ -284,6 +291,7 @@ const TITLE_OVERRIDES: Record<string, string> = {
   "/dashboard/brand/bookings": "Bookings",
   "/dashboard/brand/analytics": "Analytics",
   "/dashboard/brand/deposits": "Deposits",
+  "/dashboard/brand/submissions": "Reviews",
   "/dashboard/clipper": "Overview",
   "/dashboard/clipper/campaigns": "Campaigns",
   "/dashboard/clipper/submissions": "Submissions",

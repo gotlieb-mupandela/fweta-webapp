@@ -44,13 +44,23 @@ export default async function AdminWithdrawalsPage() {
                   <p className="font-medium">{user?.displayName ?? user?.email}</p>
                   <p className="font-display text-lg">{formatMoney(w.amountCents)}</p>
                   {payout ? (
-                    <p className="mt-2 text-sm text-muted">
-                      {payout.bankName} · {payout.branchCode} · {payout.accountHolderName} ·{" "}
-                      {payout.accountType}
-                    </p>
+                    <div className="mt-2 space-y-0.5 text-sm text-muted">
+                      <p>
+                        {payout.bankName} · branch {payout.branchCode} · {payout.accountType}
+                      </p>
+                      <p>
+                        Account {payout.accountNumber} · {payout.accountHolderName}
+                      </p>
+                    </div>
                   ) : (
                     <p className="mt-2 text-sm text-danger">No payout method on file</p>
                   )}
+                  {w.bankReference ? (
+                    <p className="mt-1 text-xs text-muted">EFT ref: {w.bankReference}</p>
+                  ) : null}
+                  {w.adminNote ? (
+                    <p className="mt-1 text-xs text-muted">Note: {w.adminNote}</p>
+                  ) : null}
                   <p className="text-xs text-muted">{new Date(w.createdAt).toLocaleString()}</p>
                 </div>
                 <Badge

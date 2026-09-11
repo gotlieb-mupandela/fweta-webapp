@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { diagnoseLocalStore } from "@/lib/db/store";
+import { getLocalStoreDiagnostics } from "@/lib/db/store";
 import {
   diagnoseSupabaseStore,
   isSupabaseStoreEnabled,
@@ -8,21 +8,24 @@ import {
 
 export async function GET() {
   if (!isSupabaseStoreEnabled()) {
-    const local = await diagnoseLocalStore();
+    const diag = await getLocalStoreDiagnostics();
     return NextResponse.json({
-      ok: local.persisted,
+      ok: diag.persistExists,
       mode: "local",
-      profileCount: local.profileCount,
-      campaignCount: local.campaignCount,
-      submissionCount: local.submissionCount,
-      walletCount: local.walletCount,
-      ledgerCount: local.ledgerCount,
+      profileCount: diag.profileCount,
+      campaignCount: diag.campaignCount,
+      submissionCount: diag.submissionCount,
+      walletCount: diag.walletCount,
+      depositCount: diag.depositCount,
+      bookingCount: diag.bookingCount,
+      ledgerCount: diag.ledgerCount,
+      persist: diag.persistExists ? "ok" : "missing",
       checks: {
-        filePersist: local.persisted ? "ok" : "store.json not on disk yet",
+        filePersist: diag.persistExists ? "ok" : "store.json not on disk yet",
       },
-      message: local.persisted
-        ? "Using local file store (data/store.json). Data survives server restarts."
-        : "Local store has not been written to disk yet.",
+      message: diag.persistExists
+        ? "Using local file store (data/store.json). Deposits and campaigns persist across restarts."
+        : "Local store file not written yet — sign in once to seed demo accounts.",
     });
   }
 

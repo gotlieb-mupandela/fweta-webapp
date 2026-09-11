@@ -83,6 +83,7 @@ export type LedgerEntry = {
     | "admin_credit"
     | "campaign_earning"
     | "campaign_fund"
+    | "campaign_refund"
     | "withdrawal"
     | "booking_escrow"
     | "booking_release"
@@ -185,6 +186,10 @@ export type FraudFlag = {
   status: "open" | "resolved" | "dismissed";
   createdAt: string;
   resolvedAt: string | null;
+  /** Snapshots so the admin queue stays readable after campaign/submission delete. */
+  clipperName?: string;
+  campaignTitle?: string;
+  postUrl?: string;
 };
 
 export type DatabaseStore = {

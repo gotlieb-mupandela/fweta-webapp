@@ -35,7 +35,11 @@ export default async function AdminUsersPage() {
                 {u.suspended ? <Badge tone="danger">Suspended</Badge> : null}
               </div>
             </div>
-            <UserSuspendButton userId={u.id} suspended={u.suspended} />
+            <UserSuspendButton
+              userId={u.id}
+              suspended={u.suspended}
+              disableSelf={u.id === session.id}
+            />
           </li>
         ))}
       </ul>

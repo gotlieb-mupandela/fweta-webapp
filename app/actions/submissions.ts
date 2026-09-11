@@ -122,6 +122,8 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
     sub.reviewNote = parsed.data.reviewNote ?? null;
     sub.updatedAt = nowIso();
     if (parsed.data.status === "flagged") {
+      const clipper = s.profiles.find((p) => p.id === sub.clipperId);
+      const flaggedCampaign = s.campaigns.find((c) => c.id === sub.campaignId);
       s.fraudFlags.push({
         id: newId(),
         submissionId: id,
@@ -129,11 +131,19 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
         status: "open",
         createdAt: nowIso(),
         resolvedAt: null,
+        clipperName: clipper?.displayName || clipper?.email || "Unknown clipper",
+        campaignTitle: flaggedCampaign?.title || "Unknown campaign",
+        postUrl: sub.postUrl,
       });
     }
   });
 
   revalidatePath(`/dashboard/brand/campaigns/${campaign.id}/submissions`);
+  revalidatePath("/dashboard/brand/submissions");
+  revalidatePath("/dashboard/brand");
+  revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/admin/fraud");
+  revalidatePath("/dashboard/admin/stats");
   revalidateClipperSurfaces(campaign.id);
   return { ok: true as const };
 }
@@ -154,5 +164,19 @@ export async function listCampaignSubmissions(campaignId: string) {
   if (campaign.brandId !== session.id && !session.roles.includes("admin")) return [];
   return store.submissions
     .filter((s) => s.campaignId === campaignId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function listBrandPendingSubmissions() {
+  const session = await requireSession();
+  if (!session.roles.includes("brand") && !session.roles.includes("admin")) return [];
+  const store = await readStore();
+  const campaignIds = new Set(
+    store.campaigns
+      .filter((c) => (session.roles.includes("admin") ? true : c.brandId === session.id))
+      .map((c) => c.id),
+  );
+  return store.submissions
+    .filter((s) => campaignIds.has(s.campaignId) && s.status === "pending")
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

@@ -111,12 +111,12 @@ Without `APIFY_API_TOKEN`, polling **simulates** view growth (fine for demo).
 
 | Email | Role |
 |-------|------|
-| `brand@fweta.test` | Brand |
-| `clipper@fweta.test` | Clipper |
-| `creator@fweta.test` | Influencer + clipper |
-| `admin@fweta.test` | Admin |
+| `brand@fweta.test` or `brand@fweta.com` | Brand |
+| `clipper@fweta.test` or `clipper@fweta.com` | Clipper |
+| `creator@fweta.test` or `creator@fweta.com` | Influencer + clipper |
+| `admin@fweta.test` or `admin@fweta.com` | Admin |
 
-Password: `password123`
+Password: `password123` (seed also resets these demo accounts on `/login` if the hash drifted).
 
 ---
 

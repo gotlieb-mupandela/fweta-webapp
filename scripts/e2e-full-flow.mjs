@@ -43,6 +43,7 @@ try {
     "/dashboard/brand/analytics",
     "/dashboard/brand/deposits",
     "/dashboard/brand/bookings",
+    "/dashboard/brand/submissions",
   ]) {
     const res = await page.goto(`${BASE}${path}`);
     log({ area: "brand", path, ok: (res?.status() ?? 0) === 200 && !page.url().includes("/login") });

@@ -1,5 +1,5 @@
 import { readStore, updateStore } from "@/lib/db/store";
-import type { DatabaseStore } from "@/lib/db/types";
+import type { Campaign, DatabaseStore } from "@/lib/db/types";
 import { applyWalletDelta } from "@/lib/wallet/ledger";
 import { formatMoney } from "@/lib/utils";
 
@@ -7,6 +7,42 @@ export function isCampaignFunded(store: DatabaseStore, campaignId: string): bool
   return store.ledgerEntries.some(
     (e) => e.referenceType === "campaign_fund" && e.referenceId === campaignId,
   );
+}
+
+export function netCampaignAllocatedCents(store: DatabaseStore, campaignId: string): number {
+  let funded = 0;
+  let refunded = 0;
+  for (const entry of store.ledgerEntries) {
+    if (entry.referenceId !== campaignId) continue;
+    if (entry.referenceType === "campaign_fund") funded += entry.amountCents;
+    if (entry.referenceType === "campaign_refund") refunded += entry.amountCents;
+  }
+  return Math.max(0, funded - refunded);
+}
+
+export function leftoverCampaignBudgetCents(
+  store: DatabaseStore,
+  campaign: Pick<Campaign, "id" | "budgetSpentCents">,
+): number {
+  return Math.max(0, netCampaignAllocatedCents(store, campaign.id) - campaign.budgetSpentCents);
+}
+
+/** Return unused allocated budget to the brand wallet. Safe to call more than once. */
+export function refundUnusedCampaignBudget(
+  store: DatabaseStore,
+  campaign: Pick<Campaign, "id" | "brandId" | "budgetSpentCents">,
+): number {
+  const leftover = leftoverCampaignBudgetCents(store, campaign);
+  if (leftover <= 0) return 0;
+  applyWalletDelta(store, {
+    userId: campaign.brandId,
+    availableDelta: leftover,
+    type: "credit",
+    reason: "Unused campaign budget returned",
+    referenceType: "campaign_refund",
+    referenceId: campaign.id,
+  });
+  return leftover;
 }
 
 export async function fundCampaignFromWallet(params: {

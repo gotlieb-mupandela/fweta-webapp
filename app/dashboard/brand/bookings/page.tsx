@@ -1,8 +1,10 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { listBrandBookings } from "@/app/actions/bookings";
 import { BrandBookingActions } from "@/components/forms/brand-booking-actions";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
@@ -25,7 +27,12 @@ export default async function BrandBookingsPage() {
       {bookings.length === 0 ? (
         <EmptyState
           title="No bookings"
-          description="Browse influencers to request a collaboration."
+          description="Browse influencers to request a collaboration. Funds are held in escrow until you approve delivery."
+          action={
+            <Link href="/influencers">
+              <Button size="sm">Browse influencers</Button>
+            </Link>
+          }
         />
       ) : (
         <ul className="space-y-3">

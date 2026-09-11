@@ -26,10 +26,10 @@ Password for all: `password123`
 
 | Email | Roles |
 |-------|-------|
-| brand@fweta.test | Brand |
-| creator@fweta.test | Influencer + Clipper |
-| clipper@fweta.test | Clipper |
-| admin@fweta.test | Admin |
+| brand@fweta.test or brand@fweta.com | Brand |
+| creator@fweta.test or creator@fweta.com | Influencer + Clipper |
+| clipper@fweta.test or clipper@fweta.com | Clipper |
+| admin@fweta.test or admin@fweta.com | Admin |
 
 ## Docs
 

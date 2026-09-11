@@ -46,10 +46,18 @@ export default async function BrandDashboardPage() {
         }
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Active campaigns" value={String(active)} />
-        <Stat label="Budget spent" value={formatMoney(spent)} />
-        <Stat label="Pending reviews" value={String(pendingSubs)} />
-        <Stat label="Wallet" value={formatMoney(wallet.availableCents)} hint="For bookings & deposits" />
+        <Link href="/dashboard/brand/campaigns" className="block">
+          <Stat label="Active campaigns" value={String(active)} />
+        </Link>
+        <Link href="/dashboard/brand/analytics" className="block">
+          <Stat label="Budget spent" value={formatMoney(spent)} />
+        </Link>
+        <Link href="/dashboard/brand/submissions" className="block">
+          <Stat label="Pending reviews" value={String(pendingSubs)} />
+        </Link>
+        <Link href="/dashboard/brand/deposits" className="block">
+          <Stat label="Wallet" value={formatMoney(wallet.availableCents)} hint="For bookings & deposits" />
+        </Link>
       </div>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
@@ -87,14 +95,21 @@ export default async function BrandDashboardPage() {
             </Link>
           </div>
           <ul className="space-y-3">
-            {bookings.slice(0, 5).map((b) => (
-              <li key={b.id} className="list-row">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium capitalize">{b.status.replace(/_/g, " ")}</p>
-                  <p className="text-xs text-muted">{formatMoney(b.amountCents)}</p>
-                </div>
-              </li>
-            ))}
+            {bookings.slice(0, 5).map((b) => {
+              const profile = store.influencerProfiles.find((p) => p.id === b.influencerProfileId);
+              return (
+                <li key={b.id}>
+                  <Link href="/dashboard/brand/bookings" className="list-row">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{profile?.displayName ?? "Influencer"}</p>
+                      <p className="text-xs text-muted capitalize">
+                        {b.status.replace(/_/g, " ")} · {formatMoney(b.amountCents)}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
             {bookings.length === 0 ? (
               <p className="text-sm text-muted">No bookings yet.</p>
             ) : null}

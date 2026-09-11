@@ -198,21 +198,27 @@ export function nowIso(): string {
   return new Date().toISOString();
 }
 
-export async function diagnoseLocalStore() {
+export async function getLocalStoreDiagnostics() {
   const store = await readStore();
-  let persisted = false;
+  let persistExists = false;
   try {
     await fs.access(STORE_PATH);
-    persisted = true;
+    persistExists = true;
   } catch {
-    persisted = false;
+    persistExists = false;
   }
   return {
-    persisted,
+    persistExists,
+    persisted: persistExists,
+    persistPath: "data/store.json",
     profileCount: store.profiles.length,
     campaignCount: store.campaigns.length,
     submissionCount: store.submissions.length,
     walletCount: store.wallets.length,
+    depositCount: store.brandDeposits.length,
+    bookingCount: store.bookings.length,
     ledgerCount: store.ledgerEntries.length,
   };
 }
+
+export const diagnoseLocalStore = getLocalStoreDiagnostics;

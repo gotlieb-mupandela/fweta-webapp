@@ -13,7 +13,10 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/dashboard";
-  const [error, setError] = useState<string | null>(null);
+  const urlError = searchParams.get("error");
+  const [error, setError] = useState<string | null>(
+    urlError === "suspended" ? "This account has been suspended. Contact support." : null,
+  );
   const [pending, startTransition] = useTransition();
 
   return (

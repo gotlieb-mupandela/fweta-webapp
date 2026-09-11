@@ -8,6 +8,7 @@ export const campaignStatusSchema = z.enum([
   "active",
   "paused",
   "completed",
+  "cancelled",
 ]);
 
 export const campaignCreateSchema = z.object({

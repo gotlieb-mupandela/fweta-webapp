@@ -4,7 +4,13 @@ export type UserRole = "brand" | "influencer" | "clipper" | "admin";
 
 export type CampaignType = "clipping" | "ugc";
 
-export type CampaignStatus = "draft" | "pending" | "active" | "paused" | "completed";
+export type CampaignStatus =
+  | "draft"
+  | "pending"
+  | "active"
+  | "paused"
+  | "completed"
+  | "cancelled";
 
 export type SubmissionStatus = "pending" | "approved" | "flagged" | "rejected";
 

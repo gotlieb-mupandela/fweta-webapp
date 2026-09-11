@@ -110,13 +110,30 @@ export async function adminListUsers() {
 export async function adminSetUserSuspended(userId: string, suspended: boolean) {
   const session = await requireSession();
   if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
-  await updateStore((s) => {
-    const p = s.profiles.find((x) => x.id === userId);
-    if (!p) return;
-    p.suspended = suspended;
-    p.updatedAt = nowIso();
-  });
+  if (userId === session.id) {
+    return { ok: false as const, error: "You can’t suspend your own admin account." };
+  }
+
+  try {
+    await updateStore((s) => {
+      const p = s.profiles.find((x) => x.id === userId);
+      if (!p) throw new Error("User not found.");
+      if (suspended && p.roles.includes("admin")) {
+        const otherAdmins = s.profiles.filter(
+          (x) => x.id !== userId && x.roles.includes("admin") && !x.suspended,
+        );
+        if (otherAdmins.length === 0) {
+          throw new Error("Cannot suspend the last active admin.");
+        }
+      }
+      p.suspended = suspended;
+      p.updatedAt = nowIso();
+    });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
+  }
   revalidatePath("/dashboard/admin/users");
+  revalidatePath("/dashboard/admin");
   return { ok: true as const };
 }
 
@@ -173,5 +190,7 @@ export async function resolveFraudFlag(id: string, status: "resolved" | "dismiss
     f.resolvedAt = nowIso();
   });
   revalidatePath("/dashboard/admin/fraud");
+  revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/admin/stats");
   return { ok: true as const };
 }

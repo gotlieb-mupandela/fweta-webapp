@@ -15,6 +15,8 @@ import type { PayoutMethod, WithdrawalRequest } from "@/lib/db/types";
 import { adjustWallet, applyWalletDelta, getWallet } from "@/lib/wallet/ledger";
 import { payoutMethodSchema } from "@/lib/validations/payout-method";
 import { withdrawalSchema } from "@/lib/validations/withdrawal";
+import { notifyAdminWithdrawal } from "@/lib/jobs/notify-admin-withdrawal";
+import { notifyCreatorPaid } from "@/lib/jobs/notify-creator-paid";
 import { maskAccountNumber } from "@/lib/utils";
 
 const MIN_WITHDRAWAL_CENTS = 10000; // N$100
@@ -44,6 +46,9 @@ export async function adminCreditWalletAction(userId: string, amountCents: numbe
     referenceType: "admin_credit",
   });
   revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/admin/stats");
+  revalidatePath("/dashboard/settings/wallet");
+  revalidatePath("/dashboard/clipper/earnings");
   return { ok: true as const };
 }
 
@@ -170,7 +175,10 @@ export async function requestWithdrawalAction(raw: unknown) {
   revalidatePath("/dashboard/settings/withdraw");
   revalidatePath("/dashboard/settings/wallet");
   revalidatePath("/dashboard/clipper/earnings");
+  revalidatePath("/dashboard/admin");
   revalidatePath("/dashboard/admin/withdrawals");
+  revalidatePath("/dashboard/admin/stats");
+  await notifyAdminWithdrawal(req.id);
   return { ok: true as const, id: req.id };
 }
 
@@ -188,7 +196,11 @@ export async function listPendingWithdrawalsAdmin() {
   const store = await readStore();
   return store.withdrawalRequests
     .slice()
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    .sort((a, b) => {
+      if (a.status === "pending" && b.status !== "pending") return -1;
+      if (b.status === "pending" && a.status !== "pending") return 1;
+      return b.createdAt.localeCompare(a.createdAt);
+    });
 }
 
 export async function markWithdrawalPaidAction(
@@ -226,6 +238,10 @@ export async function markWithdrawalPaidAction(
   }
 
   revalidatePath("/dashboard/admin/withdrawals");
+  revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/admin/stats");
+  revalidatePath("/dashboard/settings/withdraw");
+  await notifyCreatorPaid(req.id);
   return { ok: true as const };
 }
 
@@ -258,6 +274,9 @@ export async function rejectWithdrawalAction(id: string, note?: string) {
   }
 
   revalidatePath("/dashboard/admin/withdrawals");
+  revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/admin/stats");
+  revalidatePath("/dashboard/settings/withdraw");
   return { ok: true as const };
 }
 
@@ -291,6 +310,9 @@ export async function brandDepositAction(amountCents: number, note?: string) {
   }
 
   revalidatePath("/dashboard/brand/deposits");
+  revalidatePath("/dashboard/brand");
+  revalidatePath("/dashboard/brand/analytics");
+  revalidatePath("/dashboard/settings/wallet");
   return { ok: true as const };
 }
 

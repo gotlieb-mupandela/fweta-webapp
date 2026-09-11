@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { getCampaign } from "@/app/actions/campaigns";
+import { getCampaign, getCampaignBudgetSummary } from "@/app/actions/campaigns";
+import { CampaignManageActions } from "@/components/forms/campaign-manage-actions";
 import { CampaignStatusButtons } from "@/components/forms/campaign-status-buttons";
 import { Badge, Card, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,11 +20,14 @@ export default async function CampaignDetailPage({
     redirect("/dashboard");
   }
 
-  const campaign = await getCampaign(id);
+  const [campaign, summary] = await Promise.all([getCampaign(id), getCampaignBudgetSummary(id)]);
   if (!campaign) notFound();
   if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
     redirect("/dashboard/brand/campaigns");
   }
+  const leftoverCents = summary?.leftoverCents ?? 0;
+  const hasSubmissions = (summary?.submissionCount ?? 0) > 0;
+  const hasPaidSubmissions = (summary?.paidSubmissionCount ?? 0) > 0;
 
   return (
     <div>
@@ -50,7 +54,18 @@ export default async function CampaignDetailPage({
         <Badge tone="neutral">{campaign.category}</Badge>
       </div>
 
-      <CampaignStatusButtons campaignId={campaign.id} status={campaign.status} />
+      <CampaignStatusButtons
+        campaignId={campaign.id}
+        status={campaign.status}
+        leftoverCents={leftoverCents}
+      />
+      <CampaignManageActions
+        campaignId={campaign.id}
+        status={campaign.status}
+        leftoverCents={leftoverCents}
+        hasSubmissions={hasSubmissions}
+        hasPaidSubmissions={hasPaidSubmissions}
+      />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -58,6 +73,10 @@ export default async function CampaignDetailPage({
           <p className="mt-1 font-display text-2xl">
             {formatMoney(campaign.budgetSpentCents)} / {formatMoney(campaign.budgetTotalCents)}
           </p>
+        </Card>
+        <Card>
+          <p className="text-sm text-muted">Unused (refundable)</p>
+          <p className="mt-1 font-display text-2xl">{formatMoney(leftoverCents)}</p>
         </Card>
         <Card>
           <p className="text-sm text-muted">CPM</p>
