@@ -43,6 +43,9 @@ export async function submitClipAction(raw: unknown) {
     s.submissions.push(submission);
   });
   revalidatePath("/dashboard/clipper/submissions");
+  revalidatePath("/dashboard/influencer/submissions");
+  revalidatePath("/dashboard/influencer/campaigns");
+  revalidatePath("/dashboard/clipper/campaigns");
   return { ok: true as const, id: submission.id };
 }
 

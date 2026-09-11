@@ -89,6 +89,9 @@ export async function createCampaignAction(raw: unknown) {
 
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/brand");
+  revalidatePath("/dashboard/clipper/campaigns");
+  revalidatePath("/dashboard/influencer/campaigns");
+  revalidatePath("/campaigns");
   return { ok: true as const, id: campaign.id };
 }
 
@@ -150,6 +153,9 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
   revalidatePath(`/dashboard/brand/campaigns/${id}`);
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/brand");
+  revalidatePath("/dashboard/clipper/campaigns");
+  revalidatePath("/dashboard/influencer/campaigns");
+  revalidatePath("/campaigns");
   return { ok: true as const };
 }
 

@@ -4,6 +4,7 @@ import { listBrandBookings } from "@/app/actions/bookings";
 import { BrandBookingActions } from "@/components/forms/brand-booking-actions";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
+import { bookingBadgeTone } from "@/lib/dashboard/status";
 import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
 
@@ -53,7 +54,7 @@ export default async function BrandBookingsPage() {
                       </a>
                     ) : null}
                   </div>
-                  <Badge tone={b.status === "approved" ? "success" : "muted"}>{b.status}</Badge>
+                  <Badge tone={bookingBadgeTone(b.status)}>{b.status}</Badge>
                 </div>
                 <div className="mt-3">
                   <BrandBookingActions bookingId={b.id} status={b.status} />

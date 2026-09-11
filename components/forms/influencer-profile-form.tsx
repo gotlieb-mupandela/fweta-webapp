@@ -11,6 +11,7 @@ import type { InfluencerProfile } from "@/lib/db/types";
 export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile | null }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [savedSlug, setSavedSlug] = useState<string | null>(profile?.published ? profile.slug : null);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -36,7 +37,10 @@ export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile 
             published: fd.get("published") === "on",
           });
           if (!res.ok) setError(res.error);
-          else router.refresh();
+          else {
+            setSavedSlug(fd.get("published") === "on" ? res.slug : null);
+            router.refresh();
+          }
         });
       }}
     >
@@ -81,9 +85,17 @@ export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile 
         </div>
       </div>
       <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="published" defaultChecked={profile?.published} />
+        <input type="checkbox" name="published" defaultChecked={profile ? profile.published : true} />
         Publish profile publicly
       </label>
+      {savedSlug ? (
+        <p className="text-sm text-muted">
+          Saved. Public page:{" "}
+          <a href={`/influencers/${savedSlug}`} className="text-gold hover:underline">
+            /influencers/{savedSlug}
+          </a>
+        </p>
+      ) : null}
       <FieldError>{error}</FieldError>
       <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : "Save profile"}

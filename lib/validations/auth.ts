@@ -10,6 +10,7 @@ export const signupSchema = z.object({
   password: z.string().min(8),
   displayName: z.string().min(2).max(80),
   roles: z.array(z.enum(["brand", "influencer", "clipper"])).min(1),
+  primaryRole: z.enum(["brand", "influencer", "clipper"]).optional(),
 });
 
 export const profileUpdateSchema = z.object({

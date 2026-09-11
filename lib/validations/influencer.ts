@@ -10,10 +10,10 @@ export const influencerProfileSchema = z.object({
   location: z.string().min(2).max(80),
   socials: z
     .object({
-      tiktok: z.string().url().optional().or(z.literal("")),
-      youtube: z.string().url().optional().or(z.literal("")),
-      instagram: z.string().url().optional().or(z.literal("")),
-      x: z.string().url().optional().or(z.literal("")),
+      tiktok: z.union([z.string().url(), z.literal("")]).optional(),
+      youtube: z.union([z.string().url(), z.literal("")]).optional(),
+      instagram: z.union([z.string().url(), z.literal("")]).optional(),
+      x: z.union([z.string().url(), z.literal("")]).optional(),
     })
     .optional(),
   published: z.boolean().optional(),

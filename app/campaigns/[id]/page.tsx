@@ -6,6 +6,7 @@ import { Logo } from "@/components/brand/logo";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
+import { campaignSubmitHref, canJoinCampaigns } from "@/lib/auth/roles";
 import { formatMoney } from "@/lib/utils";
 
 export default async function PublicCampaignPage({
@@ -70,11 +71,17 @@ export default async function PublicCampaignPage({
         ) : null}
 
         <div className="mt-10">
-          <Link href={session ? "/dashboard/clipper/campaigns" : "/signup?role=clipper"}>
-            <Button size="lg">
-              {session ? "Submit a clip" : "Join as clipper"}
-            </Button>
-          </Link>
+          {session && canJoinCampaigns(session.roles) ? (
+            <Link href={campaignSubmitHref(session.roles, session.primaryRole)}>
+              <Button size="lg">Submit a clip</Button>
+            </Link>
+          ) : (
+            <Link href={session ? "/dashboard" : "/signup?role=influencer"}>
+              <Button size="lg" variant={session ? "secondary" : "primary"}>
+                {session ? "Switch to a creator role to submit" : "Join as a creator"}
+              </Button>
+            </Link>
+          )}
         </div>
       </main>
     </div>

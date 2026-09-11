@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { readStore } from "@/lib/db/store";
 import {
   diagnoseSupabaseStore,
   isSupabaseStoreEnabled,
@@ -7,12 +8,29 @@ import {
 
 export async function GET() {
   if (!isSupabaseStoreEnabled()) {
-    return NextResponse.json({
-      ok: false,
-      mode: "local",
-      message: "SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL missing — using in-memory/file store only on serverless.",
-      checks: {},
-    });
+    try {
+      const store = await readStore();
+      return NextResponse.json({
+        ok: true,
+        mode: "local",
+        message: "Local file/memory store is active. Data saves to data/store.json.",
+        profileCount: store.profiles.length,
+        influencerCount: store.influencerProfiles.length,
+        campaignCount: store.campaigns.length,
+        bookingCount: store.bookings.length,
+        checks: { fileStore: "ok" },
+      });
+    } catch (e) {
+      return NextResponse.json(
+        {
+          ok: false,
+          mode: "local",
+          message: e instanceof Error ? e.message : "Local store failed to load.",
+          checks: {},
+        },
+        { status: 500 },
+      );
+    }
   }
 
   const diag = await diagnoseSupabaseStore();

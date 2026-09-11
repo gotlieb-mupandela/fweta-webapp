@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/ui/card";
 import { canJoinCampaigns } from "@/lib/auth/roles";
 import { getSession } from "@/lib/auth/session";
 
-export default async function ClipperCampaignsPage() {
+export default async function InfluencerCampaignsPage() {
   const session = await getSession();
   if (!canJoinCampaigns(session?.roles)) {
     redirect("/dashboard");
@@ -14,8 +14,8 @@ export default async function ClipperCampaignsPage() {
   return (
     <div>
       <PageHeader
-        title="Active campaigns"
-        description="Join open campaigns and submit your clips."
+        title="Open campaigns"
+        description="Join clipping and UGC campaigns — earn per verified view."
       />
       <ActiveCampaignsList />
     </div>

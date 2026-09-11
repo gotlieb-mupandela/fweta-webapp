@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/ui/card";
 import { canJoinCampaigns } from "@/lib/auth/roles";
 import { getSession } from "@/lib/auth/session";
 
-export default async function ClipperSubmissionsPage() {
+export default async function InfluencerSubmissionsPage() {
   const session = await getSession();
   if (!canJoinCampaigns(session?.roles)) {
     redirect("/dashboard");
@@ -14,10 +14,10 @@ export default async function ClipperSubmissionsPage() {
 
   return (
     <div>
-      <PageHeader title="My submissions" description="Track review status and earnings." />
+      <PageHeader title="My submissions" description="Track review status and clip earnings." />
       <SubmissionsList
         emptyAction={
-          <Link href="/dashboard/clipper/campaigns" className="text-sm text-gold hover:underline">
+          <Link href="/dashboard/influencer/campaigns" className="text-sm text-gold hover:underline">
             Browse campaigns →
           </Link>
         }

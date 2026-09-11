@@ -3,11 +3,12 @@ import { redirect } from "next/navigation";
 import { getMyLedger, getMyWallet } from "@/app/actions/wallet";
 import { PageHeader, Stat } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
+import { canJoinCampaigns } from "@/lib/auth/roles";
 import { formatMoney } from "@/lib/utils";
 
 export default async function ClipperEarningsPage() {
   const session = await getSession();
-  if (!session?.roles.includes("clipper") && !session?.roles.includes("admin")) {
+  if (!canJoinCampaigns(session?.roles) && !session?.roles.includes("admin")) {
     redirect("/dashboard");
   }
 
