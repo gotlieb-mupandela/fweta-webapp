@@ -4,14 +4,24 @@ import {
   diagnoseSupabaseStore,
   isSupabaseStoreEnabled,
 } from "@/lib/db/supabase-store";
+import { getLocalStoreDiagnostics } from "@/lib/db/store";
 
 export async function GET() {
   if (!isSupabaseStoreEnabled()) {
+    const diag = await getLocalStoreDiagnostics();
     return NextResponse.json({
-      ok: false,
+      ok: diag.persistExists,
       mode: "local",
-      message: "SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL missing — using in-memory/file store only on serverless.",
-      checks: {},
+      profileCount: diag.profileCount,
+      campaignCount: diag.campaignCount,
+      walletCount: diag.walletCount,
+      depositCount: diag.depositCount,
+      bookingCount: diag.bookingCount,
+      ledgerCount: diag.ledgerCount,
+      persist: diag.persistExists ? "ok" : "missing",
+      message: diag.persistExists
+        ? "Using local file store (data/store.json). Deposits and campaigns persist across restarts."
+        : "Local store file not written yet — sign in once to seed demo accounts.",
     });
   }
 

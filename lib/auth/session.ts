@@ -6,7 +6,7 @@ import { SignJWT, jwtVerify } from "jose";
 
 import { readStore, updateStore, newId, nowIso } from "@/lib/db/store";
 import { getAuthSecretKey } from "@/lib/auth/secret";
-import type { Profile, Wallet } from "@/lib/db/types";
+import type { DatabaseStore, InfluencerProfile, Profile, RateCardItem, Wallet } from "@/lib/db/types";
 import type { UserRole } from "@/types/enums";
 
 const COOKIE_NAME = "fweta_session";
@@ -265,6 +265,82 @@ let seedInFlight: Promise<{ seeded: boolean }> | null = null;
 /** Precomputed bcrypt hash for demo password `password123` — avoids hashing on every cold start. */
 const DEMO_PASSWORD_HASH = "$2b$10$zG4dij3FDqNB0B41xbteQ.MqWV4oXM5XqSmLk96dYyuha0hGOxirW";
 
+function seedDemoInfluencerMarketplace(store: DatabaseStore) {
+  const creator = store.profiles.find((p) => p.email === "creator@fweta.test");
+  if (!creator) return false;
+
+  const now = nowIso();
+  let changed = false;
+  let profile = store.influencerProfiles.find((p) => p.userId === creator.id);
+
+  if (!profile) {
+    let slug = "amara-nangolo";
+    let i = 1;
+    while (store.influencerProfiles.some((p) => p.slug === slug)) {
+      slug = `amara-nangolo-${i++}`;
+    }
+    profile = {
+      id: newId(),
+      userId: creator.id,
+      slug,
+      displayName: creator.displayName,
+      headline: "Lifestyle & short-form from Windhoek",
+      bio: creator.bio || "Windhoek creator · lifestyle & short-form.",
+      niche: "Lifestyle",
+      location: "Windhoek, Namibia",
+      avatarUrl: null,
+      socials: {
+        tiktok: "https://www.tiktok.com/@amara",
+        instagram: "https://www.instagram.com/amara",
+      },
+      featuredWork: [],
+      published: true,
+      createdAt: now,
+      updatedAt: now,
+    } satisfies InfluencerProfile;
+    store.influencerProfiles.push(profile);
+    changed = true;
+  } else if (!profile.published) {
+    profile.published = true;
+    profile.updatedAt = now;
+    changed = true;
+  }
+
+  const hasRate = store.rateCards.some((r) => r.influencerProfileId === profile.id);
+  if (!hasRate) {
+    const cards: RateCardItem[] = [
+      {
+        id: newId(),
+        influencerProfileId: profile.id,
+        title: "TikTok post",
+        description: "One sponsored TikTok with two revisions.",
+        type: "per_post",
+        platform: "tiktok",
+        priceCents: 50000,
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: newId(),
+        influencerProfileId: profile.id,
+        title: "Instagram Reel",
+        description: "One Reel, 15–30 seconds, usage rights 30 days.",
+        type: "per_reel",
+        platform: "instagram",
+        priceCents: 80000,
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+    store.rateCards.push(...cards);
+    changed = true;
+  }
+
+  return changed;
+}
+
 async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
   try {
     const existing = await readStore();
@@ -284,12 +360,23 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
         ),
     );
 
-    if (!needsDedupe && missingAccounts.length === 0) {
+    const creator = existing.profiles.find((p) => p.email === "creator@fweta.test");
+    const creatorProfile = creator
+      ? existing.influencerProfiles.find((p) => p.userId === creator.id)
+      : undefined;
+    const needsMarketplace =
+      Boolean(creator) &&
+      (!creatorProfile ||
+        !creatorProfile.published ||
+        !existing.rateCards.some((r) => r.influencerProfileId === creatorProfile.id));
+
+    if (!needsDedupe && missingAccounts.length === 0 && !needsMarketplace) {
       return { seeded: false };
     }
 
     const now = nowIso();
     let added = 0;
+    let marketplace = false;
 
     await updateStore((s) => {
       if (needsDedupe) {
@@ -312,9 +399,11 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
         ensureWallet(s, profile.id);
         added += 1;
       }
+
+      marketplace = seedDemoInfluencerMarketplace(s);
     });
 
-    return { seeded: added > 0 || needsDedupe };
+    return { seeded: added > 0 || needsDedupe || marketplace };
   } catch (err) {
     console.warn("[fweta] seedDemoAccounts failed:", err);
     return { seeded: false };

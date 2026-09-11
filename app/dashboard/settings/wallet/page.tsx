@@ -20,6 +20,11 @@ export default async function SettingsWalletPage() {
         <Stat label="Pending" value={formatMoney(wallet.pendingCents)} />
       </div>
       <div className="mt-8 flex flex-wrap gap-4 text-sm">
+        {session.roles.includes("brand") ? (
+          <Link href="/dashboard/brand/deposits" className="text-gold hover:underline">
+            Record a deposit →
+          </Link>
+        ) : null}
         <Link href="/dashboard/settings/payout" className="text-gold hover:underline">
           Manage payout method →
         </Link>

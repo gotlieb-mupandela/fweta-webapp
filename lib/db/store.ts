@@ -197,3 +197,24 @@ export function newId(): string {
 export function nowIso(): string {
   return new Date().toISOString();
 }
+
+export async function getLocalStoreDiagnostics() {
+  const store = await readStore();
+  let persistExists = false;
+  try {
+    await fs.access(STORE_PATH);
+    persistExists = true;
+  } catch {
+    persistExists = false;
+  }
+  return {
+    persistExists,
+    persistPath: "data/store.json",
+    profileCount: store.profiles.length,
+    campaignCount: store.campaigns.length,
+    walletCount: store.wallets.length,
+    depositCount: store.brandDeposits.length,
+    bookingCount: store.bookings.length,
+    ledgerCount: store.ledgerEntries.length,
+  };
+}

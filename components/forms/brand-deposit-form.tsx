@@ -10,6 +10,7 @@ import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
 export function BrandDepositForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -22,9 +23,11 @@ export function BrandDepositForm() {
         const amount = parseFloat(String(fd.get("amount") || ""));
         if (Number.isNaN(amount) || amount <= 0) {
           setError("Enter a valid amount.");
+          setSuccess(null);
           return;
         }
         setError(null);
+        setSuccess(null);
         startTransition(async () => {
           const res = await brandDepositAction(
             Math.round(amount * 100),
@@ -33,6 +36,7 @@ export function BrandDepositForm() {
           if (!res.ok) setError(res.error);
           else {
             form.reset();
+            setSuccess(`N$${amount.toFixed(2)} credited to your wallet.`);
             router.refresh();
           }
         });
@@ -47,6 +51,7 @@ export function BrandDepositForm() {
         <Textarea id="note" name="note" placeholder="EFT reference or memo" />
       </div>
       <FieldError>{error}</FieldError>
+      {success ? <p className="text-sm text-success">{success}</p> : null}
       <Button type="submit" disabled={pending}>
         {pending ? "Processing…" : "Record deposit"}
       </Button>

@@ -1,4 +1,4 @@
-import { encryptSecret, decryptSecret, newId, nowIso, updateStore } from "@/lib/db/store";
+import { encryptSecret, decryptSecret, newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { DatabaseStore, LedgerEntry, Wallet } from "@/lib/db/types";
 
 type WalletDelta = {
@@ -26,8 +26,12 @@ function getOrCreateWallet(store: { wallets: Wallet[] }, userId: string): Wallet
 }
 
 export async function getWallet(userId: string): Promise<Wallet> {
-  // Single transaction: create-if-missing inside the mutator so two
-  // concurrent first-logins can't both see "no wallet" and push duplicates.
+  const snapshot = await readStore();
+  const existing = snapshot.wallets.find((w) => w.userId === userId);
+  if (existing) return { ...existing };
+
+  // Create-if-missing inside the mutator so two concurrent first-logins
+  // can't both see "no wallet" and push duplicates.
   let result!: Wallet;
   await updateStore((s) => {
     result = { ...getOrCreateWallet(s, userId) };

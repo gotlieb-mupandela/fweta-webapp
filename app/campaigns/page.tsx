@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { listActiveCampaignsPublic } from "@/app/actions/campaigns";
-import { Logo } from "@/components/brand/logo";
+import { PublicSiteHeader } from "@/components/brand/public-site-header";
 import { Badge, EmptyState } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/utils";
@@ -20,16 +20,7 @@ export default async function CampaignsPage({
 
   return (
     <div className="bg-atmosphere min-h-screen">
-      <header className="border-b border-border/80 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4 md:px-8">
-          <Logo href="/" />
-          <Link href="/login">
-            <Button size="sm" variant="secondary">
-              Log in
-            </Button>
-          </Link>
-        </div>
-      </header>
+      <PublicSiteHeader />
 
       <main className="mx-auto max-w-5xl px-5 py-10 md:px-8">
         <h1 className="font-display text-4xl tracking-tight">Open campaigns</h1>

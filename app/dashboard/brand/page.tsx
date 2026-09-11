@@ -46,10 +46,18 @@ export default async function BrandDashboardPage() {
         }
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Active campaigns" value={String(active)} />
-        <Stat label="Budget spent" value={formatMoney(spent)} />
-        <Stat label="Pending reviews" value={String(pendingSubs)} />
-        <Stat label="Wallet" value={formatMoney(wallet.availableCents)} hint="For bookings & deposits" />
+        <Link href="/dashboard/brand/campaigns" className="block">
+          <Stat label="Active campaigns" value={String(active)} />
+        </Link>
+        <Link href="/dashboard/brand/analytics" className="block">
+          <Stat label="Budget spent" value={formatMoney(spent)} />
+        </Link>
+        <Link href="/dashboard/brand/submissions" className="block">
+          <Stat label="Pending reviews" value={String(pendingSubs)} />
+        </Link>
+        <Link href="/dashboard/brand/deposits" className="block">
+          <Stat label="Wallet" value={formatMoney(wallet.availableCents)} hint="For bookings & deposits" />
+        </Link>
       </div>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2">

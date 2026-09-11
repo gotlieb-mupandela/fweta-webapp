@@ -288,6 +288,9 @@ export async function brandDepositAction(amountCents: number, note?: string) {
   }
 
   revalidatePath("/dashboard/brand/deposits");
+  revalidatePath("/dashboard/brand");
+  revalidatePath("/dashboard/brand/analytics");
+  revalidatePath("/dashboard/settings/wallet");
   return { ok: true as const };
 }
 

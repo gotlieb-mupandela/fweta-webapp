@@ -83,6 +83,7 @@ export type LedgerEntry = {
     | "admin_credit"
     | "campaign_earning"
     | "campaign_fund"
+    | "campaign_refund"
     | "withdrawal"
     | "booking_escrow"
     | "booking_release"

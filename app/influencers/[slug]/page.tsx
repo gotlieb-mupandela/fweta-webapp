@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getPublicInfluencer } from "@/app/actions/influencer";
-import { Logo } from "@/components/brand/logo";
+import { PublicSiteHeader } from "@/components/brand/public-site-header";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
@@ -22,14 +22,7 @@ export default async function PublicInfluencerPage({
 
   return (
     <div className="bg-atmosphere min-h-screen">
-      <header className="border-b border-border/80 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-4">
-          <Logo href="/" />
-          <Link href="/influencers" className="text-sm text-muted">
-            ← All influencers
-          </Link>
-        </div>
-      </header>
+      <PublicSiteHeader backHref="/influencers" backLabel="← All influencers" />
 
       <main className="mx-auto max-w-3xl px-5 py-10">
         <Badge tone="gold">{profile.niche}</Badge>

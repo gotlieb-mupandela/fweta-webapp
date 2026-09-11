@@ -79,6 +79,8 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
   });
 
   revalidatePath(`/dashboard/brand/campaigns/${campaign.id}/submissions`);
+  revalidatePath("/dashboard/brand/submissions");
+  revalidatePath("/dashboard/brand");
   return { ok: true as const };
 }
 
@@ -98,5 +100,19 @@ export async function listCampaignSubmissions(campaignId: string) {
   if (campaign.brandId !== session.id && !session.roles.includes("admin")) return [];
   return store.submissions
     .filter((s) => s.campaignId === campaignId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function listBrandPendingSubmissions() {
+  const session = await requireSession();
+  if (!session.roles.includes("brand") && !session.roles.includes("admin")) return [];
+  const store = await readStore();
+  const campaignIds = new Set(
+    store.campaigns
+      .filter((c) => (session.roles.includes("admin") ? true : c.brandId === session.id))
+      .map((c) => c.id),
+  );
+  return store.submissions
+    .filter((s) => campaignIds.has(s.campaignId) && s.status === "pending")
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
