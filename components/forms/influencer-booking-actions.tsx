@@ -10,9 +10,11 @@ import { FieldError, Input, Label } from "@/components/ui/input";
 export function InfluencerBookingActions({
   bookingId,
   status,
+  deliverableUrl,
 }: {
   bookingId: string;
   status: string;
+  deliverableUrl?: string | null;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +85,22 @@ export function InfluencerBookingActions({
         <FieldError>{error}</FieldError>
       </form>
     );
+  }
+
+  if (status === "delivered") {
+    return (
+      <p className="text-sm text-muted">
+        Delivered{deliverableUrl ? " — waiting for the brand to approve payment." : "."}
+      </p>
+    );
+  }
+
+  if (status === "approved") {
+    return <p className="text-sm text-success">Payment released to your wallet.</p>;
+  }
+
+  if (status === "cancelled") {
+    return <p className="text-sm text-muted">This request was declined. Escrow was refunded to the brand.</p>;
   }
 
   return null;

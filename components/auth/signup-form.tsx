@@ -23,19 +23,27 @@ export function SignupForm() {
   const preset = searchParams.get("role");
   const initialRoles = useMemo<UserRole[]>(() => {
     if (preset === "brand") return ["brand"];
-    if (preset === "creator") return ["clipper", "influencer"];
     if (preset === "influencer") return ["influencer"];
+    if (preset === "creator") return ["clipper", "influencer"];
+    if (preset === "clipper") return ["clipper"];
     return ["clipper"];
   }, [preset]);
 
   const [roles, setRoles] = useState<UserRole[]>(initialRoles);
+  const [primaryRole, setPrimaryRole] = useState<UserRole>(initialRoles[0] ?? "clipper");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function toggleRole(role: UserRole) {
-    setRoles((prev) =>
-      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role],
-    );
+    setRoles((prev) => {
+      const next = prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role];
+      if (!prev.includes(role)) {
+        setPrimaryRole(role);
+      } else if (primaryRole === role) {
+        setPrimaryRole(next[0] ?? role);
+      }
+      return next;
+    });
   }
 
   return (
@@ -94,6 +102,7 @@ export function SignupForm() {
                   password: String(fd.get("password") || ""),
                   displayName: String(fd.get("displayName") || ""),
                   roles,
+                  primaryRole: roles.includes(primaryRole) ? primaryRole : roles[0],
                 });
                 if (!res.ok) {
                   setError(res.error);
@@ -129,6 +138,7 @@ export function SignupForm() {
               <div className="mt-2 grid gap-2">
                 {ROLE_OPTIONS.map((opt) => {
                   const active = roles.includes(opt.id);
+                  const isPrimary = active && opt.id === primaryRole;
                   return (
                     <button
                       key={opt.id}
@@ -145,18 +155,30 @@ export function SignupForm() {
                         <span className="block text-sm font-medium">{opt.label}</span>
                         <span className="block text-xs text-muted">{opt.hint}</span>
                       </span>
-                      <span
-                        className={cn(
-                          "flex h-5 w-5 items-center justify-center rounded-full border text-[10px]",
-                          active ? "border-gold bg-gold text-white" : "border-border",
-                        )}
-                      >
-                        {active ? "✓" : ""}
+                      <span className="flex items-center gap-2">
+                        {isPrimary ? (
+                          <span className="text-[10px] font-medium uppercase tracking-wide text-gold">
+                            Start here
+                          </span>
+                        ) : null}
+                        <span
+                          className={cn(
+                            "flex h-5 w-5 items-center justify-center rounded-full border text-[10px]",
+                            active ? "border-gold bg-gold text-white" : "border-border",
+                          )}
+                        >
+                          {active ? "✓" : ""}
+                        </span>
                       </span>
                     </button>
                   );
                 })}
               </div>
+              {roles.length > 1 ? (
+                <p className="mt-2 text-xs text-muted">
+                  Last selected role is your starting workspace. Switch anytime from the dashboard.
+                </p>
+              ) : null}
             </div>
 
             <FieldError>{error}</FieldError>

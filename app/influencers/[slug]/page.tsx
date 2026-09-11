@@ -42,6 +42,42 @@ export default async function PublicInfluencerPage({
           <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{profile.bio}</p>
         </Card>
 
+        {Object.values(profile.socials).some(Boolean) ? (
+          <Card className="mt-4">
+            <h2 className="font-display text-xl">Socials</h2>
+            <ul className="mt-3 space-y-2 text-sm">
+              {profile.socials.tiktok ? (
+                <li>
+                  <a href={profile.socials.tiktok} className="text-gold hover:underline" target="_blank" rel="noopener noreferrer">
+                    TikTok
+                  </a>
+                </li>
+              ) : null}
+              {profile.socials.instagram ? (
+                <li>
+                  <a href={profile.socials.instagram} className="text-gold hover:underline" target="_blank" rel="noopener noreferrer">
+                    Instagram
+                  </a>
+                </li>
+              ) : null}
+              {profile.socials.youtube ? (
+                <li>
+                  <a href={profile.socials.youtube} className="text-gold hover:underline" target="_blank" rel="noopener noreferrer">
+                    YouTube
+                  </a>
+                </li>
+              ) : null}
+              {profile.socials.x ? (
+                <li>
+                  <a href={profile.socials.x} className="text-gold hover:underline" target="_blank" rel="noopener noreferrer">
+                    X
+                  </a>
+                </li>
+              ) : null}
+            </ul>
+          </Card>
+        ) : null}
+
         <div className="mt-8">
           <h2 className="font-display text-2xl">Rate card</h2>
           {rates.length === 0 ? (

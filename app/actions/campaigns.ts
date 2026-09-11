@@ -90,6 +90,7 @@ export async function createCampaignAction(raw: unknown) {
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/brand");
   revalidatePath("/dashboard/clipper/campaigns");
+  revalidatePath("/dashboard/influencer/campaigns");
   revalidatePath("/campaigns");
   return { ok: true as const, id: campaign.id };
 }
@@ -112,6 +113,7 @@ export async function updateCampaignAction(id: string, raw: unknown) {
   revalidatePath(`/dashboard/brand/campaigns/${id}`);
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/clipper/campaigns");
+  revalidatePath("/dashboard/influencer/campaigns");
   revalidatePath("/campaigns");
   revalidatePath(`/campaigns/${id}`);
   return { ok: true as const };
@@ -156,6 +158,7 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/brand");
   revalidatePath("/dashboard/clipper/campaigns");
+  revalidatePath("/dashboard/influencer/campaigns");
   revalidatePath("/campaigns");
   revalidatePath(`/campaigns/${id}`);
   return { ok: true as const };
@@ -229,6 +232,8 @@ export async function deleteCampaignAction(id: string) {
   revalidatePath("/dashboard/brand");
   revalidatePath("/dashboard/clipper/campaigns");
   revalidatePath("/dashboard/clipper/submissions");
+  revalidatePath("/dashboard/influencer/campaigns");
+  revalidatePath("/dashboard/influencer/submissions");
   revalidatePath("/campaigns");
   return { ok: true as const };
 }

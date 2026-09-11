@@ -27,6 +27,7 @@ export async function signupAction(input: {
   password: string;
   displayName: string;
   roles: UserRole[];
+  primaryRole?: UserRole;
 }) {
   const parsed = signupSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: "Check your details and try again." };

@@ -23,6 +23,10 @@ function revalidateClipperSurfaces(campaignId?: string) {
   revalidatePath("/dashboard/clipper/campaigns");
   revalidatePath("/dashboard/clipper/submissions");
   revalidatePath("/dashboard/clipper/earnings");
+  revalidatePath("/dashboard/influencer");
+  revalidatePath("/dashboard/influencer/campaigns");
+  revalidatePath("/dashboard/influencer/submissions");
+  revalidatePath("/dashboard/influencer/earnings");
   revalidatePath("/campaigns");
   if (campaignId) {
     revalidatePath(`/campaigns/${campaignId}`);

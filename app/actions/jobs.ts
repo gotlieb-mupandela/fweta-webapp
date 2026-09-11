@@ -128,6 +128,11 @@ export async function recalculateEarningsJob() {
   }
 
   revalidatePath("/dashboard/clipper");
+  revalidatePath("/dashboard/clipper/earnings");
+  revalidatePath("/dashboard/clipper/submissions");
+  revalidatePath("/dashboard/influencer");
+  revalidatePath("/dashboard/influencer/earnings");
+  revalidatePath("/dashboard/influencer/submissions");
   revalidatePath("/dashboard/brand");
   return { creditedCents: credited };
 }

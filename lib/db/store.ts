@@ -210,7 +210,9 @@ export async function diagnoseLocalStore() {
   return {
     persisted,
     profileCount: store.profiles.length,
+    influencerCount: store.influencerProfiles.length,
     campaignCount: store.campaigns.length,
+    bookingCount: store.bookings.length,
     submissionCount: store.submissions.length,
     walletCount: store.wallets.length,
     ledgerCount: store.ledgerEntries.length,

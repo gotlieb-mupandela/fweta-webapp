@@ -17,7 +17,10 @@ export async function upsertInfluencerProfileAction(raw: unknown) {
     return { ok: false as const, error: "Influencer role required." };
   }
   const parsed = influencerProfileSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Invalid profile." };
+  if (!parsed.success) {
+    const msg = parsed.error.issues[0]?.message ?? "Invalid profile.";
+    return { ok: false as const, error: msg };
+  }
 
   const store = await readStore();
   const existing = store.influencerProfiles.find((p) => p.userId === session.id);
@@ -75,8 +78,11 @@ export async function upsertInfluencerProfileAction(raw: unknown) {
     }
   });
 
+  revalidatePath("/dashboard/influencer");
   revalidatePath("/dashboard/influencer/profile");
+  revalidatePath("/dashboard/influencer/rate-cards");
   revalidatePath("/influencers");
+  revalidatePath(`/influencers/${slug}`);
   return { ok: true as const, slug };
 }
 
@@ -92,7 +98,10 @@ export async function addRateCardAction(raw: unknown) {
     return { ok: false as const, error: "Influencer role required." };
   }
   const parsed = rateCardSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Invalid rate card." };
+  if (!parsed.success) {
+    const msg = parsed.error.issues[0]?.message ?? "Invalid rate card.";
+    return { ok: false as const, error: msg };
+  }
 
   const store = await readStore();
   const profile = store.influencerProfiles.find((p) => p.userId === session.id);
@@ -117,7 +126,10 @@ export async function addRateCardAction(raw: unknown) {
   await updateStore((s) => {
     s.rateCards.push(item);
   });
+  revalidatePath("/dashboard/influencer");
   revalidatePath("/dashboard/influencer/rate-cards");
+  revalidatePath(`/influencers/${profile.slug}`);
+  revalidatePath("/influencers");
   return { ok: true as const, id: item.id };
 }
 
@@ -126,15 +138,20 @@ export async function toggleRateCardAction(id: string, active: boolean) {
   const store = await readStore();
   const profile = store.influencerProfiles.find((p) => p.userId === session.id);
   if (!profile) return { ok: false as const, error: "Not found." };
+  let found = false;
   await updateStore((s) => {
     const item = s.rateCards.find(
       (r) => r.id === id && r.influencerProfileId === profile.id,
     );
     if (!item) return;
+    found = true;
     item.active = active;
     item.updatedAt = nowIso();
   });
+  if (!found) return { ok: false as const, error: "Not found." };
+  revalidatePath("/dashboard/influencer");
   revalidatePath("/dashboard/influencer/rate-cards");
+  revalidatePath(`/influencers/${profile.slug}`);
   return { ok: true as const };
 }
 

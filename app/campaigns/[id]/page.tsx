@@ -8,6 +8,7 @@ import { SubmitClipForm } from "@/components/forms/submit-clip-form";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
+import { canJoinCampaigns } from "@/lib/auth/roles";
 import { formatMoney } from "@/lib/utils";
 
 export default async function PublicCampaignPage({
@@ -20,9 +21,7 @@ export default async function PublicCampaignPage({
   if (!campaign || campaign.status !== "active") notFound();
 
   const session = await getSession();
-  const canSubmit = Boolean(
-    session && (session.roles.includes("clipper") || session.roles.includes("admin")),
-  );
+  const canSubmit = Boolean(session && canJoinCampaigns(session.roles));
   const remaining = Math.max(0, campaign.budgetTotalCents - campaign.budgetSpentCents);
   const mySubs = canSubmit
     ? (await listClipperSubmissions()).filter((s) => s.campaignId === campaign.id)
@@ -77,7 +76,7 @@ export default async function PublicCampaignPage({
         ) : null}
 
         <div className="mt-10">
-          {canSubmit ? (
+          {session && canJoinCampaigns(session.roles) ? (
             <Card>
               <h2 className="font-display text-xl">Submit a clip</h2>
               {mySubs.length > 0 ? (
@@ -100,7 +99,7 @@ export default async function PublicCampaignPage({
             </Card>
           ) : session ? (
             <p className="text-sm text-muted">
-              Add the clipper role in{" "}
+              Add a clipper or influencer role in{" "}
               <Link href="/dashboard/settings/roles" className="text-gold hover:underline">
                 Settings → Roles
               </Link>{" "}

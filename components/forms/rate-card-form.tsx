@@ -7,7 +7,7 @@ import { addRateCardAction } from "@/app/actions/influencer";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select, Textarea } from "@/components/ui/input";
 
-export function RateCardForm() {
+export function RateCardForm({ disabled = false }: { disabled?: boolean }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -17,6 +17,7 @@ export function RateCardForm() {
       className="space-y-4 rounded-3xl border border-border bg-white p-5"
       onSubmit={(e) => {
         e.preventDefault();
+        if (disabled) return;
         const form = e.currentTarget;
         const fd = new FormData(form);
         const price = parseFloat(String(fd.get("price") || ""));
@@ -42,6 +43,9 @@ export function RateCardForm() {
       }}
     >
       <h3 className="font-display text-xl">Add rate card item</h3>
+      {disabled ? (
+        <p className="text-sm text-muted">Create your public profile first to add rates.</p>
+      ) : null}
       <div>
         <Label htmlFor="title">Title</Label>
         <Input id="title" name="title" required placeholder="1 TikTok post" />
@@ -77,7 +81,7 @@ export function RateCardForm() {
         </div>
       </div>
       <FieldError>{error}</FieldError>
-      <Button type="submit" size="sm" disabled={pending}>
+      <Button type="submit" size="sm" disabled={pending || disabled}>
         {pending ? "Adding…" : "Add item"}
       </Button>
     </form>
