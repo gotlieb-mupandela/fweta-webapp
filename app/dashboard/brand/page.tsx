@@ -95,14 +95,21 @@ export default async function BrandDashboardPage() {
             </Link>
           </div>
           <ul className="space-y-3">
-            {bookings.slice(0, 5).map((b) => (
-              <li key={b.id} className="list-row">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium capitalize">{b.status.replace(/_/g, " ")}</p>
-                  <p className="text-xs text-muted">{formatMoney(b.amountCents)}</p>
-                </div>
-              </li>
-            ))}
+            {bookings.slice(0, 5).map((b) => {
+              const profile = store.influencerProfiles.find((p) => p.id === b.influencerProfileId);
+              return (
+                <li key={b.id}>
+                  <Link href="/dashboard/brand/bookings" className="list-row">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{profile?.displayName ?? "Influencer"}</p>
+                      <p className="text-xs text-muted capitalize">
+                        {b.status.replace(/_/g, " ")} · {formatMoney(b.amountCents)}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
             {bookings.length === 0 ? (
               <p className="text-sm text-muted">No bookings yet.</p>
             ) : null}
