@@ -14,8 +14,8 @@ import {
 /**
  * Local dev: file store at data/store.json (+ in-memory cache).
  * Vercel/production: set SUPABASE_SERVICE_ROLE_KEY to persist via Supabase.
- * - Relational tables (fweta_*) when migration 20260829150000 is applied
- * - JSON backup in fweta_app_store (migration 20260829140000)
+ * - JSON store via fweta_json_store_get/set (migration 20260911094052) or fweta_app_store
+ * - Relational tables (fweta_*) only when FWETA_RELATIONAL_SYNC=true
  */
 const DATA_DIR =
   process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { Logo } from "@/components/brand/logo";
@@ -17,15 +17,13 @@ const ROLE_OPTIONS: { id: UserRole; label: string; hint: string }[] = [
   { id: "brand", label: "Business", hint: "Run campaigns & hire creators" },
 ];
 
-export function SignupForm() {
+export function SignupForm({ presetRole }: { presetRole?: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const preset = searchParams.get("role");
   const initialRoles = useMemo<UserRole[]>(() => {
-    if (preset === "brand") return ["brand"];
-    if (preset === "creator") return ["clipper", "influencer"];
+    if (presetRole === "brand") return ["brand"];
+    if (presetRole === "creator") return ["clipper", "influencer"];
     return ["clipper"];
-  }, [preset]);
+  }, [presetRole]);
 
   const [roles, setRoles] = useState<UserRole[]>(initialRoles);
   const [error, setError] = useState<string | null>(null);

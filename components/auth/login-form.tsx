@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Logo } from "@/components/brand/logo";
@@ -9,11 +9,18 @@ import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { loginAction } from "@/app/actions/auth";
 
-export function LoginForm() {
+export function LoginForm({
+  nextPath,
+  oauthError,
+}: {
+  nextPath?: string;
+  oauthError?: string;
+}) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/dashboard";
-  const oauthError = searchParams.get("error");
+  const next =
+    nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
+      ? nextPath
+      : "/dashboard";
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 

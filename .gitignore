@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local file database (runtime)
 /data/
+
+# supabase CLI
+/supabase/.temp/
