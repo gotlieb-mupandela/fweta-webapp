@@ -33,13 +33,16 @@ export async function SubmissionsList({
                   href={s.postUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-1 block text-sm text-gold hover:underline"
+                  className="mt-1 block break-all text-sm text-gold hover:underline"
                 >
                   {s.postUrl}
                 </a>
                 <p className="mt-1 text-xs text-muted">
                   {s.platform} · {formatNumber(s.views)} views · {formatMoney(s.earningsCents)}
                 </p>
+                {s.reviewNote ? (
+                  <p className="mt-2 text-xs text-muted">Reviewer note: {s.reviewNote}</p>
+                ) : null}
               </div>
               <Badge
                 tone={
@@ -47,7 +50,9 @@ export async function SubmissionsList({
                     ? "success"
                     : s.status === "rejected"
                       ? "danger"
-                      : "muted"
+                      : s.status === "flagged"
+                        ? "gold"
+                        : "muted"
                 }
               >
                 {s.status}

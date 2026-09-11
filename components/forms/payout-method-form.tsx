@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 
 import { savePayoutMethodAction } from "@/app/actions/wallet";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label, Select } from "@/components/ui/input";
+import { FieldError, FieldSuccess, Input, Label, Select } from "@/components/ui/input";
 
 export function PayoutMethodForm({
   defaults,
@@ -19,6 +19,7 @@ export function PayoutMethodForm({
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -28,6 +29,7 @@ export function PayoutMethodForm({
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
         setError(null);
+        setSuccess(false);
         startTransition(async () => {
           const res = await savePayoutMethodAction({
             bankName: String(fd.get("bankName") || ""),
@@ -37,7 +39,10 @@ export function PayoutMethodForm({
             accountType: String(fd.get("accountType") || "cheque") as "cheque" | "savings" | "transmission",
           });
           if (!res.ok) setError(res.error);
-          else router.refresh();
+          else {
+            setSuccess(true);
+            router.refresh();
+          }
         });
       }}
     >
@@ -73,6 +78,7 @@ export function PayoutMethodForm({
         </Select>
       </div>
       <FieldError>{error}</FieldError>
+      <FieldSuccess>{success ? "Payout method saved." : null}</FieldSuccess>
       <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : "Save payout method"}
       </Button>

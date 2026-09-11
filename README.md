@@ -10,7 +10,7 @@ This app starts at **auth** (`/` → login or dashboard). It is not the marketin
 ## Stack
 
 - Next.js (App Router) + TypeScript + Tailwind
-- File/memory store locally & on Vercel (`/tmp`) + cookie auth for MVP
+- File/memory store locally (`data/store.json`) + cookie email/password auth for MVP
 - Zod validation + server actions
 
 ## Quick start

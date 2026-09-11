@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ActiveCampaignsList } from "@/components/dashboard/active-campaigns-list";
@@ -17,7 +18,14 @@ export default async function InfluencerCampaignsPage() {
         title="Open campaigns"
         description="Join clipping and UGC campaigns — earn per verified view."
       />
-      <ActiveCampaignsList />
+      <ActiveCampaignsList
+        emptyDescription="Check back soon for new clipping and UGC opportunities."
+        emptyAction={
+          <Link href="/campaigns" className="text-sm text-gold hover:underline">
+            Browse the public marketplace →
+          </Link>
+        }
+      />
     </div>
   );
 }

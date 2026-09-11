@@ -10,10 +10,3 @@ export function canUseInfluencerWorkspace(roles: UserRole[] | undefined): boolea
   if (!roles?.length) return false;
   return roles.includes("influencer") || roles.includes("admin");
 }
-
-export function campaignSubmitHref(roles: UserRole[], primaryRole: UserRole): string {
-  if (primaryRole === "influencer" || (roles.includes("influencer") && !roles.includes("clipper"))) {
-    return "/dashboard/influencer/campaigns";
-  }
-  return "/dashboard/clipper/campaigns";
-}

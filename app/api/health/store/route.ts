@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { readStore } from "@/lib/db/store";
+import { diagnoseLocalStore } from "@/lib/db/store";
 import {
   diagnoseSupabaseStore,
   isSupabaseStoreEnabled,
@@ -8,29 +8,24 @@ import {
 
 export async function GET() {
   if (!isSupabaseStoreEnabled()) {
-    try {
-      const store = await readStore();
-      return NextResponse.json({
-        ok: true,
-        mode: "local",
-        message: "Local file/memory store is active. Data saves to data/store.json.",
-        profileCount: store.profiles.length,
-        influencerCount: store.influencerProfiles.length,
-        campaignCount: store.campaigns.length,
-        bookingCount: store.bookings.length,
-        checks: { fileStore: "ok" },
-      });
-    } catch (e) {
-      return NextResponse.json(
-        {
-          ok: false,
-          mode: "local",
-          message: e instanceof Error ? e.message : "Local store failed to load.",
-          checks: {},
-        },
-        { status: 500 },
-      );
-    }
+    const local = await diagnoseLocalStore();
+    return NextResponse.json({
+      ok: local.persisted,
+      mode: "local",
+      profileCount: local.profileCount,
+      influencerCount: local.influencerCount,
+      campaignCount: local.campaignCount,
+      bookingCount: local.bookingCount,
+      submissionCount: local.submissionCount,
+      walletCount: local.walletCount,
+      ledgerCount: local.ledgerCount,
+      checks: {
+        filePersist: local.persisted ? "ok" : "store.json not on disk yet",
+      },
+      message: local.persisted
+        ? "Using local file store (data/store.json). Data survives server restarts."
+        : "Local store has not been written to disk yet.",
+    });
   }
 
   const diag = await diagnoseSupabaseStore();

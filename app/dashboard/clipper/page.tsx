@@ -72,7 +72,12 @@ export default async function ClipperDashboardPage() {
               );
             })}
             {submissions.length === 0 ? (
-              <p className="text-sm text-muted">No submissions yet.</p>
+              <p className="text-sm text-muted">
+                No submissions yet.{" "}
+                <Link href="/dashboard/clipper/campaigns" className="text-gold hover:underline">
+                  Browse campaigns
+                </Link>
+              </p>
             ) : null}
           </ul>
         </section>

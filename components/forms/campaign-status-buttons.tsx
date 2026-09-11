@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { setCampaignStatusAction } from "@/app/actions/campaigns";
+import { deleteCampaignAction, setCampaignStatusAction } from "@/app/actions/campaigns";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/input";
 import type { CampaignStatus } from "@/types/enums";
@@ -49,6 +49,32 @@ export function CampaignStatusButtons({
             Mark completed
           </Button>
         ) : null}
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={pending}
+          onClick={() => {
+            if (
+              !window.confirm(
+                "Delete this campaign? Unused budget is returned to your wallet. Pending submissions will be removed.",
+              )
+            ) {
+              return;
+            }
+            setError(null);
+            startTransition(async () => {
+              const res = await deleteCampaignAction(campaignId);
+              if (!res.ok) {
+                setError(res.error);
+                return;
+              }
+              router.push("/dashboard/brand/campaigns");
+              router.refresh();
+            });
+          }}
+        >
+          Delete
+        </Button>
       </div>
       <FieldError>{error}</FieldError>
     </div>
