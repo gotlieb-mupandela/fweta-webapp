@@ -39,12 +39,15 @@ Run **in order**, paste full file contents:
 
 1. `supabase/migrations/20260829140000_fweta_app_store.sql` — JSON store (required)
 2. `supabase/migrations/20260829150000_fweta_full_schema.sql` — relational tables (optional for now)
+3. `supabase/migrations/20260911094052_repair_app_store_access.sql` — service_role grants + JSON RPCs (required on existing projects)
 
-After running #1, verify:
+After running #1 and #3, verify:
 
 ```sql
 select id, updated_at from public.fweta_app_store;
 -- Should return 0 or 1 row, not an error
+select public.fweta_json_store_get();
+-- Should return jsonb, not a permission error
 ```
 
 ### 1b. API keys (Supabase → Settings → API)
@@ -168,7 +171,7 @@ node scripts/e2e-full-flow.mjs
 ## Quick fix if dashboard 500s
 
 1. Confirm PR #8+ is deployed on `main`
-2. Run `fweta_app_store` migration in Supabase
+2. Run `supabase/migrations/20260911094052_repair_app_store_access.sql` in the SQL Editor
 3. Fix `SUPABASE_SERVICE_ROLE_KEY` (must be **secret** key)
 4. Redeploy Vercel
 5. Hard refresh / clear cookies for `app.fweta.com`

@@ -1,204 +1,67 @@
--- Full Fweta schema: all app entities in relational tables.
--- Cookie-auth MVP (password_hash on profiles — no Supabase Auth required).
--- Run in Supabase SQL Editor after fweta_app_store migration.
+-- Repair hosted fweta store: grants, JSON RPCs, and fweta_load_store ORDER BY.
+-- Safe to re-run in Supabase → SQL Editor.
 
--- Enums (skip if already created)
-DO $$ BEGIN CREATE TYPE user_role AS ENUM ('brand', 'influencer', 'clipper', 'admin');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE campaign_type AS ENUM ('clipping', 'ugc');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE campaign_status AS ENUM ('draft', 'pending', 'active', 'paused', 'completed');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE submission_status AS ENUM ('pending', 'approved', 'flagged', 'rejected');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE booking_status AS ENUM ('requested', 'accepted', 'in_progress', 'delivered', 'approved', 'cancelled');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE withdrawal_status AS ENUM ('pending', 'processing', 'paid', 'rejected');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE account_type AS ENUM ('cheque', 'savings', 'transmission');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE social_platform AS ENUM ('tiktok', 'youtube', 'instagram', 'x');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
--- Profiles (cookie auth — not tied to auth.users)
-create table if not exists public.fweta_profiles (
-  id uuid primary key,
-  email text unique not null,
-  password_hash text not null,
-  display_name text not null,
-  bio text not null default '',
-  avatar_url text,
-  roles user_role[] not null default '{}',
-  primary_role user_role not null,
-  notify_email boolean not null default true,
-  notify_withdrawals boolean not null default true,
-  notify_bookings boolean not null default true,
-  suspended boolean not null default false,
-  created_at timestamptz not null,
-  updated_at timestamptz not null
+create table if not exists public.fweta_app_store (
+  id text primary key default 'default',
+  data jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
 );
 
-create table if not exists public.fweta_campaigns (
-  id uuid primary key,
-  brand_id uuid not null references public.fweta_profiles(id) on delete cascade,
-  title text not null,
-  description text not null,
-  type campaign_type not null,
-  category text not null,
-  status campaign_status not null default 'draft',
-  budget_total_cents integer not null,
-  budget_spent_cents integer not null default 0,
-  cpm_cents integer not null,
-  max_payout_per_submission_cents integer not null,
-  platforms social_platform[] not null,
-  requirements text not null default '',
-  end_date timestamptz,
-  created_at timestamptz not null,
-  updated_at timestamptz not null
-);
+alter table public.fweta_app_store enable row level security;
 
-create table if not exists public.fweta_submissions (
-  id uuid primary key,
-  campaign_id uuid not null references public.fweta_campaigns(id) on delete cascade,
-  clipper_id uuid not null references public.fweta_profiles(id) on delete cascade,
-  post_url text not null,
-  platform social_platform not null,
-  status submission_status not null default 'pending',
-  review_note text,
-  views integer not null default 0,
-  earnings_cents integer not null default 0,
-  created_at timestamptz not null,
-  updated_at timestamptz not null
-);
+grant usage on schema public to service_role;
+grant all privileges on table public.fweta_app_store to service_role;
 
-create table if not exists public.fweta_view_snapshots (
-  id uuid primary key,
-  submission_id uuid not null references public.fweta_submissions(id) on delete cascade,
-  views integer not null,
-  recorded_at timestamptz not null
-);
+alter default privileges in schema public
+  grant all on tables to service_role;
+alter default privileges in schema public
+  grant execute on functions to service_role;
 
-create table if not exists public.fweta_wallets (
-  user_id uuid primary key references public.fweta_profiles(id) on delete cascade,
-  available_cents integer not null default 0,
-  pending_cents integer not null default 0,
-  updated_at timestamptz not null
-);
+grant all privileges on all tables in schema public to service_role;
+grant execute on all functions in schema public to service_role;
 
-create table if not exists public.fweta_ledger_entries (
-  id uuid primary key,
-  user_id uuid not null references public.fweta_profiles(id) on delete cascade,
-  amount_cents integer not null,
-  type text not null check (type in ('credit', 'debit')),
-  reason text not null,
-  reference_type text not null,
-  reference_id uuid,
-  balance_after_available_cents integer not null,
-  balance_after_pending_cents integer not null,
-  created_at timestamptz not null
-);
+-- Timestamp columns expected by fweta_load_store (no-op if table/column already exists)
+do $$
+begin
+  if to_regclass('public.fweta_profiles') is not null then
+    alter table public.fweta_profiles add column if not exists created_at timestamptz not null default now();
+    alter table public.fweta_profiles add column if not exists updated_at timestamptz not null default now();
+  end if;
+end $$;
 
-create table if not exists public.fweta_payout_methods (
-  id uuid primary key,
-  user_id uuid not null references public.fweta_profiles(id) on delete cascade,
-  bank_name text not null,
-  branch_code text not null,
-  account_number_enc text not null,
-  account_holder_name text not null,
-  account_type account_type not null,
-  created_at timestamptz not null,
-  updated_at timestamptz not null
-);
+-- Security-definer JSON accessors: work even when table GRANTs are missing
+create or replace function public.fweta_json_store_get()
+returns jsonb
+language sql
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (select data from public.fweta_app_store where id = 'default'),
+    '{}'::jsonb
+  );
+$$;
 
-create table if not exists public.fweta_withdrawal_requests (
-  id uuid primary key,
-  user_id uuid not null references public.fweta_profiles(id) on delete cascade,
-  payout_method_id uuid not null references public.fweta_payout_methods(id) on delete cascade,
-  amount_cents integer not null,
-  status withdrawal_status not null default 'pending',
-  bank_reference text,
-  admin_note text,
-  created_at timestamptz not null,
-  updated_at timestamptz not null,
-  paid_at timestamptz
-);
+create or replace function public.fweta_json_store_set(payload jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.fweta_app_store (id, data, updated_at)
+  values ('default', coalesce(payload, '{}'::jsonb), now())
+  on conflict (id) do update
+    set data = excluded.data,
+        updated_at = excluded.updated_at;
+end;
+$$;
 
-create table if not exists public.fweta_influencer_profiles (
-  id uuid primary key,
-  user_id uuid not null references public.fweta_profiles(id) on delete cascade,
-  slug text unique not null,
-  display_name text not null,
-  headline text not null default '',
-  bio text not null default '',
-  niche text not null default '',
-  location text not null default '',
-  avatar_url text,
-  socials jsonb not null default '{}'::jsonb,
-  featured_work text[] not null default '{}',
-  published boolean not null default false,
-  created_at timestamptz not null,
-  updated_at timestamptz not null
-);
+revoke all on function public.fweta_json_store_get() from public, anon, authenticated;
+revoke all on function public.fweta_json_store_set(jsonb) from public, anon, authenticated;
+grant execute on function public.fweta_json_store_get() to service_role;
+grant execute on function public.fweta_json_store_set(jsonb) to service_role;
 
-create table if not exists public.fweta_rate_cards (
-  id uuid primary key,
-  influencer_profile_id uuid not null references public.fweta_influencer_profiles(id) on delete cascade,
-  title text not null,
-  description text not null default '',
-  type text not null,
-  platform text not null,
-  price_cents integer not null,
-  active boolean not null default true,
-  created_at timestamptz not null,
-  updated_at timestamptz not null
-);
-
-create table if not exists public.fweta_bookings (
-  id uuid primary key,
-  brand_id uuid not null references public.fweta_profiles(id) on delete cascade,
-  influencer_id uuid not null references public.fweta_profiles(id) on delete cascade,
-  influencer_profile_id uuid not null references public.fweta_influencer_profiles(id) on delete cascade,
-  rate_card_item_id uuid not null references public.fweta_rate_cards(id) on delete cascade,
-  amount_cents integer not null,
-  brief text not null default '',
-  deliverable_url text,
-  status booking_status not null default 'requested',
-  created_at timestamptz not null,
-  updated_at timestamptz not null
-);
-
-create table if not exists public.fweta_brand_deposits (
-  id uuid primary key,
-  brand_id uuid not null references public.fweta_profiles(id) on delete cascade,
-  amount_cents integer not null,
-  note text not null default '',
-  status text not null default 'credited',
-  created_at timestamptz not null
-);
-
-create table if not exists public.fweta_fraud_flags (
-  id uuid primary key,
-  submission_id uuid not null references public.fweta_submissions(id) on delete cascade,
-  reason text not null,
-  status text not null default 'open',
-  created_at timestamptz not null,
-  resolved_at timestamptz
-);
-
--- RLS: service role bypasses; no anon policies
-alter table public.fweta_profiles enable row level security;
-alter table public.fweta_campaigns enable row level security;
-alter table public.fweta_submissions enable row level security;
-alter table public.fweta_view_snapshots enable row level security;
-alter table public.fweta_wallets enable row level security;
-alter table public.fweta_ledger_entries enable row level security;
-alter table public.fweta_payout_methods enable row level security;
-alter table public.fweta_withdrawal_requests enable row level security;
-alter table public.fweta_influencer_profiles enable row level security;
-alter table public.fweta_rate_cards enable row level security;
-alter table public.fweta_bookings enable row level security;
-alter table public.fweta_brand_deposits enable row level security;
-alter table public.fweta_fraud_flags enable row level security;
 
 -- Load entire app store as JSON (matches DatabaseStore in lib/db/types.ts)
 create or replace function public.fweta_load_store()
