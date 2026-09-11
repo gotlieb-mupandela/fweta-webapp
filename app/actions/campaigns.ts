@@ -247,6 +247,15 @@ export async function deleteCampaignAction(id: string) {
       }
       refundUnusedCampaignBudget(s, campaign);
       const submissionIds = new Set(related.map((sub) => sub.id));
+      for (const flag of s.fraudFlags) {
+        if (!submissionIds.has(flag.submissionId)) continue;
+        const sub = related.find((x) => x.id === flag.submissionId);
+        if (!sub) continue;
+        const clipper = s.profiles.find((p) => p.id === sub.clipperId);
+        flag.clipperName ??= clipper?.displayName || clipper?.email || "Unknown clipper";
+        flag.campaignTitle ??= campaign.title;
+        flag.postUrl ??= sub.postUrl;
+      }
       s.submissions = s.submissions.filter((sub) => sub.campaignId !== campaign.id);
       s.viewSnapshots = s.viewSnapshots.filter((snap) => !submissionIds.has(snap.submissionId));
       s.campaigns.splice(index, 1);
@@ -260,6 +269,8 @@ export async function deleteCampaignAction(id: string) {
   revalidatePath("/dashboard/brand/analytics");
   revalidatePath("/dashboard/clipper/campaigns");
   revalidatePath("/dashboard/clipper/submissions");
+  revalidatePath("/dashboard/admin/fraud");
+  revalidatePath("/dashboard/admin");
   revalidatePath("/campaigns");
   return { ok: true as const };
 }

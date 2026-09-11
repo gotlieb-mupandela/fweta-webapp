@@ -30,6 +30,10 @@ export default async function AdminFraudPage() {
             const clipper = submission
               ? store.profiles.find((p) => p.id === submission.clipperId)
               : null;
+            const clipperLabel =
+              clipper?.displayName ?? clipper?.email ?? f.clipperName ?? "Unknown clipper";
+            const campaignLabel = campaign?.title ?? f.campaignTitle ?? "Unknown campaign";
+            const postUrl = submission?.postUrl ?? f.postUrl;
             return (
               <li
                 key={f.id}
@@ -39,18 +43,18 @@ export default async function AdminFraudPage() {
                   <div>
                     <p className="font-medium">{f.reason}</p>
                     <p className="text-sm text-muted">
-                      {clipper?.displayName ?? clipper?.email ?? "Unknown clipper"}
+                      {clipperLabel}
                       {" · "}
-                      {campaign?.title ?? "Unknown campaign"}
+                      {campaignLabel}
                     </p>
-                    {submission?.postUrl ? (
+                    {postUrl ? (
                       <a
-                        href={submission.postUrl}
+                        href={postUrl}
                         target="_blank"
                         rel="noreferrer"
                         className="mt-1 inline-block break-all text-sm text-gold hover:underline"
                       >
-                        {submission.postUrl}
+                        {postUrl}
                       </a>
                     ) : null}
                     <p className="text-xs text-muted">{new Date(f.createdAt).toLocaleString()}</p>

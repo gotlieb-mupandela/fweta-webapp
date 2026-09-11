@@ -122,6 +122,8 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
     sub.reviewNote = parsed.data.reviewNote ?? null;
     sub.updatedAt = nowIso();
     if (parsed.data.status === "flagged") {
+      const clipper = s.profiles.find((p) => p.id === sub.clipperId);
+      const flaggedCampaign = s.campaigns.find((c) => c.id === sub.campaignId);
       s.fraudFlags.push({
         id: newId(),
         submissionId: id,
@@ -129,6 +131,9 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
         status: "open",
         createdAt: nowIso(),
         resolvedAt: null,
+        clipperName: clipper?.displayName || clipper?.email || "Unknown clipper",
+        campaignTitle: flaggedCampaign?.title || "Unknown campaign",
+        postUrl: sub.postUrl,
       });
     }
   });
