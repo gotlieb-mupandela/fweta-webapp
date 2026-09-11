@@ -40,7 +40,7 @@ export default async function AdminStatsPage() {
         <Card>
           <h2 className="font-display text-xl">Campaigns by status</h2>
           <ul className="mt-4 space-y-2 text-sm">
-            {(["draft", "pending", "active", "paused", "completed"] as const).map((status) => {
+            {(["draft", "pending", "active", "paused", "completed", "cancelled"] as const).map((status) => {
               const count = store.campaigns.filter((c) => c.status === status).length;
               return (
                 <li key={status} className="flex justify-between">

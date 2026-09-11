@@ -136,6 +136,9 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
   revalidatePath(`/dashboard/brand/campaigns/${campaign.id}/submissions`);
   revalidatePath("/dashboard/brand/submissions");
   revalidatePath("/dashboard/brand");
+  revalidatePath("/dashboard/admin");
+  revalidatePath("/dashboard/admin/fraud");
+  revalidatePath("/dashboard/admin/stats");
   revalidateClipperSurfaces(campaign.id);
   return { ok: true as const };
 }

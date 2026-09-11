@@ -39,15 +39,25 @@ export default async function AdminDashboardPage() {
 
       {stats ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label="Users" value={String(stats.users)} />
-          <Stat label="Active campaigns" value={String(stats.activeCampaigns)} />
-          <Stat label="Pending withdrawals" value={String(stats.pendingWithdrawals)} />
-          <Stat label="Open fraud flags" value={String(stats.openFraudFlags)} />
+          <Link href="/dashboard/admin/users" className="block transition hover:opacity-90">
+            <Stat label="Users" value={String(stats.users)} />
+          </Link>
+          <Link href="/campaigns" className="block transition hover:opacity-90">
+            <Stat label="Active campaigns" value={String(stats.activeCampaigns)} />
+          </Link>
+          <Link href="/dashboard/admin/withdrawals" className="block transition hover:opacity-90">
+            <Stat label="Pending withdrawals" value={String(stats.pendingWithdrawals)} />
+          </Link>
+          <Link href="/dashboard/admin/fraud" className="block transition hover:opacity-90">
+            <Stat label="Open fraud flags" value={String(stats.openFraudFlags)} />
+          </Link>
         </div>
       ) : null}
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
-        <AdminCreditForm users={users.map((u) => ({ id: u.id, email: u.email }))} />
+        <AdminCreditForm
+          users={users.map((u) => ({ id: u.id, email: u.email, displayName: u.displayName }))}
+        />
         <section>
           <h2 className="mb-4 font-display text-2xl">Quick links</h2>
           <ul className="space-y-2 text-sm">

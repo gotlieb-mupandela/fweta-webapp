@@ -45,20 +45,38 @@ export function WithdrawalAdminActions({ withdrawalId }: { withdrawalId: string 
           Mark paid
         </Button>
       </form>
-      <Button
-        size="sm"
-        variant="danger"
-        disabled={pending}
-        onClick={() =>
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!window.confirm("Reject this withdrawal and return funds to the creator?")) return;
+          const fd = new FormData(e.currentTarget);
+          setError(null);
           startTransition(async () => {
-            const res = await rejectWithdrawalAction(withdrawalId);
+            const res = await rejectWithdrawalAction(
+              withdrawalId,
+              String(fd.get("note") || "") || undefined,
+            );
             if (!res.ok) setError(res.error);
             else router.refresh();
-          })
-        }
+          });
+        }}
       >
-        Reject
-      </Button>
+        <div>
+          <Label htmlFor={`note-${withdrawalId}`} className="sr-only">
+            Reject note
+          </Label>
+          <Input
+            id={`note-${withdrawalId}`}
+            name="note"
+            placeholder="Reject reason"
+            className="h-9 w-40"
+          />
+        </div>
+        <Button size="sm" variant="danger" type="submit" disabled={pending}>
+          Reject
+        </Button>
+      </form>
       <FieldError>{error}</FieldError>
     </div>
   );

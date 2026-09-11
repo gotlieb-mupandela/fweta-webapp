@@ -27,6 +27,9 @@ export default async function AdminFraudPage() {
             const campaign = submission
               ? store.campaigns.find((c) => c.id === submission.campaignId)
               : null;
+            const clipper = submission
+              ? store.profiles.find((p) => p.id === submission.clipperId)
+              : null;
             return (
               <li
                 key={f.id}
@@ -36,9 +39,20 @@ export default async function AdminFraudPage() {
                   <div>
                     <p className="font-medium">{f.reason}</p>
                     <p className="text-sm text-muted">
+                      {clipper?.displayName ?? clipper?.email ?? "Unknown clipper"}
+                      {" · "}
                       {campaign?.title ?? "Unknown campaign"}
-                      {submission ? ` · ${submission.postUrl}` : ""}
                     </p>
+                    {submission?.postUrl ? (
+                      <a
+                        href={submission.postUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-block break-all text-sm text-gold hover:underline"
+                      >
+                        {submission.postUrl}
+                      </a>
+                    ) : null}
                     <p className="text-xs text-muted">{new Date(f.createdAt).toLocaleString()}</p>
                   </div>
                   <Badge tone={f.status === "open" ? "gold" : "muted"}>{f.status}</Badge>
