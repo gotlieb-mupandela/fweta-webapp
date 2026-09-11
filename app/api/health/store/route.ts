@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
+import { getLocalStoreDiagnostics } from "@/lib/db/store";
 import {
   diagnoseSupabaseStore,
   isSupabaseStoreEnabled,
 } from "@/lib/db/supabase-store";
-import { getLocalStoreDiagnostics } from "@/lib/db/store";
 
 export async function GET() {
   if (!isSupabaseStoreEnabled()) {
@@ -14,11 +14,15 @@ export async function GET() {
       mode: "local",
       profileCount: diag.profileCount,
       campaignCount: diag.campaignCount,
+      submissionCount: diag.submissionCount,
       walletCount: diag.walletCount,
       depositCount: diag.depositCount,
       bookingCount: diag.bookingCount,
       ledgerCount: diag.ledgerCount,
       persist: diag.persistExists ? "ok" : "missing",
+      checks: {
+        filePersist: diag.persistExists ? "ok" : "store.json not on disk yet",
+      },
       message: diag.persistExists
         ? "Using local file store (data/store.json). Deposits and campaigns persist across restarts."
         : "Local store file not written yet — sign in once to seed demo accounts.",

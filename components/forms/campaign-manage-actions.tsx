@@ -18,18 +18,20 @@ export function CampaignManageActions({
   status,
   leftoverCents,
   hasSubmissions,
+  hasPaidSubmissions,
 }: {
   campaignId: string;
   status: CampaignStatus;
   leftoverCents: number;
   hasSubmissions: boolean;
+  hasPaidSubmissions?: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const ended = status === "completed" || status === "cancelled";
-  const canDelete = !hasSubmissions;
+  const canDelete = !(hasPaidSubmissions ?? hasSubmissions);
   const canCancel = !ended && (status === "active" || status === "paused" || leftoverCents > 0);
 
   return (
@@ -91,7 +93,10 @@ export function CampaignManageActions({
                 leftoverCents > 0
                   ? ` Unused budget of ${formatMoney(leftoverCents)} will return to your wallet.`
                   : "";
-              if (!window.confirm(`Delete this campaign permanently?${leftoverNote}`)) return;
+              const pendingNote = hasSubmissions
+                ? " Pending submissions that have not been paid will be removed."
+                : "";
+              if (!window.confirm(`Delete this campaign permanently?${leftoverNote}${pendingNote}`)) return;
               setError(null);
               startTransition(async () => {
                 const res = await deleteCampaignAction(campaignId);

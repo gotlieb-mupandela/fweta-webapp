@@ -10,7 +10,7 @@ Use this as your single checklist. Tick items in order.
 
 | Area | Built in code? | Configured on Vercel/Supabase? |
 |------|----------------|--------------------------------|
-| Auth (cookie + demo users) | Yes | Needs `AUTH_SECRET` |
+| Auth (email + password) | Yes | Needs `AUTH_SECRET` |
 | Dashboards (brand/clipper/influencer/admin) | Yes | Works after auth |
 | **Data persistence** | Yes (Supabase JSON blob) | **Often broken — see §1** |
 | Wallet, deposits, campaigns | Yes | Depends on persistence |
@@ -154,6 +154,8 @@ npm run dev
 ```
 
 Data file: `data/store.json` (local only, gitignored).
+
+Local health check: `http://localhost:3000/api/health/store` should return `"ok": true` and `"mode": "local"` after the first page load.
 
 E2E scripts (with dev server running):
 

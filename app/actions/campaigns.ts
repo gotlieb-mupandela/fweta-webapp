@@ -95,6 +95,7 @@ export async function createCampaignAction(raw: unknown) {
   revalidatePath("/dashboard/brand");
   revalidatePath("/dashboard/brand/analytics");
   revalidatePath("/dashboard/settings/wallet");
+  revalidatePath("/dashboard/clipper/campaigns");
   revalidatePath("/campaigns");
   return { ok: true as const, id: campaign.id };
 }
@@ -167,6 +168,9 @@ export async function updateCampaignAction(id: string, raw: unknown) {
   revalidatePath(`/dashboard/brand/campaigns/${id}`);
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/brand");
+  revalidatePath("/dashboard/clipper/campaigns");
+  revalidatePath("/campaigns");
+  revalidatePath(`/campaigns/${id}`);
   return { ok: true as const };
 }
 
@@ -217,7 +221,9 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
   revalidatePath(`/dashboard/brand/campaigns/${id}`);
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/brand");
+  revalidatePath("/dashboard/clipper/campaigns");
   revalidatePath("/campaigns");
+  revalidatePath(`/campaigns/${id}`);
   return { ok: true as const };
 }
 
@@ -229,17 +235,20 @@ export async function deleteCampaignAction(id: string) {
     await updateStore((s) => {
       const index = s.campaigns.findIndex((x) => x.id === id);
       if (index < 0) throw new Error("Campaign not found.");
-      const c = s.campaigns[index];
-      if (c.brandId !== session.id && !session.roles.includes("admin")) {
+      const campaign = s.campaigns[index];
+      if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
         throw new Error("Not allowed.");
       }
-      const hasSubmissions = s.submissions.some((sub) => sub.campaignId === c.id);
-      if (hasSubmissions) {
+      const related = s.submissions.filter((sub) => sub.campaignId === campaign.id);
+      if (related.some((sub) => sub.status === "approved" && sub.earningsCents > 0)) {
         throw new Error(
-          "This campaign has submissions, so it can’t be deleted. Cancel it to stop spend and return unused budget.",
+          "Cannot delete a campaign that has already paid clippers. Cancel or mark it completed instead.",
         );
       }
-      refundUnusedCampaignBudget(s, c);
+      refundUnusedCampaignBudget(s, campaign);
+      const submissionIds = new Set(related.map((sub) => sub.id));
+      s.submissions = s.submissions.filter((sub) => sub.campaignId !== campaign.id);
+      s.viewSnapshots = s.viewSnapshots.filter((snap) => !submissionIds.has(snap.submissionId));
       s.campaigns.splice(index, 1);
     });
   } catch (e) {
@@ -249,6 +258,8 @@ export async function deleteCampaignAction(id: string) {
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/brand");
   revalidatePath("/dashboard/brand/analytics");
+  revalidatePath("/dashboard/clipper/campaigns");
+  revalidatePath("/dashboard/clipper/submissions");
   revalidatePath("/campaigns");
   return { ok: true as const };
 }
@@ -263,10 +274,13 @@ export async function getCampaignBudgetSummary(id: string) {
   const campaign = store.campaigns.find((c) => c.id === id);
   if (!campaign) return null;
   if (campaign.brandId !== session.id && !session.roles.includes("admin")) return null;
+  const related = store.submissions.filter((s) => s.campaignId === id);
   return {
     funded: isCampaignFunded(store, campaign.id),
     leftoverCents: leftoverCampaignBudgetCents(store, campaign),
-    submissionCount: store.submissions.filter((s) => s.campaignId === id).length,
+    submissionCount: related.length,
+    paidSubmissionCount: related.filter((s) => s.status === "approved" && s.earningsCents > 0)
+      .length,
   };
 }
 

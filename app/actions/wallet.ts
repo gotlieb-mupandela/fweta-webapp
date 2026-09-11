@@ -79,6 +79,7 @@ export async function savePayoutMethodAction(raw: unknown) {
     }
   });
   revalidatePath("/dashboard/settings/payout");
+  revalidatePath("/dashboard/settings/withdraw");
   return { ok: true as const };
 }
 
@@ -167,6 +168,8 @@ export async function requestWithdrawalAction(raw: unknown) {
   }
 
   revalidatePath("/dashboard/settings/withdraw");
+  revalidatePath("/dashboard/settings/wallet");
+  revalidatePath("/dashboard/clipper/earnings");
   revalidatePath("/dashboard/admin/withdrawals");
   return { ok: true as const, id: req.id };
 }

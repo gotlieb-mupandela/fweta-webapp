@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getCampaign } from "@/app/actions/campaigns";
+import { listClipperSubmissions } from "@/app/actions/submissions";
 import { PublicSiteHeader } from "@/components/brand/public-site-header";
+import { SubmitClipForm } from "@/components/forms/submit-clip-form";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
@@ -18,6 +20,13 @@ export default async function PublicCampaignPage({
   if (!campaign || campaign.status !== "active") notFound();
 
   const session = await getSession();
+  const canSubmit = Boolean(
+    session && (session.roles.includes("clipper") || session.roles.includes("admin")),
+  );
+  const remaining = Math.max(0, campaign.budgetTotalCents - campaign.budgetSpentCents);
+  const mySubs = canSubmit
+    ? (await listClipperSubmissions()).filter((s) => s.campaignId === campaign.id)
+    : [];
 
   return (
     <div className="bg-atmosphere min-h-screen">
@@ -38,9 +47,7 @@ export default async function PublicCampaignPage({
           </Card>
           <Card>
             <p className="text-sm text-muted">Budget remaining</p>
-            <p className="font-display text-2xl">
-              {formatMoney(campaign.budgetTotalCents - campaign.budgetSpentCents)}
-            </p>
+            <p className="font-display text-2xl">{formatMoney(remaining)}</p>
           </Card>
           <Card>
             <p className="text-sm text-muted">Max per video</p>
@@ -63,11 +70,40 @@ export default async function PublicCampaignPage({
         ) : null}
 
         <div className="mt-10">
-          <Link href={session ? "/dashboard/clipper/campaigns" : "/signup?role=clipper"}>
-            <Button size="lg">
-              {session ? "Submit a clip" : "Join as clipper"}
-            </Button>
-          </Link>
+          {canSubmit ? (
+            <Card>
+              <h2 className="font-display text-xl">Submit a clip</h2>
+              {mySubs.length > 0 ? (
+                <p className="mt-2 text-sm text-muted">
+                  You already have {mySubs.length} submission{mySubs.length === 1 ? "" : "s"} on this
+                  campaign. You can add another unique link.
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-muted">
+                  Paste the public post URL after you publish to an allowed platform.
+                </p>
+              )}
+              <div className="mt-4">
+                <SubmitClipForm
+                  campaignId={campaign.id}
+                  platforms={campaign.platforms}
+                  remainingBudgetCents={remaining}
+                />
+              </div>
+            </Card>
+          ) : session ? (
+            <p className="text-sm text-muted">
+              Add the clipper role in{" "}
+              <Link href="/dashboard/settings/roles" className="text-gold hover:underline">
+                Settings → Roles
+              </Link>{" "}
+              to submit clips.
+            </p>
+          ) : (
+            <Link href="/signup?role=clipper">
+              <Button size="lg">Join as clipper</Button>
+            </Link>
+          )}
         </div>
       </main>
     </div>

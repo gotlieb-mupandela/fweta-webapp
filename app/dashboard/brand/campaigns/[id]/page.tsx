@@ -27,6 +27,7 @@ export default async function CampaignDetailPage({
   }
   const leftoverCents = summary?.leftoverCents ?? 0;
   const hasSubmissions = (summary?.submissionCount ?? 0) > 0;
+  const hasPaidSubmissions = (summary?.paidSubmissionCount ?? 0) > 0;
 
   return (
     <div>
@@ -63,6 +64,7 @@ export default async function CampaignDetailPage({
         status={campaign.status}
         leftoverCents={leftoverCents}
         hasSubmissions={hasSubmissions}
+        hasPaidSubmissions={hasPaidSubmissions}
       />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

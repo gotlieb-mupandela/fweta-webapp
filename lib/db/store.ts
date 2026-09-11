@@ -209,12 +209,16 @@ export async function getLocalStoreDiagnostics() {
   }
   return {
     persistExists,
+    persisted: persistExists,
     persistPath: "data/store.json",
     profileCount: store.profiles.length,
     campaignCount: store.campaigns.length,
+    submissionCount: store.submissions.length,
     walletCount: store.wallets.length,
     depositCount: store.brandDeposits.length,
     bookingCount: store.bookings.length,
     ledgerCount: store.ledgerEntries.length,
   };
 }
+
+export const diagnoseLocalStore = getLocalStoreDiagnostics;
