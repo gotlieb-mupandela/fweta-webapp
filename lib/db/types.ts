@@ -9,11 +9,29 @@ import type {
   WithdrawalStatus,
 } from "@/types/enums";
 
+export type ProfileSocials = {
+  tiktok?: string;
+  youtube?: string;
+  instagram?: string;
+  x?: string;
+};
+
 export type Profile = {
   id: string;
   email: string;
   passwordHash: string;
   displayName: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  companyName?: string;
+  website?: string;
+  niche?: string;
+  location?: string;
+  primaryPlatform?: SocialPlatform;
+  socials?: ProfileSocials;
+  /** `null` = must finish onboarding. Missing/undefined = legacy (skip). */
+  onboardingCompletedAt?: string | null;
   bio: string;
   avatarUrl: string | null;
   roles: UserRole[];

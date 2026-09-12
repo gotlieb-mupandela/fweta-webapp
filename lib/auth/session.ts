@@ -99,7 +99,7 @@ function ensureWallet(store: { wallets: Wallet[] }, userId: string) {
 export async function signup(input: {
   email: string;
   password: string;
-  displayName: string;
+  displayName?: string;
   roles: UserRole[];
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const email = input.email.trim().toLowerCase();
@@ -124,7 +124,7 @@ export async function signup(input: {
     id: newId(),
     email,
     passwordHash,
-    displayName: input.displayName.trim() || email.split("@")[0],
+    displayName: input.displayName?.trim() || email.split("@")[0],
     bio: "",
     avatarUrl: null,
     roles: input.roles,
@@ -135,6 +135,7 @@ export async function signup(input: {
     createdAt: now,
     updatedAt: now,
     suspended: false,
+    onboardingCompletedAt: null,
   };
 
   // Atomic duplicate check + insert: two concurrent signups for the same
@@ -215,6 +216,7 @@ const DEMO_ACCOUNTS: Array<Omit<Profile, "passwordHash" | "id">> = [
     createdAt: "",
     updatedAt: "",
     suspended: false,
+    onboardingCompletedAt: "seeded",
   },
   {
     email: "creator@fweta.test",
@@ -229,6 +231,7 @@ const DEMO_ACCOUNTS: Array<Omit<Profile, "passwordHash" | "id">> = [
     createdAt: "",
     updatedAt: "",
     suspended: false,
+    onboardingCompletedAt: "seeded",
   },
   {
     email: "clipper@fweta.test",
@@ -243,6 +246,7 @@ const DEMO_ACCOUNTS: Array<Omit<Profile, "passwordHash" | "id">> = [
     createdAt: "",
     updatedAt: "",
     suspended: false,
+    onboardingCompletedAt: "seeded",
   },
   {
     email: "hello@fweta.com",
@@ -257,6 +261,7 @@ const DEMO_ACCOUNTS: Array<Omit<Profile, "passwordHash" | "id">> = [
     createdAt: "",
     updatedAt: "",
     suspended: false,
+    onboardingCompletedAt: "seeded",
   },
 ];
 

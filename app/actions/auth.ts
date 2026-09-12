@@ -25,7 +25,7 @@ export async function loginAction(input: { email: string; password: string }) {
 export async function signupAction(input: {
   email: string;
   password: string;
-  displayName: string;
+  displayName?: string;
   roles: UserRole[];
 }) {
   const parsed = signupSchema.safeParse(input);

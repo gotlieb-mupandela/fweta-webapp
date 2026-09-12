@@ -79,7 +79,9 @@ export function SignupForm() {
           <h1 className="font-display text-[2.35rem] leading-none text-foreground md:text-5xl">
             Join fweta
           </h1>
-          <p className="mt-3 text-sm text-muted">Choose how you show up on the marketplace.</p>
+          <p className="mt-3 text-sm text-muted">
+            Pick your roles — then a quick setup quest unlocks your dashboard.
+          </p>
           <div className="hairline-gold my-7" />
 
           <form
@@ -92,22 +94,17 @@ export function SignupForm() {
                 const res = await signupAction({
                   email: String(fd.get("email") || ""),
                   password: String(fd.get("password") || ""),
-                  displayName: String(fd.get("displayName") || ""),
                   roles,
                 });
                 if (!res.ok) {
                   setError(res.error);
                   return;
                 }
-                router.push("/dashboard");
+                router.push("/onboarding");
                 router.refresh();
               });
             }}
           >
-            <div>
-              <Label htmlFor="displayName">Display name</Label>
-              <Input id="displayName" name="displayName" required minLength={2} placeholder="Amara Nangolo" />
-            </div>
             <div>
               <Label htmlFor="email">Email</Label>
               <Input id="email" name="email" type="email" required placeholder="you@email.com" autoComplete="email" />

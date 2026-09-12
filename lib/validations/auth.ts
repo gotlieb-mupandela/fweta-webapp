@@ -8,7 +8,7 @@ export const loginSchema = z.object({
 export const signupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-  displayName: z.string().min(2).max(80),
+  displayName: z.string().min(2).max(80).optional(),
   roles: z.array(z.enum(["brand", "influencer", "clipper"])).min(1),
 });
 

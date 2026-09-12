@@ -5,7 +5,7 @@ import { getAuthSecretKey } from "@/lib/auth/secret";
 
 const COOKIE_NAME = "fweta_session";
 
-const protectedPrefixes = ["/dashboard"];
+const protectedPrefixes = ["/dashboard", "/onboarding"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -60,5 +60,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/dashboard/:path*"],
+  matcher: ["/", "/dashboard/:path*", "/onboarding", "/onboarding/:path*"],
 };
