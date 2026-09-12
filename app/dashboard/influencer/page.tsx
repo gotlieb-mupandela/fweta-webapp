@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getMyInfluencerProfile, listMyRateCards } from "@/app/actions/influencer";
 import { listInfluencerBookings } from "@/app/actions/bookings";
 import { getMyWallet } from "@/app/actions/wallet";
-import { PageHeader, Stat } from "@/components/ui/card";
+import { PageHeader, SectionHeader, Stat } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
@@ -53,20 +53,12 @@ export default async function InfluencerDashboardPage() {
       </div>
 
       <div className="mt-10">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-2xl">Recent bookings</h2>
-          <Link href="/dashboard/influencer/bookings" className="text-sm text-muted">
-            View all →
-          </Link>
-        </div>
+        <SectionHeader title="Recent bookings" href="/dashboard/influencer/bookings" />
         <ul className="space-y-3">
           {bookings.slice(0, 5).map((b) => (
-            <li
-              key={b.id}
-              className="flex items-center justify-between rounded-2xl border border-border bg-white px-4 py-3"
-            >
+            <li key={b.id} className="list-row">
               <div>
-                <p className="text-sm font-medium">{b.status}</p>
+                <p className="text-sm font-medium capitalize">{b.status.replace(/_/g, " ")}</p>
                 <p className="text-xs text-muted">{formatMoney(b.amountCents)}</p>
               </div>
             </li>

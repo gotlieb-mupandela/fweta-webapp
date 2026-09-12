@@ -23,7 +23,7 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileTopBar displayName={displayName} />
 
-        <main className="app-main mx-auto w-full max-w-5xl flex-1 px-4 py-5 md:px-8 md:py-8 lg:px-10">
+        <main className="app-main mx-auto w-full max-w-5xl flex-1 px-4 py-5 md:px-8 md:py-9 lg:px-10">
           <div className="animate-fade-up">{children}</div>
         </main>
 

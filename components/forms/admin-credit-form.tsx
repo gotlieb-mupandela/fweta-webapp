@@ -14,7 +14,7 @@ export function AdminCreditForm({ users }: { users: { id: string; email: string 
 
   return (
     <form
-      className="max-w-md space-y-4 rounded-3xl border border-border bg-white p-5"
+      className="panel max-w-md space-y-4 p-5"
       onSubmit={(e) => {
         e.preventDefault();
         const form = e.currentTarget;

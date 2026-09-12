@@ -14,7 +14,7 @@ export function RateCardForm() {
 
   return (
     <form
-      className="space-y-4 rounded-3xl border border-border bg-white p-5"
+      className="panel space-y-4 p-5"
       onSubmit={(e) => {
         e.preventDefault();
         const form = e.currentTarget;

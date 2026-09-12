@@ -30,7 +30,7 @@ export default async function AdminFraudPage() {
             return (
               <li
                 key={f.id}
-                className="rounded-2xl border border-border bg-white px-4 py-4"
+                className="list-row items-start"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>

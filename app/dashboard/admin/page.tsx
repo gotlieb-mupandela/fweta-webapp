@@ -4,10 +4,17 @@ import { redirect } from "next/navigation";
 import { adminListUsers, getPlatformStats } from "@/app/actions/settings";
 import { listPendingWithdrawalsAdmin } from "@/app/actions/wallet";
 import { AdminCreditForm } from "@/components/forms/admin-credit-form";
-import { PageHeader, Stat } from "@/components/ui/card";
+import { PageHeader, SectionHeader, Stat } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
+
+const QUICK_LINKS = [
+  { href: "/dashboard/admin/withdrawals", label: "Withdrawal queue" },
+  { href: "/dashboard/admin/users", label: "User management" },
+  { href: "/dashboard/admin/fraud", label: "Fraud review" },
+  { href: "/dashboard/admin/stats", label: "Platform stats" },
+];
 
 export default async function AdminDashboardPage() {
   const session = await getSession();
@@ -49,33 +56,21 @@ export default async function AdminDashboardPage() {
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
         <AdminCreditForm users={users.map((u) => ({ id: u.id, email: u.email }))} />
         <section>
-          <h2 className="mb-4 font-display text-2xl">Quick links</h2>
-          <ul className="space-y-2 text-sm">
-            <li>
-              <Link href="/dashboard/admin/withdrawals" className="text-gold hover:underline">
-                Withdrawal queue
-              </Link>
-            </li>
-            <li>
-              <Link href="/dashboard/admin/users" className="text-gold hover:underline">
-                User management
-              </Link>
-            </li>
-            <li>
-              <Link href="/dashboard/admin/fraud" className="text-gold hover:underline">
-                Fraud review
-              </Link>
-            </li>
-            <li>
-              <Link href="/dashboard/admin/stats" className="text-gold hover:underline">
-                Platform stats
-              </Link>
-            </li>
+          <SectionHeader title="Quick links" />
+          <ul className="space-y-2">
+            {QUICK_LINKS.map((l) => (
+              <li key={l.href}>
+                <Link href={l.href} className="list-row">
+                  <span className="text-sm font-medium">{l.label}</span>
+                  <span className="text-muted-light" aria-hidden>
+                    ›
+                  </span>
+                </Link>
+              </li>
+            ))}
           </ul>
           {stats ? (
-            <p className="mt-6 text-sm text-muted">
-              GMV tracked: {formatMoney(stats.gmvCents)}
-            </p>
+            <p className="mt-6 text-sm text-muted">GMV tracked: {formatMoney(stats.gmvCents)}</p>
           ) : null}
         </section>
       </div>

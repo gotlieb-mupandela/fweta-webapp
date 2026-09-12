@@ -5,7 +5,7 @@ import { listBrandCampaigns } from "@/app/actions/campaigns";
 import { listBrandBookings } from "@/app/actions/bookings";
 import { getMyWallet } from "@/app/actions/wallet";
 import { Button } from "@/components/ui/button";
-import { PageHeader, Stat } from "@/components/ui/card";
+import { PageHeader, SectionHeader, Stat } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
 import { readStore } from "@/lib/db/store";
@@ -54,12 +54,7 @@ export default async function BrandDashboardPage() {
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
         <section>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-2xl">Recent campaigns</h2>
-            <Link href="/dashboard/brand/campaigns" className="text-sm text-muted">
-              View all →
-            </Link>
-          </div>
+          <SectionHeader title="Recent campaigns" href="/dashboard/brand/campaigns" />
           <ul className="space-y-3">
             {campaigns.slice(0, 5).map((c) => (
               <li key={c.id}>
@@ -80,12 +75,7 @@ export default async function BrandDashboardPage() {
           </ul>
         </section>
         <section>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-2xl">Bookings</h2>
-            <Link href="/influencers" className="text-sm text-muted">
-              Browse influencers →
-            </Link>
-          </div>
+          <SectionHeader title="Bookings" href="/influencers" linkLabel="Browse influencers →" />
           <ul className="space-y-3">
             {bookings.slice(0, 5).map((b) => (
               <li key={b.id} className="list-row">

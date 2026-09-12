@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { getCampaign } from "@/app/actions/campaigns";
 import { listClipperSubmissions } from "@/app/actions/submissions";
-import { Logo } from "@/components/brand/logo";
+import { PublicChrome } from "@/components/public-chrome";
 import { SubmitClipForm } from "@/components/forms/submit-clip-form";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,36 +29,31 @@ export default async function PublicCampaignPage({
     : [];
 
   return (
-    <div className="bg-atmosphere min-h-screen">
-      <header className="border-b border-border/80 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-4">
-          <Logo href="/" />
-          <Link href="/campaigns" className="text-sm text-muted">
-            ← All campaigns
-          </Link>
-        </div>
-      </header>
+    <PublicChrome>
+      <div className="mx-auto max-w-3xl">
+        <Link href="/campaigns" className="section-link">
+          ← All campaigns
+        </Link>
 
-      <main className="mx-auto max-w-3xl px-5 py-10">
-        <div className="flex flex-wrap gap-2">
+        <div className="mt-6 flex flex-wrap gap-2">
           <Badge tone="gold">{campaign.type}</Badge>
           <Badge>{campaign.category}</Badge>
         </div>
-        <h1 className="mt-4 font-display text-4xl tracking-tight">{campaign.title}</h1>
-        <p className="mt-4 text-muted">{campaign.description}</p>
+        <h1 className="mt-4 font-display text-4xl tracking-tight md:text-5xl">{campaign.title}</h1>
+        <p className="mt-4 text-[15px] leading-relaxed text-muted">{campaign.description}</p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <Card>
             <p className="text-sm text-muted">CPM</p>
-            <p className="font-display text-2xl">{formatMoney(campaign.cpmCents)}</p>
+            <p className="mt-1 font-display text-2xl">{formatMoney(campaign.cpmCents)}</p>
           </Card>
           <Card>
             <p className="text-sm text-muted">Budget remaining</p>
-            <p className="font-display text-2xl">{formatMoney(remaining)}</p>
+            <p className="mt-1 font-display text-2xl">{formatMoney(remaining)}</p>
           </Card>
           <Card>
             <p className="text-sm text-muted">Max per video</p>
-            <p className="font-display text-2xl">
+            <p className="mt-1 font-display text-2xl">
               {formatMoney(campaign.maxPayoutPerSubmissionCents)}
             </p>
           </Card>
@@ -66,13 +61,15 @@ export default async function PublicCampaignPage({
 
         <Card className="mt-6">
           <h2 className="font-display text-xl">Platforms</h2>
-          <p className="mt-2 text-sm">{campaign.platforms.join(", ")}</p>
+          <p className="mt-2 text-sm capitalize">{campaign.platforms.join(", ")}</p>
         </Card>
 
         {campaign.requirements ? (
           <Card className="mt-4">
             <h2 className="font-display text-xl">Requirements</h2>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{campaign.requirements}</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted">
+              {campaign.requirements}
+            </p>
           </Card>
         ) : null}
 
@@ -101,7 +98,7 @@ export default async function PublicCampaignPage({
           ) : session ? (
             <p className="text-sm text-muted">
               Add the clipper role in{" "}
-              <Link href="/dashboard/settings/roles" className="text-gold hover:underline">
+              <Link href="/dashboard/settings/roles" className="section-link text-gold-deep">
                 Settings → Roles
               </Link>{" "}
               to submit clips.
@@ -112,7 +109,7 @@ export default async function PublicCampaignPage({
             </Link>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </PublicChrome>
   );
 }

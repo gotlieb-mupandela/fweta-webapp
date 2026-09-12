@@ -15,18 +15,45 @@ export default function GlobalError({
 
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
-        <h1 className="text-3xl font-semibold">Something went wrong</h1>
-        <p className="mt-3 max-w-md text-sm opacity-70">
+      <body
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "1.5rem",
+          textAlign: "center",
+          background: "#f4f3ef",
+          color: "#12110f",
+          fontFamily: "system-ui, sans-serif",
+        }}
+      >
+        <h1 style={{ fontSize: "1.875rem", fontWeight: 500, letterSpacing: "-0.03em" }}>
+          Something went wrong
+        </h1>
+        <p style={{ marginTop: "0.75rem", maxWidth: "28rem", fontSize: "0.875rem", opacity: 0.7 }}>
           The app hit an unexpected error. Your data is safe — try again.
         </p>
         {error.digest ? (
-          <p className="mt-2 text-xs opacity-60">Error ID: {error.digest}</p>
+          <p style={{ marginTop: "0.5rem", fontSize: "0.75rem", opacity: 0.55 }}>
+            Error ID: {error.digest}
+          </p>
         ) : null}
         <button
           type="button"
           onClick={() => reset()}
-          className="mt-6 rounded-full bg-black px-5 py-2.5 text-sm font-medium text-white"
+          style={{
+            marginTop: "1.5rem",
+            borderRadius: "1rem",
+            background: "#12110f",
+            color: "#fff",
+            padding: "0.65rem 1.25rem",
+            fontSize: "0.875rem",
+            fontWeight: 500,
+            border: "none",
+            cursor: "pointer",
+          }}
         >
           Try again
         </button>

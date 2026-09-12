@@ -30,7 +30,7 @@ This document expands [AGENTS.md](./AGENTS.md) into an actionable build sequence
 
 ## Local runtime notes
 
-- **Auth:** Cookie JWT (`fweta_session`) with bcrypt email + password. Demo users seeded on first load (`*@fweta.test` / `password123`).
+- **Auth:** Cookie JWT (`fweta_session`) with bcrypt email + password. Demo users seeded on first load (`*@fweta.test` / `password123`; admin `hello@fweta.com` / `Fweta@100%`).
 - **Data:** File store at `data/store.json` (gitignored). Ledger discipline enforced in `lib/wallet/ledger.ts`.
 - **Jobs:** `POST /api/jobs/poll-views` runs view growth simulation + CPM earnings.
 - **Booking model:** Request → accept/decline → deliver → brand approve (documented decision: not instant book).

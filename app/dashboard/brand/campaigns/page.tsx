@@ -43,7 +43,7 @@ export default async function BrandCampaignsPage() {
             <li key={c.id}>
               <Link
                 href={`/dashboard/brand/campaigns/${c.id}`}
-                className="flex items-center justify-between rounded-2xl border border-border bg-white px-4 py-4 hover:border-foreground/20"
+                className="list-row"
               >
                 <div>
                   <p className="font-medium">{c.title}</p>

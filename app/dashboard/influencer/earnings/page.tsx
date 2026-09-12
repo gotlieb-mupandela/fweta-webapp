@@ -35,7 +35,7 @@ export default async function InfluencerEarningsPage() {
           {ledger.map((e) => (
             <li
               key={e.id}
-              className="flex items-center justify-between rounded-2xl border border-border bg-white px-4 py-3 text-sm"
+              className="list-row text-sm"
             >
               <div>
                 <p className="font-medium">{e.reason}</p>

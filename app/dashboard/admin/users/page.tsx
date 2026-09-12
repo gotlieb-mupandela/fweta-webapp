@@ -21,7 +21,7 @@ export default async function AdminUsersPage() {
         {users.map((u) => (
           <li
             key={u.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-white px-4 py-4"
+            className="list-row flex-wrap"
           >
             <div>
               <p className="font-medium">{u.displayName}</p>

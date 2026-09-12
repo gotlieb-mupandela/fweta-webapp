@@ -40,7 +40,7 @@ export default async function RateCardsPage() {
           {rates.map((r) => (
             <li
               key={r.id}
-              className="flex items-center justify-between rounded-2xl border border-border bg-white px-4 py-4"
+              className="list-row"
             >
               <div>
                 <p className="font-medium">{r.title}</p>

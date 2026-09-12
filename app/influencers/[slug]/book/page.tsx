@@ -3,8 +3,8 @@ import { notFound, redirect } from "next/navigation";
 
 import { getPublicInfluencer } from "@/app/actions/influencer";
 import { BookingRequestForm } from "@/components/forms/booking-request-form";
-import { Logo } from "@/components/brand/logo";
-import { PageHeader } from "@/components/ui/card";
+import { PublicChrome } from "@/components/public-chrome";
+import { Card, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 
 export default async function BookInfluencerPage({
@@ -23,23 +23,21 @@ export default async function BookInfluencerPage({
   const { profile, rates } = data;
 
   return (
-    <div className="bg-atmosphere min-h-screen">
-      <header className="border-b border-border/80 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-4">
-          <Logo href="/" />
-          <Link href={`/influencers/${slug}`} className="text-sm text-muted">
-            ← Back to profile
-          </Link>
+    <PublicChrome>
+      <div className="mx-auto max-w-3xl">
+        <Link href={`/influencers/${slug}`} className="section-link">
+          ← Back to profile
+        </Link>
+        <div className="mt-6">
+          <PageHeader
+            title={`Book ${profile.displayName}`}
+            description="Funds are held in escrow until you approve delivery."
+          />
+          <Card>
+            <BookingRequestForm influencerProfileId={profile.id} rates={rates} />
+          </Card>
         </div>
-      </header>
-
-      <main className="mx-auto max-w-3xl px-5 py-10">
-        <PageHeader
-          title={`Book ${profile.displayName}`}
-          description="Funds are held in escrow until you approve delivery."
-        />
-        <BookingRequestForm influencerProfileId={profile.id} rates={rates} />
-      </main>
-    </div>
+      </div>
+    </PublicChrome>
   );
 }

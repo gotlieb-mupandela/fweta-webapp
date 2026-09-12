@@ -20,7 +20,7 @@ export function MobileTopBar({ displayName }: { displayName: string }) {
     .join("");
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-white/80 backdrop-blur-xl md:hidden">
+    <header className="public-header sticky top-0 z-40 md:hidden">
       <div
         className="flex h-12 items-center gap-2 px-3"
         style={{ paddingTop: "env(safe-area-inset-top)" }}

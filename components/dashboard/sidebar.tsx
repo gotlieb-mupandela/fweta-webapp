@@ -33,7 +33,7 @@ function SidebarLink({ item, pathname }: { item: NavItem; pathname: string }) {
       <Icon
         className={cn(
           "size-[18px] shrink-0 transition",
-          active ? "text-gold" : "text-muted-light group-hover:text-foreground",
+          active ? "text-gold-soft" : "text-muted-light group-hover:text-foreground",
         )}
         strokeWidth={1.85}
         aria-hidden
@@ -58,7 +58,7 @@ export function DashboardSidebar({
   const settingsTab = config.tabs.find((t) => t.href.startsWith("/dashboard/settings"));
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-[260px] shrink-0 flex-col border-r border-border/80 bg-white/90 backdrop-blur-xl md:flex">
+    <aside className="sticky top-0 hidden h-dvh w-[268px] shrink-0 flex-col border-r border-border/80 bg-white/85 backdrop-blur-xl md:flex">
       <div className="flex h-16 items-center px-5">
         <Logo href="/dashboard" size="sm" />
       </div>

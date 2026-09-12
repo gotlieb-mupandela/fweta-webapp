@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { cn } from "@/lib/utils";
 
 export function Card({
@@ -23,8 +25,8 @@ export function Badge({
         "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium tracking-wide",
         tone === "neutral" && "bg-surface-2 text-foreground",
         tone === "gold" && "bg-gold-soft text-foreground",
-        tone === "success" && "bg-emerald-50 text-success",
-        tone === "danger" && "bg-red-50 text-danger",
+        tone === "success" && "bg-success-soft text-success",
+        tone === "danger" && "bg-danger-soft text-danger",
         tone === "muted" && "bg-surface-2 text-muted",
       )}
     >
@@ -75,9 +77,49 @@ export function PageHeader({
           </p>
         ) : null}
       </div>
-      {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
+      {action ? <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div> : null}
     </div>
   );
+}
+
+export function SectionHeader({
+  title,
+  href,
+  linkLabel = "View all →",
+}: {
+  title: string;
+  href?: string;
+  linkLabel?: string;
+}) {
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <h2 className="font-display text-2xl tracking-tight text-foreground">{title}</h2>
+      {href ? (
+        <Link href={href} className="section-link shrink-0">
+          {linkLabel}
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
+export function ListRow({
+  className,
+  children,
+  href,
+}: {
+  className?: string;
+  children: React.ReactNode;
+  href?: string;
+}) {
+  if (href) {
+    return (
+      <Link href={href} className={cn("list-row", className)}>
+        {children}
+      </Link>
+    );
+  }
+  return <div className={cn("list-row", className)}>{children}</div>;
 }
 
 export function Stat({

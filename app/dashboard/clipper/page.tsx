@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { listClipperSubmissions } from "@/app/actions/submissions";
 import { getMyWallet } from "@/app/actions/wallet";
-import { PageHeader, Stat } from "@/components/ui/card";
+import { Card, PageHeader, SectionHeader, Stat } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
@@ -51,12 +51,7 @@ export default async function ClipperDashboardPage() {
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
         <section>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-2xl">Recent submissions</h2>
-            <Link href="/dashboard/clipper/submissions" className="text-sm text-muted">
-              View all →
-            </Link>
-          </div>
+          <SectionHeader title="Recent submissions" href="/dashboard/clipper/submissions" />
           <ul className="space-y-3">
             {submissions.slice(0, 5).map((s) => {
               const campaign = store.campaigns.find((c) => c.id === s.campaignId);
@@ -74,7 +69,7 @@ export default async function ClipperDashboardPage() {
             {submissions.length === 0 ? (
               <p className="text-sm text-muted">
                 No submissions yet.{" "}
-                <Link href="/dashboard/clipper/campaigns" className="text-gold hover:underline">
+                <Link href="/dashboard/clipper/campaigns" className="section-link text-gold-deep">
                   Browse campaigns
                 </Link>
               </p>
@@ -82,12 +77,11 @@ export default async function ClipperDashboardPage() {
           </ul>
         </section>
         <section>
-          <h2 className="mb-4 font-display text-2xl">Earnings</h2>
-          <p className="font-display text-4xl">{formatMoney(totalEarnings)}</p>
-          <p className="mt-1 text-sm text-muted">{pending} pending review</p>
-          <Link href="/dashboard/clipper/earnings" className="mt-4 inline-block text-sm text-muted">
-            View ledger →
-          </Link>
+          <SectionHeader title="Earnings" href="/dashboard/clipper/earnings" linkLabel="View ledger →" />
+          <Card>
+            <p className="font-display text-4xl tracking-tight">{formatMoney(totalEarnings)}</p>
+            <p className="mt-2 text-sm text-muted">{pending} pending review</p>
+          </Card>
         </section>
       </div>
     </div>

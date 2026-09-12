@@ -54,7 +54,7 @@ export default async function SettingsWithdrawPage() {
           {withdrawals.map((w) => (
             <li
               key={w.id}
-              className="flex items-center justify-between rounded-2xl border border-border bg-white px-4 py-3"
+              className="list-row"
             >
               <div>
                 <p className="font-medium">{formatMoney(w.amountCents)}</p>

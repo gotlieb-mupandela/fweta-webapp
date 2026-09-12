@@ -42,7 +42,7 @@ export default async function BrandDepositsPage() {
           {deposits.map((d) => (
             <li
               key={d.id}
-              className="flex items-center justify-between rounded-2xl border border-border bg-white px-4 py-3"
+              className="list-row"
             >
               <div>
                 <p className="font-medium">{formatMoney(d.amountCents)}</p>

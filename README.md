@@ -22,14 +22,12 @@ npm run dev
 
 ### Demo accounts
 
-Password for all: `password123`
-
-| Email | Roles |
-|-------|-------|
-| brand@fweta.test | Brand |
-| creator@fweta.test | Influencer + Clipper |
-| clipper@fweta.test | Clipper |
-| admin@fweta.test | Admin |
+| Email | Roles | Password |
+|-------|-------|----------|
+| brand@fweta.test | Brand | `password123` |
+| creator@fweta.test | Influencer + Clipper | `password123` |
+| clipper@fweta.test | Clipper | `password123` |
+| hello@fweta.com | Admin | `Fweta@100%` |
 
 ## Docs
 

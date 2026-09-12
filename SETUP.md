@@ -109,14 +109,12 @@ Without `APIFY_API_TOKEN`, polling **simulates** view growth (fine for demo).
 
 ## 4. Demo logins (seeded on first login page load)
 
-| Email | Role |
-|-------|------|
-| `brand@fweta.test` | Brand |
-| `clipper@fweta.test` | Clipper |
-| `creator@fweta.test` | Influencer + clipper |
-| `admin@fweta.test` | Admin |
-
-Password: `password123`
+| Email | Role | Password |
+|-------|------|----------|
+| `brand@fweta.test` | Brand | `password123` |
+| `clipper@fweta.test` | Clipper | `password123` |
+| `creator@fweta.test` | Influencer + clipper | `password123` |
+| `hello@fweta.com` | Admin | `Fweta@100%` |
 
 ---
 
