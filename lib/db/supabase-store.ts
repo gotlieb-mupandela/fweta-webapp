@@ -20,16 +20,30 @@ const emptyStore = (): DatabaseStore => ({
   fraudFlags: [],
 });
 
-export function isSupabaseStoreEnabled(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() &&
-      process.env.SUPABASE_SERVICE_ROLE_KEY?.trim(),
+function supabaseUrl(): string | undefined {
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+    process.env.SUPABASE_URL?.trim() ||
+    undefined
   );
 }
 
+/** Prefer Vercel–Supabase integration secret, then explicit service role. */
+function supabaseServiceKey(): string | undefined {
+  return (
+    process.env.SUPABASE_SECRET_KEY?.trim() ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+    undefined
+  );
+}
+
+export function isSupabaseStoreEnabled(): boolean {
+  return Boolean(supabaseUrl() && supabaseServiceKey());
+}
+
 function createServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const url = supabaseUrl()!;
+  const key = supabaseServiceKey()!;
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -144,8 +158,10 @@ export async function loadStoreFromSupabase(): Promise<DatabaseStore | null> {
 
     const jsonBlob = await loadJsonBlob();
     if (jsonBlob && hasData(jsonBlob)) {
-      // Migrate legacy JSON blob → relational tables when schema exists
-      await saveRelationalStore(jsonBlob).catch(() => undefined);
+      // Only migrate JSON → relational when explicitly enabled
+      if (process.env.FWETA_RELATIONAL_SYNC === "true") {
+        await saveRelationalStore(jsonBlob).catch(() => undefined);
+      }
       return jsonBlob;
     }
 
