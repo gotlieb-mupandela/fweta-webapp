@@ -5,7 +5,13 @@ import { listBrandCampaigns } from "@/app/actions/campaigns";
 import { listBrandBookings } from "@/app/actions/bookings";
 import { getMyWallet } from "@/app/actions/wallet";
 import { Button } from "@/components/ui/button";
-import { PageHeader, SectionHeader, Stat } from "@/components/ui/card";
+import {
+  EmptyState,
+  PageHeader,
+  SectionHeader,
+  Stat,
+  StatGrid,
+} from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
 import { readStore } from "@/lib/db/store";
@@ -30,7 +36,7 @@ export default async function BrandDashboardPage() {
   ).length;
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader
         title="Brand overview"
         description="Campaign spend, submission queue, and influencer bookings."
@@ -45,50 +51,72 @@ export default async function BrandDashboardPage() {
           </div>
         }
       />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+      <StatGrid>
         <Stat label="Active campaigns" value={String(active)} />
         <Stat label="Budget spent" value={formatMoney(spent)} />
         <Stat label="Pending reviews" value={String(pendingSubs)} />
         <Stat label="Wallet" value={formatMoney(wallet.availableCents)} hint="For bookings & deposits" />
-      </div>
+      </StatGrid>
 
-      <div className="mt-10 grid gap-8 lg:grid-cols-2">
+      <div className="dash-split">
         <section>
           <SectionHeader title="Recent campaigns" href="/dashboard/brand/campaigns" />
-          <ul className="space-y-3">
-            {campaigns.slice(0, 5).map((c) => (
-              <li key={c.id}>
-                <Link href={`/dashboard/brand/campaigns/${c.id}`} className="list-row">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{c.title}</p>
-                    <p className="text-xs text-muted">
-                      {c.status} · {formatMoney(c.budgetSpentCents)} / {formatMoney(c.budgetTotalCents)}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-xs capitalize text-muted">{c.type}</span>
+          {campaigns.length === 0 ? (
+            <EmptyState
+              title="No campaigns yet"
+              description="Launch a clipping or UGC campaign and invite creators to distribute for you."
+              action={
+                <Link href="/dashboard/brand/campaigns/new">
+                  <Button size="sm">Create campaign</Button>
                 </Link>
-              </li>
-            ))}
-            {campaigns.length === 0 ? (
-              <p className="text-sm text-muted">No campaigns yet.</p>
-            ) : null}
-          </ul>
+              }
+            />
+          ) : (
+            <ul className="space-y-2.5">
+              {campaigns.slice(0, 5).map((c) => (
+                <li key={c.id}>
+                  <Link href={`/dashboard/brand/campaigns/${c.id}`} className="list-row">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{c.title}</p>
+                      <p className="text-xs text-muted">
+                        {c.status} · {formatMoney(c.budgetSpentCents)} / {formatMoney(c.budgetTotalCents)}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-xs capitalize text-muted">{c.type}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
+
         <section>
           <SectionHeader title="Bookings" href="/influencers" linkLabel="Browse influencers →" />
-          <ul className="space-y-3">
-            {bookings.slice(0, 5).map((b) => (
-              <li key={b.id} className="list-row">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium capitalize">{b.status.replace(/_/g, " ")}</p>
-                  <p className="text-xs text-muted">{formatMoney(b.amountCents)}</p>
-                </div>
-              </li>
-            ))}
-            {bookings.length === 0 ? (
-              <p className="text-sm text-muted">No bookings yet.</p>
-            ) : null}
-          </ul>
+          {bookings.length === 0 ? (
+            <EmptyState
+              title="No bookings yet"
+              description="Hire influencers at their listed rates for trusted sponsored posts."
+              action={
+                <Link href="/influencers">
+                  <Button size="sm" variant="secondary">
+                    Browse influencers
+                  </Button>
+                </Link>
+              }
+            />
+          ) : (
+            <ul className="space-y-2.5">
+              {bookings.slice(0, 5).map((b) => (
+                <li key={b.id} className="list-row">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium capitalize">{b.status.replace(/_/g, " ")}</p>
+                    <p className="text-xs text-muted">{formatMoney(b.amountCents)}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </div>
     </div>

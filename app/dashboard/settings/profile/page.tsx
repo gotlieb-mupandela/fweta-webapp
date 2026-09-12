@@ -12,7 +12,7 @@ export default async function SettingsProfilePage() {
   if (!profile) redirect("/login");
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader title="Profile" description="Update your display name and bio." />
       <ProfileSettingsForm displayName={profile.displayName} bio={profile.bio} />
     </div>

@@ -12,7 +12,7 @@ export default async function SettingsRolesPage() {
   if (!profile) redirect("/login");
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader title="Roles" description="Choose which dashboards you can access." />
       <RolesSettingsForm roles={profile.roles} primaryRole={profile.primaryRole} />
     </div>

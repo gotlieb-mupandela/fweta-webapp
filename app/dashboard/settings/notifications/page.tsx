@@ -12,7 +12,7 @@ export default async function SettingsNotificationsPage() {
   if (!profile) redirect("/login");
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader title="Notifications" description="Control email and alert preferences." />
       <NotificationsForm
         notifyEmail={profile.notifyEmail}

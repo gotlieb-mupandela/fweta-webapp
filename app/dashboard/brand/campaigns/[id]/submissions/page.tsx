@@ -5,6 +5,7 @@ import { getCampaign } from "@/app/actions/campaigns";
 import { listCampaignSubmissions } from "@/app/actions/submissions";
 import { SubmissionReviewForm } from "@/components/forms/submission-review-form";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney, formatNumber } from "@/lib/utils";
@@ -32,62 +33,67 @@ export default async function CampaignSubmissionsPage({
   ]);
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader
         title="Submission queue"
         description={`Review clips for ${campaign.title}.`}
         action={
-          <Link href={`/dashboard/brand/campaigns/${id}`} className="text-sm text-muted">
-            ← Back to campaign
+          <Link href={`/dashboard/brand/campaigns/${id}`}>
+            <Button size="sm" variant="secondary">
+              ← Back to campaign
+            </Button>
           </Link>
         }
       />
 
       {submissions.length === 0 ? (
-        <EmptyState title="No submissions" description="Clippers haven't submitted clips yet." />
+        <EmptyState
+          title="No submissions"
+          description="Clippers haven't submitted clips yet."
+        />
       ) : (
-        <ul className="space-y-4">
+        <ul className="space-y-2.5">
           {submissions.map((s) => {
             const clipper = store.profiles.find((p) => p.id === s.clipperId);
             return (
-              <li
-                key={s.id}
-                className="list-row items-start"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium">{clipper?.displayName ?? "Creator"}</p>
-                    <a
-                      href={s.postUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1 block text-sm text-gold hover:underline"
+              <li key={s.id} className="list-row items-start">
+                <div className="w-full space-y-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{clipper?.displayName ?? "Creator"}</p>
+                      <a
+                        href={s.postUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 block break-all text-sm text-gold-deep hover:underline"
+                      >
+                        {s.postUrl}
+                      </a>
+                      <p className="mt-1 text-xs text-muted">
+                        {s.platform} · {formatNumber(s.views)} views · {formatMoney(s.earningsCents)}{" "}
+                        earned
+                      </p>
+                    </div>
+                    <Badge
+                      tone={
+                        s.status === "approved"
+                          ? "success"
+                          : s.status === "rejected"
+                            ? "danger"
+                            : s.status === "flagged"
+                              ? "gold"
+                              : "muted"
+                      }
                     >
-                      {s.postUrl}
-                    </a>
-                    <p className="mt-1 text-xs text-muted">
-                      {s.platform} · {formatNumber(s.views)} views · {formatMoney(s.earningsCents)} earned
-                    </p>
+                      {s.status}
+                    </Badge>
                   </div>
-                  <Badge
-                    tone={
-                      s.status === "approved"
-                        ? "success"
-                        : s.status === "rejected"
-                          ? "danger"
-                          : s.status === "flagged"
-                            ? "gold"
-                            : "muted"
-                    }
-                  >
-                    {s.status}
-                  </Badge>
+                  {s.status === "pending" ? (
+                    <div className="border-t border-border/80 pt-3">
+                      <SubmissionReviewForm submissionId={s.id} />
+                    </div>
+                  ) : null}
                 </div>
-                {s.status === "pending" ? (
-                  <div className="mt-4 border-t border-border pt-4">
-                    <SubmissionReviewForm submissionId={s.id} />
-                  </div>
-                ) : null}
               </li>
             );
           })}

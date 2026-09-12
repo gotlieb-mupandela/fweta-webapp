@@ -27,49 +27,53 @@ export default async function AdminWithdrawalsPage() {
   );
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader title="Withdrawals" description="Process manual EFT payouts." />
 
       {rows.length === 0 ? (
-        <EmptyState title="No withdrawals" description="Withdrawal requests will appear here." />
+        <EmptyState
+          title="No withdrawals"
+          description="Withdrawal requests will appear here."
+        />
       ) : (
-        <ul className="space-y-4">
+        <ul className="space-y-2.5">
           {rows.map(({ withdrawal: w, user, payout }) => (
-            <li
-              key={w.id}
-              className="list-row items-start"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="font-medium">{user?.displayName ?? user?.email}</p>
-                  <p className="font-display text-lg">{formatMoney(w.amountCents)}</p>
-                  {payout ? (
-                    <p className="mt-2 text-sm text-muted">
-                      {payout.bankName} · {payout.branchCode} · {payout.accountHolderName} ·{" "}
-                      {payout.accountType}
+            <li key={w.id} className="list-row items-start">
+              <div className="w-full space-y-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium">{user?.displayName ?? user?.email}</p>
+                    <p className="mt-1 font-display text-2xl tracking-tight">
+                      {formatMoney(w.amountCents)}
                     </p>
-                  ) : (
-                    <p className="mt-2 text-sm text-danger">No payout method on file</p>
-                  )}
-                  <p className="text-xs text-muted">{new Date(w.createdAt).toLocaleString()}</p>
+                    {payout ? (
+                      <p className="mt-2 text-sm text-muted">
+                        {payout.bankName} · {payout.branchCode} · {payout.accountHolderName} ·{" "}
+                        {payout.accountType}
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-sm text-danger">No payout method on file</p>
+                    )}
+                    <p className="text-xs text-muted">{new Date(w.createdAt).toLocaleString()}</p>
+                  </div>
+                  <Badge
+                    tone={
+                      w.status === "paid"
+                        ? "success"
+                        : w.status === "rejected"
+                          ? "danger"
+                          : "gold"
+                    }
+                  >
+                    {w.status}
+                  </Badge>
                 </div>
-                <Badge
-                  tone={
-                    w.status === "paid"
-                      ? "success"
-                      : w.status === "rejected"
-                        ? "danger"
-                        : "gold"
-                  }
-                >
-                  {w.status}
-                </Badge>
+                {w.status === "pending" ? (
+                  <div className="border-t border-border/80 pt-3">
+                    <WithdrawalAdminActions withdrawalId={w.id} />
+                  </div>
+                ) : null}
               </div>
-              {w.status === "pending" ? (
-                <div className="mt-4 border-t border-border pt-4">
-                  <WithdrawalAdminActions withdrawalId={w.id} />
-                </div>
-              ) : null}
             </li>
           ))}
         </ul>

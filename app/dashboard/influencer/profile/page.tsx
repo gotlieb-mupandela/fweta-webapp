@@ -14,7 +14,7 @@ export default async function InfluencerProfilePage() {
   const profile = await getMyInfluencerProfile();
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader
         title="Public profile"
         description="Your marketplace profile visible to brands."

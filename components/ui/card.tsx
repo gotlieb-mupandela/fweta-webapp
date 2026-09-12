@@ -39,18 +39,27 @@ export function EmptyState({
   title,
   description,
   action,
+  className,
 }: {
   title: string;
   description?: string;
   action?: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="panel flex flex-col items-start gap-3 border-dashed px-6 py-12">
-      <h3 className="font-display text-2xl text-foreground">{title}</h3>
-      {description ? (
-        <p className="max-w-md text-sm leading-relaxed text-muted">{description}</p>
-      ) : null}
-      {action}
+    <div className={cn("empty-panel", className)}>
+      <div className="flex size-9 items-center justify-center rounded-full bg-gold-soft text-sm font-semibold text-gold-deep">
+        ··
+      </div>
+      <div className="space-y-1.5">
+        <h3 className="font-display text-[1.65rem] leading-none tracking-tight text-foreground">
+          {title}
+        </h3>
+        {description ? (
+          <p className="max-w-md text-sm leading-relaxed text-muted">{description}</p>
+        ) : null}
+      </div>
+      {action ? <div className="pt-1">{action}</div> : null}
     </div>
   );
 }
@@ -65,10 +74,9 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between md:mb-9">
-      <div className="space-y-1.5 md:space-y-2">
-        {/* Mobile uses top bar title — keep denser screen heading on md+ */}
-        <h1 className="hidden font-display text-[2rem] leading-none tracking-tight text-foreground md:block md:text-[2.35rem]">
+    <div className="mb-5 flex flex-col gap-3.5 sm:mb-7 sm:flex-row sm:items-end sm:justify-between md:mb-8">
+      <div className="space-y-1.5">
+        <h1 className="hidden font-display text-[2rem] leading-[0.95] tracking-tight text-foreground md:block md:text-[2.45rem]">
           {title}
         </h1>
         {description ? (
@@ -92,10 +100,12 @@ export function SectionHeader({
   linkLabel?: string;
 }) {
   return (
-    <div className="mb-4 flex items-center justify-between gap-3">
-      <h2 className="font-display text-2xl tracking-tight text-foreground">{title}</h2>
+    <div className="mb-3.5 flex items-end justify-between gap-3">
+      <h2 className="font-display text-[1.7rem] leading-none tracking-tight text-foreground md:text-2xl">
+        {title}
+      </h2>
       {href ? (
-        <Link href={href} className="section-link shrink-0">
+        <Link href={href} className="section-link shrink-0 pb-0.5">
           {linkLabel}
         </Link>
       ) : null}
@@ -126,18 +136,24 @@ export function Stat({
   label,
   value,
   hint,
+  className,
 }: {
   label: string;
   value: string;
   hint?: string;
+  className?: string;
 }) {
   return (
-    <div className="panel p-5 md:p-6">
-      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">{label}</p>
-      <p className="mt-3 font-display text-[2rem] leading-none text-foreground md:text-3xl">
+    <div className={cn("stat-card pl-5", className)}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{label}</p>
+      <p className="mt-2.5 font-display text-[1.85rem] leading-none tracking-tight text-foreground md:text-[2.05rem]">
         {value}
       </p>
-      {hint ? <p className="mt-2 text-xs text-muted-light">{hint}</p> : null}
+      {hint ? <p className="mt-2 text-xs leading-snug text-muted-light">{hint}</p> : null}
     </div>
   );
+}
+
+export function StatGrid({ children }: { children: React.ReactNode }) {
+  return <div className="stat-grid">{children}</div>;
 }

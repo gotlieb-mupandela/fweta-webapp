@@ -4,7 +4,13 @@ import { redirect } from "next/navigation";
 import { getMyInfluencerProfile, listMyRateCards } from "@/app/actions/influencer";
 import { listInfluencerBookings } from "@/app/actions/bookings";
 import { getMyWallet } from "@/app/actions/wallet";
-import { PageHeader, SectionHeader, Stat } from "@/components/ui/card";
+import {
+  EmptyState,
+  PageHeader,
+  SectionHeader,
+  Stat,
+  StatGrid,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
@@ -26,7 +32,7 @@ export default async function InfluencerDashboardPage() {
   const activeRates = rates.filter((r) => r.active).length;
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader
         title="Influencer overview"
         description="Manage your rate card, bookings, and earnings."
@@ -41,7 +47,8 @@ export default async function InfluencerDashboardPage() {
           </div>
         }
       />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+      <StatGrid>
         <Stat label="Wallet" value={formatMoney(wallet.availableCents)} />
         <Stat label="Active rates" value={String(activeRates)} />
         <Stat label="Pending bookings" value={String(pendingBookings)} />
@@ -50,24 +57,40 @@ export default async function InfluencerDashboardPage() {
           value={profile?.published ? "Published" : "Draft"}
           hint={profile?.slug ? `/influencers/${profile.slug}` : undefined}
         />
-      </div>
+      </StatGrid>
 
-      <div className="mt-10">
+      <section>
         <SectionHeader title="Recent bookings" href="/dashboard/influencer/bookings" />
-        <ul className="space-y-3">
-          {bookings.slice(0, 5).map((b) => (
-            <li key={b.id} className="list-row">
-              <div>
-                <p className="text-sm font-medium capitalize">{b.status.replace(/_/g, " ")}</p>
-                <p className="text-xs text-muted">{formatMoney(b.amountCents)}</p>
+        {bookings.length === 0 ? (
+          <EmptyState
+            title="Waiting on bookings"
+            description="Publish your profile and rate card so brands can book you directly."
+            action={
+              <div className="flex flex-wrap gap-2">
+                <Link href="/dashboard/influencer/rate-cards">
+                  <Button size="sm">Set rates</Button>
+                </Link>
+                <Link href="/dashboard/influencer/profile">
+                  <Button size="sm" variant="secondary">
+                    Finish profile
+                  </Button>
+                </Link>
               </div>
-            </li>
-          ))}
-          {bookings.length === 0 ? (
-            <p className="text-sm text-muted">No bookings yet.</p>
-          ) : null}
-        </ul>
-      </div>
+            }
+          />
+        ) : (
+          <ul className="space-y-2.5">
+            {bookings.slice(0, 5).map((b) => (
+              <li key={b.id} className="list-row">
+                <div>
+                  <p className="text-sm font-medium capitalize">{b.status.replace(/_/g, " ")}</p>
+                  <p className="text-xs text-muted">{formatMoney(b.amountCents)}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

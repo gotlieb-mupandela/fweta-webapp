@@ -9,7 +9,7 @@ export default async function SettingsSecurityPage() {
   if (!session) redirect("/login");
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader title="Security" description="Update your account password." />
       <PasswordChangeForm />
     </div>

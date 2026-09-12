@@ -22,9 +22,9 @@ export default async function SettingsPage() {
   if (!session) redirect("/login");
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader title="Settings" description={`Signed in as ${session.email}`} />
-      <ul className="space-y-2">
+      <ul className="space-y-2.5">
         {LINKS.map((l) => (
           <li key={l.href}>
             <Link href={l.href} className="list-row">
@@ -40,7 +40,7 @@ export default async function SettingsPage() {
         ))}
       </ul>
 
-      <div className="mt-8 border-t border-border/70 pt-6 md:mt-10">
+      <div className="border-t border-border/70 pt-2 md:pt-3">
         <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-light">
           Account
         </p>

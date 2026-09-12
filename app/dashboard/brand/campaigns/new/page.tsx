@@ -16,18 +16,18 @@ export default async function NewCampaignPage() {
   const wallet = await getMyWallet();
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader title="New campaign" description="Set budget, CPM, and platform rules." />
-      <Card className="mb-6 max-w-2xl">
+      <Card className="max-w-2xl panel-interactive">
         <p className="text-sm text-muted">
           Wallet balance:{" "}
           <span className="font-medium text-foreground">{formatMoney(wallet.availableCents)}</span>
           {" · "}
-          <Link href="/dashboard/brand/deposits" className="text-gold hover:underline">
+          <Link href="/dashboard/brand/deposits" className="font-medium text-gold-deep hover:underline">
             Record a deposit
           </Link>
         </p>
-        <p className="mt-1 text-xs text-muted">
+        <p className="mt-1.5 text-xs text-muted">
           Launching an active campaign allocates the full budget from your wallet.
         </p>
       </Card>

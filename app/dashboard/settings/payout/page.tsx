@@ -12,16 +12,18 @@ export default async function SettingsPayoutPage() {
   const method = await getMyPayoutMethodMasked();
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader title="Payout method" description="SA EFT bank details for withdrawals." />
 
       {method ? (
-        <Card className="mb-8">
-          <p className="text-sm text-muted">Current method</p>
-          <p className="mt-1 font-medium">
+        <Card className="panel-interactive">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
+            Current method
+          </p>
+          <p className="mt-2.5 font-medium">
             {method.bankName} · {method.accountNumberMasked}
           </p>
-          <p className="text-sm text-muted">
+          <p className="mt-1 text-sm text-muted">
             {method.accountHolderName} · {method.accountType}
           </p>
         </Card>

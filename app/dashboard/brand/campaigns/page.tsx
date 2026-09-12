@@ -16,7 +16,7 @@ export default async function BrandCampaignsPage() {
   const campaigns = await listBrandCampaigns();
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader
         title="Campaigns"
         description="Manage content rewards campaigns and budgets."
@@ -38,17 +38,15 @@ export default async function BrandCampaignsPage() {
           }
         />
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-2.5">
           {campaigns.map((c) => (
             <li key={c.id}>
-              <Link
-                href={`/dashboard/brand/campaigns/${c.id}`}
-                className="list-row"
-              >
+              <Link href={`/dashboard/brand/campaigns/${c.id}`} className="list-row">
                 <div>
                   <p className="font-medium">{c.title}</p>
                   <p className="mt-1 text-sm text-muted">
-                    {c.type} · {c.category} · {formatMoney(c.budgetSpentCents)} / {formatMoney(c.budgetTotalCents)}
+                    {c.type} · {c.category} · {formatMoney(c.budgetSpentCents)} /{" "}
+                    {formatMoney(c.budgetTotalCents)}
                   </p>
                 </div>
                 <Badge tone={c.status === "active" ? "gold" : "muted"}>{c.status}</Badge>

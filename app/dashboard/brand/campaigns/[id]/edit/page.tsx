@@ -23,7 +23,7 @@ export default async function EditCampaignPage({
   }
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader title="Edit campaign" description={campaign.title} />
       <CampaignForm mode="edit" campaign={campaign} />
     </div>

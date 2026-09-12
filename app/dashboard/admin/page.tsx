@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { adminListUsers, getPlatformStats } from "@/app/actions/settings";
 import { listPendingWithdrawalsAdmin } from "@/app/actions/wallet";
 import { AdminCreditForm } from "@/components/forms/admin-credit-form";
-import { PageHeader, SectionHeader, Stat } from "@/components/ui/card";
+import { PageHeader, SectionHeader, Stat, StatGrid } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
@@ -31,7 +31,7 @@ export default async function AdminDashboardPage() {
   const pending = withdrawals.filter((w) => w.status === "pending").length;
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader
         title="Admin overview"
         description="Withdrawal queue, manual EFT payouts, and platform oversight."
@@ -45,19 +45,19 @@ export default async function AdminDashboardPage() {
       />
 
       {stats ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatGrid>
           <Stat label="Users" value={String(stats.users)} />
           <Stat label="Active campaigns" value={String(stats.activeCampaigns)} />
           <Stat label="Pending withdrawals" value={String(stats.pendingWithdrawals)} />
           <Stat label="Open fraud flags" value={String(stats.openFraudFlags)} />
-        </div>
+        </StatGrid>
       ) : null}
 
-      <div className="mt-10 grid gap-8 lg:grid-cols-2">
+      <div className="dash-split">
         <AdminCreditForm users={users.map((u) => ({ id: u.id, email: u.email }))} />
         <section>
           <SectionHeader title="Quick links" />
-          <ul className="space-y-2">
+          <ul className="space-y-2.5">
             {QUICK_LINKS.map((l) => (
               <li key={l.href}>
                 <Link href={l.href} className="list-row">
@@ -70,7 +70,7 @@ export default async function AdminDashboardPage() {
             ))}
           </ul>
           {stats ? (
-            <p className="mt-6 text-sm text-muted">GMV tracked: {formatMoney(stats.gmvCents)}</p>
+            <p className="mt-5 text-sm text-muted">GMV tracked: {formatMoney(stats.gmvCents)}</p>
           ) : null}
         </section>
       </div>

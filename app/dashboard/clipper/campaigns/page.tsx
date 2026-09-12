@@ -5,6 +5,7 @@ import { listActiveCampaignsPublic } from "@/app/actions/campaigns";
 import { listClipperSubmissions } from "@/app/actions/submissions";
 import { SubmitClipForm } from "@/components/forms/submit-clip-form";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
 
@@ -20,7 +21,7 @@ export default async function ClipperCampaignsPage() {
   ]);
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader
         title="Active campaigns"
         description="Join open campaigns and submit your clips."
@@ -31,13 +32,15 @@ export default async function ClipperCampaignsPage() {
           title="No active campaigns"
           description="Check back soon for new clipping and UGC opportunities."
           action={
-            <Link href="/campaigns" className="text-sm text-gold hover:underline">
-              Browse the public marketplace →
+            <Link href="/campaigns">
+              <Button size="sm" variant="secondary">
+                Browse marketplace
+              </Button>
             </Link>
           }
         />
       ) : (
-        <ul className="space-y-4">
+        <ul className="space-y-3.5">
           {campaigns.map((c) => {
             const remaining = Math.max(0, c.budgetTotalCents - c.budgetSpentCents);
             const excerpt =
@@ -45,30 +48,28 @@ export default async function ClipperCampaignsPage() {
             const mine = submissions.filter((s) => s.campaignId === c.id);
             return (
               <li key={c.id}>
-                <Card>
+                <Card className="panel-interactive">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-display text-xl">{c.title}</h3>
-                      <p className="mt-1 text-sm text-muted">{excerpt}</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
+                      <h3 className="font-display text-xl tracking-tight">{c.title}</h3>
+                      <p className="mt-1.5 text-sm leading-relaxed text-muted">{excerpt}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
                         <Badge tone="gold">{c.type}</Badge>
                         <Badge>{c.category}</Badge>
                         <Badge tone="muted">CPM {formatMoney(c.cpmCents)}</Badge>
                         <Badge tone="muted">Max {formatMoney(c.maxPayoutPerSubmissionCents)}</Badge>
                         <Badge tone="muted">Left {formatMoney(remaining)}</Badge>
                       </div>
-                      <p className="mt-2 text-xs text-muted">
+                      <p className="mt-2.5 text-xs text-muted">
                         {c.platforms.join(" · ")}
                         {c.endDate ? ` · Ends ${c.endDate.slice(0, 10)}` : ""}
                       </p>
                       {c.requirements ? (
-                        <p className="mt-2 whitespace-pre-wrap text-xs text-muted">
-                          {c.requirements}
-                        </p>
+                        <p className="mt-2 whitespace-pre-wrap text-xs text-muted">{c.requirements}</p>
                       ) : null}
                       <Link
                         href={`/campaigns/${c.id}`}
-                        className="mt-2 inline-block text-xs text-gold hover:underline"
+                        className="mt-2.5 inline-block text-xs font-medium text-gold-deep hover:underline"
                       >
                         Open campaign page →
                       </Link>
@@ -80,7 +81,7 @@ export default async function ClipperCampaignsPage() {
                       ({mine.map((s) => s.status).join(", ")}).
                     </p>
                   ) : null}
-                  <div className="mt-4 border-t border-border pt-4">
+                  <div className="mt-4 border-t border-border/80 pt-4">
                     <SubmitClipForm
                       campaignId={c.id}
                       platforms={c.platforms}

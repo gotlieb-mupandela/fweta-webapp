@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getMyLedger, getMyWallet } from "@/app/actions/wallet";
-import { PageHeader, Stat } from "@/components/ui/card";
+import { EmptyState, PageHeader, SectionHeader, Stat, StatGrid } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
 
@@ -15,40 +15,42 @@ export default async function InfluencerEarningsPage() {
   const bookingEarnings = ledger.filter((e) => e.referenceType === "booking_release");
 
   return (
-    <div>
+    <div className="dash-stack">
       <PageHeader title="Earnings" description="Booking payments and ledger history." />
 
-      <div className="mb-10 grid gap-4 sm:grid-cols-3">
+      <StatGrid>
         <Stat label="Available" value={formatMoney(wallet.availableCents)} />
         <Stat label="Pending" value={formatMoney(wallet.pendingCents)} />
         <Stat
           label="Booking earnings"
           value={formatMoney(bookingEarnings.reduce((s, e) => s + e.amountCents, 0))}
         />
-      </div>
+      </StatGrid>
 
-      <h2 className="mb-4 font-display text-2xl">Ledger</h2>
-      {ledger.length === 0 ? (
-        <p className="text-sm text-muted">No transactions yet.</p>
-      ) : (
-        <ul className="space-y-2">
-          {ledger.map((e) => (
-            <li
-              key={e.id}
-              className="list-row text-sm"
-            >
-              <div>
-                <p className="font-medium">{e.reason}</p>
-                <p className="text-xs text-muted">{new Date(e.createdAt).toLocaleString()}</p>
-              </div>
-              <p className={e.type === "credit" ? "text-success" : "text-foreground"}>
-                {e.type === "credit" ? "+" : "−"}
-                {formatMoney(e.amountCents)}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
+      <section>
+        <SectionHeader title="Ledger" />
+        {ledger.length === 0 ? (
+          <EmptyState
+            title="No transactions yet"
+            description="Approved booking payouts will show up here."
+          />
+        ) : (
+          <ul className="space-y-2.5">
+            {ledger.map((e) => (
+              <li key={e.id} className="list-row text-sm">
+                <div>
+                  <p className="font-medium">{e.reason}</p>
+                  <p className="text-xs text-muted">{new Date(e.createdAt).toLocaleString()}</p>
+                </div>
+                <p className={e.type === "credit" ? "text-success" : "text-foreground"}>
+                  {e.type === "credit" ? "+" : "−"}
+                  {formatMoney(e.amountCents)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }
