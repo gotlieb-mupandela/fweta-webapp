@@ -60,7 +60,6 @@ body {
   color: var(--foreground);
   font-family: var(--font-karla), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
 }
 
 h1,
@@ -70,6 +69,8 @@ h3,
   font-family: var(--font-newsreader), Georgia, "Times New Roman", serif;
   letter-spacing: -0.015em;
   font-weight: 600;
+  font-optical-sizing: auto;
+  line-height: 1.15;
 }
 
 ::selection {

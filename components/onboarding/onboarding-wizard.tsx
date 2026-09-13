@@ -167,7 +167,8 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
   }
 
   function finish() {
-    if (!hasAnySocial(answers)) {
+    const isCreator = roles.includes("influencer") || roles.includes("clipper");
+    if (isCreator && !hasAnySocial(answers)) {
       setError("Add at least one social profile before finishing.");
       const socialIndex = steps.findIndex((s) =>
         SOCIAL_FIELDS.includes(s.id as SocialField),
@@ -216,7 +217,9 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
     const key = field as keyof Answers;
     return (
       <div>
-        <Label htmlFor={field}>{step.title.replace("?", "")}</Label>
+        <Label htmlFor={field} className="sr-only">
+          {step.title}
+        </Label>
         <Input
           id={field}
           type={step.inputType ?? "text"}
@@ -292,7 +295,7 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">
               Setup quest
             </p>
-            <h1 className="font-display text-[2.1rem] leading-none tracking-tight md:text-4xl">
+            <h1 className="font-display text-[2.1rem] leading-[1.15] tracking-tight md:text-4xl">
               {step.title}
             </h1>
             <p className="text-sm leading-relaxed text-muted">{step.subtitle}</p>
@@ -313,8 +316,8 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
               {pending
                 ? "Saving…"
                 : index >= steps.length - 1
-                  ? `Finish · +${step.xp} XP`
-                  : `Continue · +${step.xp} XP`}
+                  ? "Finish"
+                  : "Continue"}
             </Button>
             {step.optional ? (
               <Button type="button" size="lg" variant="secondary" disabled={pending} onClick={skip}>

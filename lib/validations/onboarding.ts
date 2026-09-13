@@ -28,6 +28,7 @@ export const onboardingCompleteSchema = z
   })
   .refine(
     (d) =>
+      Boolean(d.companyName?.trim()) ||
       [d.socials.tiktok, d.socials.instagram, d.socials.youtube, d.socials.x].some(
         (v) => (v ?? "").trim().length >= 2,
       ),

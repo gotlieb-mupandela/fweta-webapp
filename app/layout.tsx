@@ -8,6 +8,7 @@ const karla = Karla({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   style: ["normal", "italic"],
+  adjustFontFallback: false,
 });
 
 const newsreader = Newsreader({
@@ -15,12 +16,14 @@ const newsreader = Newsreader({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
   style: ["normal", "italic"],
+  adjustFontFallback: false,
 });
 
 const redHatMono = Red_Hat_Mono({
   variable: "--font-redhat-mono",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {
@@ -50,7 +53,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${karla.variable} ${newsreader.variable} ${redHatMono.variable} h-full`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground antialiased">
+      <body
+        className={`${karla.className} min-h-full flex flex-col bg-background text-foreground antialiased`}
+      >
         {children}
       </body>
     </html>
