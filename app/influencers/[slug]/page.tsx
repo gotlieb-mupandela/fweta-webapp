@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { getPublicInfluencer } from "@/app/actions/influencer";
 import { PublicChrome } from "@/components/public-chrome";
+import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { Badge, Card, ListRow } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
@@ -27,14 +28,17 @@ export default async function PublicInfluencerPage({
           ← All influencers
         </Link>
 
-        <div className="mt-6">
-          <Badge tone="gold">{profile.niche}</Badge>
+        <div className="mt-6 flex items-start gap-4">
+          <AvatarCircle src={profile.avatarUrl} name={profile.displayName} size="lg" />
+          <div className="min-w-0">
+            <Badge tone="gold">{profile.niche}</Badge>
+            <h1 className="mt-3 font-display text-4xl tracking-tight md:text-5xl">
+              {profile.displayName}
+            </h1>
+            <p className="mt-2 text-lg text-muted">{profile.headline}</p>
+            <p className="mt-1 text-sm text-muted-light">{profile.location}</p>
+          </div>
         </div>
-        <h1 className="mt-4 font-display text-4xl tracking-tight md:text-5xl">
-          {profile.displayName}
-        </h1>
-        <p className="mt-2 text-lg text-muted">{profile.headline}</p>
-        <p className="mt-1 text-sm text-muted-light">{profile.location}</p>
 
         <Card className="mt-8">
           <h2 className="font-display text-xl">About</h2>

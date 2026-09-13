@@ -35,7 +35,7 @@ This document expands [AGENTS.md](./AGENTS.md) into an actionable build sequence
 - **Jobs:** `POST /api/jobs/poll-views` runs view growth simulation + CPM earnings.
 - **Booking model:** Request → accept/decline → deliver → brand approve (documented decision: not instant book).
 - **Currency:** NAD (Namibia). Minimum withdrawal N$100.
-- **Design:** fweta marketing language — white / black / gold, Instrument Serif + DM Sans.
+- **Design:** fweta marketing language — white / black / gold, Newsreader + Karla (match fweta.com).
 
 When migrating to Supabase: replace `lib/db/store.ts` and `lib/auth/session.ts` with Supabase clients; keep Zod schemas and UI.
 

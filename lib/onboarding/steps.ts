@@ -4,7 +4,10 @@ export type OnboardingField =
   | "firstName"
   | "lastName"
   | "phone"
-  | "social"
+  | "socialTiktok"
+  | "socialInstagram"
+  | "socialYoutube"
+  | "socialX"
   | "companyName"
   | "website"
   | "niche"
@@ -45,10 +48,35 @@ const CORE: OnboardingStep[] = [
     inputType: "tel",
   },
   {
-    id: "social",
-    title: "Drop your main social",
-    subtitle: "Pick a platform and add your handle or profile link.",
-    xp: 20,
+    id: "socialTiktok",
+    title: "What's your TikTok?",
+    subtitle: "Handle or profile link — skip if you don't use TikTok.",
+    xp: 10,
+    optional: true,
+    placeholder: "@yourhandle",
+  },
+  {
+    id: "socialInstagram",
+    title: "What's your Instagram?",
+    subtitle: "Handle or profile link — skip if you don't use Instagram.",
+    xp: 10,
+    optional: true,
+    placeholder: "@yourhandle",
+  },
+  {
+    id: "socialYoutube",
+    title: "What's your YouTube?",
+    subtitle: "Handle or channel link — skip if you don't use YouTube.",
+    xp: 10,
+    optional: true,
+    placeholder: "@yourchannel",
+  },
+  {
+    id: "socialX",
+    title: "What's your X?",
+    subtitle: "Handle or profile link — skip if you don't use X.",
+    xp: 10,
+    optional: true,
     placeholder: "@yourhandle",
   },
 ];

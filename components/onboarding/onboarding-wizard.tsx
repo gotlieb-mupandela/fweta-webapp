@@ -23,12 +23,23 @@ const PLATFORMS: { id: SocialPlatform; label: string }[] = [
   { id: "x", label: "X" },
 ];
 
+const SOCIAL_FIELDS = [
+  "socialTiktok",
+  "socialInstagram",
+  "socialYoutube",
+  "socialX",
+] as const;
+
+type SocialField = (typeof SOCIAL_FIELDS)[number];
+
 type Answers = {
   firstName: string;
   lastName: string;
   phone: string;
-  socialPlatform: SocialPlatform;
-  socialHandle: string;
+  socialTiktok: string;
+  socialInstagram: string;
+  socialYoutube: string;
+  socialX: string;
   companyName: string;
   website: string;
   niche: string;
@@ -40,14 +51,20 @@ const INITIAL: Answers = {
   firstName: "",
   lastName: "",
   phone: "",
-  socialPlatform: "tiktok",
-  socialHandle: "",
+  socialTiktok: "",
+  socialInstagram: "",
+  socialYoutube: "",
+  socialX: "",
   companyName: "",
   website: "",
   niche: "",
   location: "",
   primaryPlatform: "tiktok",
 };
+
+function hasAnySocial(answers: Answers): boolean {
+  return SOCIAL_FIELDS.some((f) => answers[f].trim().length >= 2);
+}
 
 export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
   const router = useRouter();
@@ -83,10 +100,6 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
         return /^[+]?[\d\s()-]{8,24}$/.test(answers.phone.trim())
           ? null
           : "Enter a valid phone number.";
-      case "social":
-        return answers.socialHandle.trim().length >= 2
-          ? null
-          : "Add your handle or profile link.";
       case "companyName":
         return answers.companyName.trim() ? null : "Enter your business name.";
       case "niche":
@@ -100,6 +113,25 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
       default:
         return null;
     }
+  }
+
+  function buildPayload() {
+    return {
+      firstName: answers.firstName,
+      lastName: answers.lastName,
+      phone: answers.phone,
+      socials: {
+        tiktok: answers.socialTiktok,
+        instagram: answers.socialInstagram,
+        youtube: answers.socialYoutube,
+        x: answers.socialX,
+      },
+      companyName: answers.companyName,
+      website: answers.website,
+      niche: answers.niche,
+      location: answers.location,
+      primaryPlatform: answers.primaryPlatform,
+    };
   }
 
   function advance() {
@@ -135,8 +167,17 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
   }
 
   function finish() {
+    if (!hasAnySocial(answers)) {
+      setError("Add at least one social profile before finishing.");
+      const socialIndex = steps.findIndex((s) =>
+        SOCIAL_FIELDS.includes(s.id as SocialField),
+      );
+      if (socialIndex >= 0) setIndex(socialIndex);
+      return;
+    }
+
     startTransition(async () => {
-      const res = await completeOnboardingAction(answers);
+      const res = await completeOnboardingAction(buildPayload());
       if (!res.ok) {
         setError(res.error);
         return;
@@ -150,40 +191,6 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
   }
 
   function renderInput(field: OnboardingField) {
-    if (field === "social") {
-      return (
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {PLATFORMS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setField("socialPlatform", p.id)}
-                className={cn(
-                  "rounded-2xl border px-3 py-3 text-sm font-medium transition",
-                  answers.socialPlatform === p.id
-                    ? "border-foreground bg-foreground text-white"
-                    : "border-border bg-white text-muted hover:border-border-strong",
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <div>
-            <Label htmlFor="socialHandle">Handle or profile URL</Label>
-            <Input
-              id="socialHandle"
-              value={answers.socialHandle}
-              onChange={(e) => setField("socialHandle", e.target.value)}
-              placeholder="@yourhandle"
-              autoFocus
-            />
-          </div>
-        </div>
-      );
-    }
-
     if (field === "primaryPlatform") {
       return (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

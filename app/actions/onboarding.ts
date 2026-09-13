@@ -14,6 +14,8 @@ import { onboardingCompleteSchema } from "@/lib/validations/onboarding";
 import { slugify } from "@/lib/utils";
 import type { SocialPlatform } from "@/types/enums";
 
+const PLATFORM_ORDER: SocialPlatform[] = ["tiktok", "instagram", "youtube", "x"];
+
 function normalizeHandle(platform: SocialPlatform, raw: string): string {
   const value = raw.trim();
   if (/^https?:\/\//i.test(value)) return value;
@@ -34,12 +36,24 @@ function normalizeHandle(platform: SocialPlatform, raw: string): string {
   }
 }
 
-function socialsFromAnswer(
-  platform: SocialPlatform,
-  handle: string,
-): ProfileSocials {
-  const url = normalizeHandle(platform, handle);
-  return { [platform]: url };
+function socialsFromAnswers(socials: {
+  tiktok?: string;
+  instagram?: string;
+  youtube?: string;
+  x?: string;
+}): ProfileSocials {
+  const out: ProfileSocials = {};
+  for (const platform of PLATFORM_ORDER) {
+    const raw = socials[platform]?.trim() ?? "";
+    if (raw.length >= 2) {
+      out[platform] = normalizeHandle(platform, raw);
+    }
+  }
+  return out;
+}
+
+function firstFilledPlatform(socials: ProfileSocials): SocialPlatform | undefined {
+  return PLATFORM_ORDER.find((p) => Boolean(socials[p]));
 }
 
 export async function getOnboardingState() {
@@ -66,7 +80,7 @@ export async function completeOnboardingAction(raw: unknown) {
 
   const data = parsed.data;
   const displayName = `${data.firstName} ${data.lastName}`.trim();
-  const socials = socialsFromAnswer(data.socialPlatform, data.socialHandle);
+  const socials = socialsFromAnswers(data.socials);
   const now = nowIso();
 
   let updatedId = session.id;
@@ -80,7 +94,8 @@ export async function completeOnboardingAction(raw: unknown) {
     profile.phone = data.phone.replace(/\s+/g, " ").trim();
     profile.displayName = displayName;
     profile.socials = { ...(profile.socials ?? {}), ...socials };
-    profile.primaryPlatform = data.primaryPlatform ?? data.socialPlatform;
+    profile.primaryPlatform =
+      data.primaryPlatform ?? firstFilledPlatform(socials) ?? profile.primaryPlatform;
     profile.updatedAt = now;
     profile.onboardingCompletedAt = now;
 

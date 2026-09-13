@@ -1,19 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Instrument_Serif } from "next/font/google";
+import { Karla, Newsreader, Red_Hat_Mono } from "next/font/google";
 
 import "./globals.css";
 
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
+const karla = Karla({
+  variable: "--font-karla",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
-const instrument = Instrument_Serif({
-  variable: "--font-instrument",
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
   subsets: ["latin"],
-  weight: ["400"],
+  weight: ["500", "600", "700"],
   style: ["normal", "italic"],
+});
+
+const redHatMono = Red_Hat_Mono({
+  variable: "--font-redhat-mono",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -39,7 +46,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${instrument.variable} h-full`}>
+    <html
+      lang="en"
+      className={`${karla.variable} ${newsreader.variable} ${redHatMono.variable} h-full`}
+    >
       <body className="min-h-full flex flex-col bg-background text-foreground antialiased">
         {children}
       </body>

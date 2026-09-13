@@ -14,7 +14,11 @@ export default async function SettingsProfilePage() {
   return (
     <div className="dash-stack">
       <PageHeader title="Profile" description="Update your display name and bio." />
-      <ProfileSettingsForm displayName={profile.displayName} bio={profile.bio} />
+      <ProfileSettingsForm
+        displayName={profile.displayName}
+        bio={profile.bio}
+        avatarUrl={profile.avatarUrl}
+      />
     </div>
   );
 }

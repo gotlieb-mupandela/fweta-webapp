@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { listPublicInfluencers } from "@/app/actions/influencer";
 import { PublicChrome } from "@/components/public-chrome";
+import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { Badge, Card, EmptyState } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -48,8 +49,13 @@ export default async function InfluencersPage({
               <li key={p.id}>
                 <Link href={`/influencers/${p.slug}`} className="block h-full">
                   <Card className="h-full transition hover:border-foreground/20 hover:shadow-[var(--shadow-lift)]">
-                    <h2 className="font-display text-xl tracking-tight">{p.displayName}</h2>
-                    <p className="mt-1 text-sm leading-relaxed text-muted">{p.headline}</p>
+                    <div className="flex items-start gap-3">
+                      <AvatarCircle src={p.avatarUrl} name={p.displayName} />
+                      <div className="min-w-0">
+                        <h2 className="font-display text-xl tracking-tight">{p.displayName}</h2>
+                        <p className="mt-1 text-sm leading-relaxed text-muted">{p.headline}</p>
+                      </div>
+                    </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Badge tone="gold">{p.niche}</Badge>
                       <Badge tone="muted">{p.location}</Badge>

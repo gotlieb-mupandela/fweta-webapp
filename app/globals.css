@@ -42,8 +42,9 @@
   --color-danger-soft: var(--danger-soft);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
-  --font-sans: var(--font-dm-sans);
-  --font-serif: var(--font-instrument);
+  --font-sans: var(--font-karla);
+  --font-serif: var(--font-newsreader);
+  --font-mono: var(--font-redhat-mono);
 }
 
 * {
@@ -57,7 +58,7 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-karla), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -66,9 +67,9 @@ h1,
 h2,
 h3,
 .font-display {
-  font-family: var(--font-instrument), ui-serif, Georgia, serif;
-  letter-spacing: -0.03em;
-  font-weight: 400;
+  font-family: var(--font-newsreader), Georgia, "Times New Roman", serif;
+  letter-spacing: -0.015em;
+  font-weight: 600;
 }
 
 ::selection {

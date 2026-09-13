@@ -33,6 +33,9 @@ export async function upsertInfluencerProfileAction(raw: unknown) {
   const now = nowIso();
   await updateStore((s) => {
     const current = s.influencerProfiles.find((p) => p.userId === session.id);
+    const account = s.profiles.find((p) => p.id === session.id);
+    const mirroredAvatar = current?.avatarUrl ?? account?.avatarUrl ?? null;
+
     if (current) {
       Object.assign(current, {
         displayName: parsed.data.displayName,
@@ -59,7 +62,7 @@ export async function upsertInfluencerProfileAction(raw: unknown) {
         bio: parsed.data.bio,
         niche: parsed.data.niche,
         location: parsed.data.location,
-        avatarUrl: null,
+        avatarUrl: mirroredAvatar,
         socials: {
           tiktok: parsed.data.socials?.tiktok || undefined,
           youtube: parsed.data.socials?.youtube || undefined,
@@ -72,6 +75,13 @@ export async function upsertInfluencerProfileAction(raw: unknown) {
         updatedAt: now,
       };
       s.influencerProfiles.push(profile);
+    }
+
+    if (account) {
+      account.displayName = parsed.data.displayName;
+      if (current?.avatarUrl) account.avatarUrl = current.avatarUrl;
+      else if (mirroredAvatar) account.avatarUrl = mirroredAvatar;
+      account.updatedAt = now;
     }
   });
 
