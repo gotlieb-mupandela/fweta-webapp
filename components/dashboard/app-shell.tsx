@@ -9,19 +9,26 @@ export function AppShell({
   role,
   roles,
   displayName,
+  unreadCount,
   children,
 }: {
   role: UserRole;
   roles: UserRole[];
   displayName: string;
+  unreadCount: number;
   children: React.ReactNode;
 }) {
   return (
     <div className="app-canvas flex min-h-dvh">
-      <DashboardSidebar role={role} roles={roles} displayName={displayName} />
+      <DashboardSidebar
+        role={role}
+        roles={roles}
+        displayName={displayName}
+        unreadCount={unreadCount}
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <MobileTopBar displayName={displayName} />
+        <MobileTopBar displayName={displayName} unreadCount={unreadCount} />
 
         <main className="app-main mx-auto w-full max-w-6xl flex-1 px-4 py-5 md:px-8 md:py-8 lg:px-10">
           <div className="animate-fade-up">{children}</div>

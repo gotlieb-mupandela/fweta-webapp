@@ -33,6 +33,7 @@ This document expands [AGENTS.md](./AGENTS.md) into an actionable build sequence
 - **Auth:** Cookie JWT (`fweta_session`) with bcrypt email + password. Demo users seeded on first load (`*@fweta.test` / `password123`; admin `hello@fweta.com` / `Fweta@100%`).
 - **Data:** File store at `data/store.json` (gitignored). Ledger discipline enforced in `lib/wallet/ledger.ts`.
 - **Jobs:** `POST /api/jobs/poll-views` runs view growth simulation + CPM earnings.
+- **Email:** Resend when `RESEND_API_KEY` and `RESEND_FROM` are set. Otherwise sends are skipped with a warning. Admin previews live at `/dashboard/admin/emails`.
 - **Booking model:** Request → accept/decline → deliver → brand approve (documented decision: not instant book).
 - **Currency:** NAD (Namibia). Minimum withdrawal N$100.
 - **Design:** fweta marketing language — white / black / gold, Newsreader + Karla (match fweta.com).

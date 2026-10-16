@@ -205,6 +205,39 @@ export type FraudFlag = {
   resolvedAt: string | null;
 };
 
+export type NotificationKind =
+  | "welcome"
+  | "campaign_live"
+  | "campaign_budget_low"
+  | "submission_approved"
+  | "submission_rejected"
+  | "booking_requested"
+  | "booking_accepted"
+  | "booking_declined"
+  | "booking_completed"
+  | "withdrawal_requested"
+  | "withdrawal_paid"
+  | "withdrawal_rejected"
+  | "deposit_confirmed";
+
+export type AppNotification = {
+  id: string;
+  userId: string;
+  kind: NotificationKind;
+  title: string;
+  body: string;
+  href: string | null;
+  readAt: string | null;
+  createdAt: string;
+};
+
+/** Idempotency record so a repeated event (re-activating a campaign) does not notify twice. */
+export type NotificationDispatch = {
+  id: string;
+  dedupeKey: string;
+  createdAt: string;
+};
+
 export type DatabaseStore = {
   profiles: Profile[];
   campaigns: Campaign[];
@@ -219,4 +252,6 @@ export type DatabaseStore = {
   bookings: Booking[];
   brandDeposits: BrandDeposit[];
   fraudFlags: FraudFlag[];
+  notifications: AppNotification[];
+  notificationDispatches: NotificationDispatch[];
 };

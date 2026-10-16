@@ -6,6 +6,7 @@ import { LogOut } from "lucide-react";
 
 import { logoutAction } from "@/app/actions/auth";
 import { Logo } from "@/components/brand/logo";
+import { NotificationBell } from "@/components/dashboard/notification-bell";
 import { RoleSwitcher } from "@/components/dashboard/role-switcher";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,10 +54,12 @@ export function DashboardSidebar({
   role,
   roles,
   displayName,
+  unreadCount,
 }: {
   role: UserRole;
   roles: UserRole[];
   displayName: string;
+  unreadCount: number;
 }) {
   const pathname = usePathname();
   const config = ROLE_NAV[role] ?? ROLE_NAV.clipper;
@@ -65,8 +68,9 @@ export function DashboardSidebar({
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-[272px] shrink-0 flex-col border-r border-border/70 bg-white/90 backdrop-blur-xl md:flex">
-      <div className="flex h-[4.25rem] items-center px-5">
+      <div className="flex h-[4.25rem] items-center justify-between px-4">
         <Logo href="/dashboard" size="sm" />
+        <NotificationBell count={unreadCount} />
       </div>
 
       <div className="px-4 pb-5">

@@ -14,6 +14,7 @@ const QUICK_LINKS = [
   { href: "/dashboard/admin/users", label: "User management" },
   { href: "/dashboard/admin/fraud", label: "Fraud review" },
   { href: "/dashboard/admin/stats", label: "Platform stats" },
+  { href: "/dashboard/admin/emails", label: "Email previews" },
 ];
 
 export default async function AdminDashboardPage() {

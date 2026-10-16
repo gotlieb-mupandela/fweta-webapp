@@ -1,7 +1,9 @@
 /**
- * Event-driven — notify creator when admin marks a withdrawal paid.
+ * Event-driven alert when an admin marks a withdrawal paid.
  */
+import { notifyWithdrawalPaid } from "@/lib/notifications/events";
+
 export async function notifyCreatorPaid(withdrawalRequestId: string) {
-  void withdrawalRequestId;
+  await notifyWithdrawalPaid(withdrawalRequestId);
   return { ok: true as const };
 }

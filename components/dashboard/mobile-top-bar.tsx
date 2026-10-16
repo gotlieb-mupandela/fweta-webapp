@@ -5,10 +5,17 @@ import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft, Settings } from "lucide-react";
 
 import { Logo } from "@/components/brand/logo";
+import { NotificationBell } from "@/components/dashboard/notification-bell";
 import { getBackHref, getScreenTitle } from "@/lib/dashboard/nav";
 import { cn } from "@/lib/utils";
 
-export function MobileTopBar({ displayName }: { displayName: string }) {
+export function MobileTopBar({
+  displayName,
+  unreadCount,
+}: {
+  displayName: string;
+  unreadCount: number;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const backHref = getBackHref(pathname);
@@ -50,6 +57,8 @@ export function MobileTopBar({ displayName }: { displayName: string }) {
         >
           {title}
         </h1>
+
+        <NotificationBell count={unreadCount} className="md:hidden" />
 
         <Link
           href="/dashboard/settings"

@@ -21,7 +21,7 @@ Use this as your single checklist. Tick items in order.
 | Trigger.dev | Not wired in code | Optional — cron route is enough |
 | PayFast / Stripe deposits | Stub only | Phase 13 — not built |
 | Supabase Auth (replace cookie auth) | Not built | Future migration |
-| Email notifications | Stub | Not built |
+| Email notifications | Yes (Resend) | Needs `RESEND_API_KEY` and `RESEND_FROM` |
 | Real TikTok/IG/YouTube APIs | Not built | Apify used instead |
 
 **Production health check:** `https://app.fweta.com/api/health/store`  
@@ -83,10 +83,24 @@ Default (unset) = JSON blob only — safer for MVP.
 | `NEXT_PUBLIC_APP_URL` | Plain | `https://app.fweta.com` |
 | `CRON_SECRET` | Secret | `openssl rand -base64 32` |
 | `APIFY_API_TOKEN` | Secret | [Apify → Integrations](https://console.apify.com/settings/integrations) |
+| `RESEND_API_KEY` | **Secret** | [Resend → API Keys](https://resend.com/api-keys) |
+| `RESEND_FROM` | Plain | Address on a verified Resend domain, e.g. `fweta <notifications@fweta.com>` |
 
 **Not needed yet:** `TRIGGER_SECRET_KEY` (jobs use Vercel Cron + `/api/jobs/poll-views`).
 
 After changing env vars → **Redeploy** (Deployments → … → Redeploy).
+
+### Resend domain
+
+1. In Resend, open **Domains** and add the domain you will send from (for example `fweta.com` or `mail.fweta.com`).
+2. Add the DNS records Resend shows (SPF, DKIM, and the return-path record if one is listed).
+3. Wait until the domain status is **Verified**.
+4. Set `RESEND_FROM` to an address on that domain, such as `fweta <notifications@fweta.com>`.
+5. Set `RESEND_API_KEY` to an API key that can send mail. Keep it server-only.
+6. Set both on Vercel Production and Preview, then redeploy.
+7. `NEXT_PUBLIC_APP_URL` should be `https://app.fweta.com` so email links and the logo resolve.
+
+If either Resend variable is missing, fweta skips the send and logs a warning. In-app notifications still save. Admins can review every template at `/dashboard/admin/emails` without sending.
 
 ---
 
@@ -135,7 +149,6 @@ Without `APIFY_API_TOKEN`, polling **simulates** view growth (fine for demo).
 
 - **PayFast / Stripe** brand deposits (manual “record deposit” only)
 - **Trigger.dev** scheduled jobs (use Vercel Cron instead)
-- **Email** on withdrawal / booking
 - **Supabase Auth** (still cookie auth + `password_hash` in store)
 - **AI** content review
 - **Native** TikTok/Instagram/YouTube view APIs (Apify scraper used when token set)

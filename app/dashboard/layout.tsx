@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/dashboard/app-shell";
 import { getProfileById, getSession } from "@/lib/auth/session";
+import { countUnreadNotifications } from "@/lib/notifications/queries";
 import { needsOnboarding } from "@/lib/onboarding/steps";
 
 export default async function DashboardLayout({
@@ -19,12 +20,14 @@ export default async function DashboardLayout({
 
   const role =
     session.roles.includes(session.primaryRole) ? session.primaryRole : session.roles[0] ?? "clipper";
+  const unreadCount = await countUnreadNotifications(session.id);
 
   return (
     <AppShell
       role={role}
       roles={session.roles.length ? session.roles : [role]}
       displayName={session.displayName}
+      unreadCount={unreadCount}
     >
       {children}
     </AppShell>
