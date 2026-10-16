@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
+import { notifySubmissionReviewed } from "@/lib/notifications/events";
 import type { Submission } from "@/lib/db/types";
 import { submissionReviewSchema, submissionSchema } from "@/lib/validations/submission";
 
@@ -115,6 +116,7 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
     return { ok: false as const, error: "Not allowed." };
   }
 
+  const previousStatus = submission.status;
   await updateStore((s) => {
     const sub = s.submissions.find((x) => x.id === id);
     if (!sub) return;
@@ -135,6 +137,12 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
 
   revalidatePath(`/dashboard/brand/campaigns/${campaign.id}/submissions`);
   revalidateClipperSurfaces(campaign.id);
+  if (
+    previousStatus !== parsed.data.status &&
+    (parsed.data.status === "approved" || parsed.data.status === "rejected")
+  ) {
+    await notifySubmissionReviewed(id);
+  }
   return { ok: true as const };
 }
 

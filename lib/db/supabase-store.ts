@@ -18,6 +18,8 @@ const emptyStore = (): DatabaseStore => ({
   bookings: [],
   brandDeposits: [],
   fraudFlags: [],
+  notifications: [],
+  notificationDispatches: [],
 });
 
 function supabaseUrl(): string | undefined {
@@ -153,6 +155,15 @@ export async function loadStoreFromSupabase(): Promise<DatabaseStore | null> {
   try {
     const relational = await loadRelationalStore();
     if (relational && hasData(relational)) {
+      // Relational SQL does not store the inbox. Keep it from the JSON blob,
+      // which remains the production store, so a relational load cannot wipe alerts.
+      const jsonBlob = await loadJsonBlob();
+      if (jsonBlob) {
+        relational.notifications = Array.isArray(jsonBlob.notifications) ? jsonBlob.notifications : [];
+        relational.notificationDispatches = Array.isArray(jsonBlob.notificationDispatches)
+          ? jsonBlob.notificationDispatches
+          : [];
+      }
       return relational;
     }
 

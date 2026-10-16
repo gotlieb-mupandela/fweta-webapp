@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getSession, requireSession } from "@/lib/auth/session";
 import { isCampaignFunded } from "@/lib/campaigns/fund";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
+import { notifyCampaignLive } from "@/lib/notifications/events";
 import type { Campaign } from "@/lib/db/types";
 import {
   campaignCreateSchema,
@@ -91,6 +92,9 @@ export async function createCampaignAction(raw: unknown) {
   revalidatePath("/dashboard/brand");
   revalidatePath("/dashboard/clipper/campaigns");
   revalidatePath("/campaigns");
+  if (campaign.status === "active") {
+    await notifyCampaignLive(campaign.id);
+  }
   return { ok: true as const, id: campaign.id };
 }
 
@@ -101,14 +105,17 @@ export async function updateCampaignAction(id: string, raw: unknown) {
   if (!parsed.success) return { ok: false as const, error: "Invalid campaign details." };
 
   let found = false;
+  let becameActive = false;
   await updateStore((s) => {
     const c = s.campaigns.find((x) => x.id === id);
     if (!c) return;
     if (c.brandId !== session.id && !session.roles.includes("admin")) return;
     found = true;
+    if (parsed.data.status === "active" && c.status !== "active") becameActive = true;
     Object.assign(c, parsed.data, { updatedAt: nowIso() });
   });
   if (!found) return { ok: false as const, error: "Campaign not found." };
+  if (becameActive) await notifyCampaignLive(id);
   revalidatePath(`/dashboard/brand/campaigns/${id}`);
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/clipper/campaigns");
@@ -121,6 +128,7 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
   const session = await requireSession();
   if (!assertBrand(session.roles)) return { ok: false as const, error: "Brand role required." };
 
+  let becameActive = false;
   try {
     await updateStore((s) => {
       const c = s.campaigns.find((x) => x.id === id);
@@ -130,6 +138,7 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
       }
       // Atomic fund + activate: previously two writes, so a crash could
       // debit the wallet without flipping status (or vice versa).
+      if (status === "active" && c.status !== "active") becameActive = true;
       if (status === "active" && c.status !== "active" && !isCampaignFunded(s, c.id)) {
         const wallet = s.wallets.find((w) => w.userId === c.brandId);
         if (!wallet || wallet.availableCents < c.budgetTotalCents) {
@@ -152,6 +161,7 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
   }
+  if (becameActive) await notifyCampaignLive(id);
   revalidatePath(`/dashboard/brand/campaigns/${id}`);
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/brand");

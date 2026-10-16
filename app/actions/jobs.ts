@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
+import { deliverBudgetAlerts } from "@/lib/notifications/events";
 import { fetchVideoViewsFromApify, isApifyConfigured } from "@/lib/social/apify";
 import { applyWalletDelta } from "@/lib/wallet/ledger";
 
@@ -127,21 +128,13 @@ export async function recalculateEarningsJob() {
     credited += delta;
   }
 
+  await budgetAlertsJob();
   revalidatePath("/dashboard/clipper");
   revalidatePath("/dashboard/brand");
   return { creditedCents: credited };
 }
 
 export async function budgetAlertsJob() {
-  const store = await readStore();
-  const alerts = store.campaigns
-    .filter((c) => c.status === "active")
-    .filter((c) => c.budgetSpentCents / c.budgetTotalCents >= 0.8)
-    .map((c) => ({
-      campaignId: c.id,
-      title: c.title,
-      brandId: c.brandId,
-      spentRatio: c.budgetSpentCents / c.budgetTotalCents,
-    }));
+  const alerts = await deliverBudgetAlerts();
   return { alerts };
 }

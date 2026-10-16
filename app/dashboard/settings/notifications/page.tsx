@@ -13,7 +13,10 @@ export default async function SettingsNotificationsPage() {
 
   return (
     <div className="dash-stack">
-      <PageHeader title="Notifications" description="Control email and alert preferences." />
+      <PageHeader
+        title="Notifications"
+        description="Choose which emails fweta sends. In-app alerts stay in the bell."
+      />
       <NotificationsForm
         notifyEmail={profile.notifyEmail}
         notifyWithdrawals={profile.notifyWithdrawals}

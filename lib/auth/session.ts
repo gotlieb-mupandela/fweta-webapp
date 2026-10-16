@@ -8,6 +8,7 @@ import { SignJWT, jwtVerify } from "jose";
 
 import { readStore, updateStore, newId, nowIso } from "@/lib/db/store";
 import { getAuthSecretKey } from "@/lib/auth/secret";
+import { notifyWelcome } from "@/lib/notifications/events";
 import type { Profile, Wallet } from "@/lib/db/types";
 import type { UserRole } from "@/types/enums";
 
@@ -162,6 +163,7 @@ export async function signup(input: {
     primaryRole: profile.primaryRole,
   });
   await setSessionCookie(token);
+  await notifyWelcome(profile);
   return { ok: true };
 }
 

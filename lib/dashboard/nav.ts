@@ -13,6 +13,7 @@ import {
   CalendarDays,
   BadgeDollarSign,
   Landmark,
+  Mail,
 } from "lucide-react";
 
 import type { UserRole } from "@/types/enums";
@@ -245,6 +246,13 @@ export const ROLE_NAV: Record<UserRole, RoleNavConfig> = {
         icon: BarChart3,
         match: "prefix",
       },
+      {
+        href: "/dashboard/admin/emails",
+        label: "Emails",
+        shortLabel: "Emails",
+        icon: Mail,
+        match: "prefix",
+      },
     ],
   },
 };
@@ -298,6 +306,8 @@ const TITLE_OVERRIDES: Record<string, string> = {
   "/dashboard/admin/users": "Users",
   "/dashboard/admin/fraud": "Fraud",
   "/dashboard/admin/stats": "Stats",
+  "/dashboard/admin/emails": "Emails",
+  "/dashboard/notifications": "Notifications",
   "/dashboard/settings": "Settings",
   "/dashboard/settings/profile": "Profile",
   "/dashboard/settings/roles": "Roles",
