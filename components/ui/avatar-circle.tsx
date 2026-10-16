@@ -14,10 +14,12 @@ export function AvatarCircle({
 }: {
   src: string | null | undefined;
   name: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
 }) {
-  const dim = size === "lg" ? "size-24" : size === "sm" ? "size-10" : "size-14";
-  const text = size === "lg" ? "text-3xl" : size === "sm" ? "text-sm" : "text-lg";
+  const dim =
+    size === "xl" ? "size-28 md:size-32" : size === "lg" ? "size-24" : size === "sm" ? "size-10" : "size-14";
+  const text =
+    size === "xl" ? "text-4xl" : size === "lg" ? "text-3xl" : size === "sm" ? "text-sm" : "text-lg";
 
   if (src) {
     return (

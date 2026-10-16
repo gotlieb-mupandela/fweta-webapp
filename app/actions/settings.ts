@@ -101,7 +101,9 @@ export async function adminListUsers() {
     id: p.id,
     email: p.email,
     displayName: p.displayName,
+    avatarUrl: p.avatarUrl,
     roles: p.roles,
+    primaryRole: p.primaryRole,
     suspended: p.suspended,
     createdAt: p.createdAt,
   }));
@@ -117,6 +119,7 @@ export async function adminSetUserSuspended(userId: string, suspended: boolean) 
     p.updatedAt = nowIso();
   });
   revalidatePath("/dashboard/admin/users");
+  revalidatePath(`/dashboard/admin/users/${userId}`);
   return { ok: true as const };
 }
 
@@ -132,6 +135,7 @@ export async function adminAssignRole(userId: string, role: UserRole, enable: bo
     p.updatedAt = nowIso();
   });
   revalidatePath("/dashboard/admin/users");
+  revalidatePath(`/dashboard/admin/users/${userId}`);
   return { ok: true as const };
 }
 

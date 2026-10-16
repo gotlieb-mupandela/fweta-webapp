@@ -1,5 +1,7 @@
 "use server";
 
+import { createHash } from "crypto";
+
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
@@ -248,36 +250,53 @@ const DEMO_ACCOUNTS: Array<Omit<Profile, "passwordHash" | "id">> = [
     suspended: false,
     onboardingCompletedAt: "seeded",
   },
-  {
-    email: "hello@fweta.com",
-    displayName: "Fweta Admin",
-    bio: "Platform operations",
-    avatarUrl: null,
-    roles: ["admin"],
-    primaryRole: "admin",
-    notifyEmail: true,
-    notifyWithdrawals: true,
-    notifyBookings: true,
-    createdAt: "",
-    updatedAt: "",
-    suspended: false,
-    onboardingCompletedAt: "seeded",
-  },
 ];
 
-const ADMIN_EMAIL = "hello@fweta.com";
+/** Previous local admin address, migrated onto ADMIN_EMAIL when that env is set. */
 const LEGACY_ADMIN_EMAIL = "admin@fweta.test";
 
 let seedInFlight: Promise<{ seeded: boolean }> | null = null;
+let adminEnvWarningShown = false;
+/** Avoid re-hashing when this process already synced the current env admin. */
+let syncedAdminKey: string | null = null;
 
 /** Precomputed bcrypt hash for demo password `password123` — avoids hashing on every cold start. */
 const DEMO_PASSWORD_HASH = "$2b$10$zG4dij3FDqNB0B41xbteQ.MqWV4oXM5XqSmLk96dYyuha0hGOxirW";
 
-/** Precomputed bcrypt hash for admin password `Fweta@100%`. */
-const ADMIN_PASSWORD_HASH = "$2b$10$JyDk0P0jYLBwwMiHNwPBFO0snFcZ2CC28/pph9CuiF8T4WznHSR8i";
+type AdminSeed = { email: string; password: string };
 
-function passwordHashForEmail(email: string): string {
-  return email === ADMIN_EMAIL ? ADMIN_PASSWORD_HASH : DEMO_PASSWORD_HASH;
+function readAdminSeed(): AdminSeed | null {
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase() ?? "";
+  const password = process.env.ADMIN_PASSWORD ?? "";
+  if (!email && !password) {
+    if (!adminEnvWarningShown) {
+      adminEnvWarningShown = true;
+      console.warn(
+        "[fweta] ADMIN_EMAIL and ADMIN_PASSWORD are unset. Demo accounts still seed; the admin account does not.",
+      );
+    }
+    return null;
+  }
+  if (!email.includes("@") || password.length < 8) {
+    if (!adminEnvWarningShown) {
+      adminEnvWarningShown = true;
+      console.warn(
+        "[fweta] Set both ADMIN_EMAIL and ADMIN_PASSWORD (8+ characters). Admin account was not seeded.",
+      );
+    }
+    return null;
+  }
+  return { email, password };
+}
+
+function findSeedAdmin(profiles: Profile[], email: string): Profile | undefined {
+  const exact = profiles.find((p) => p.email.trim().toLowerCase() === email);
+  if (exact) return exact;
+  const legacy = profiles.find((p) => p.email.trim().toLowerCase() === LEGACY_ADMIN_EMAIL);
+  if (legacy) return legacy;
+  const admins = profiles.filter((p) => p.roles.includes("admin"));
+  if (admins.length === 1) return admins[0];
+  return undefined;
 }
 
 async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
@@ -292,6 +311,11 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
     });
     const needsDedupe = deduped.length !== existing.profiles.length;
 
+    const adminSeed = readAdminSeed();
+    const adminKey = adminSeed
+      ? createHash("sha256").update(`${adminSeed.email}\n${adminSeed.password}`).digest("hex")
+      : null;
+
     const missingAccounts = DEMO_ACCOUNTS.filter(
       (account) =>
         !existing.profiles.some(
@@ -299,20 +323,36 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
         ),
     );
 
-    const legacyAdmin = existing.profiles.find(
-      (p) => p.email.trim().toLowerCase() === LEGACY_ADMIN_EMAIL,
-    );
-    const currentAdmin = existing.profiles.find(
-      (p) => p.email.trim().toLowerCase() === ADMIN_EMAIL,
-    );
-    const needsAdminSync =
-      Boolean(legacyAdmin) ||
-      !currentAdmin ||
-      currentAdmin.passwordHash !== ADMIN_PASSWORD_HASH ||
-      currentAdmin.primaryRole !== "admin" ||
-      !currentAdmin.roles.includes("admin");
+    let adminNeedsWrite = false;
+    let adminHash: string | null = null;
+    let adminTargetId: string | null = null;
 
-    if (!needsDedupe && missingAccounts.length === 0 && !needsAdminSync) {
+    if (adminSeed && adminKey) {
+      const target = findSeedAdmin(existing.profiles, adminSeed.email);
+      adminTargetId = target?.id ?? null;
+      const roleOk =
+        Boolean(target) &&
+        target!.email.trim().toLowerCase() === adminSeed.email &&
+        target!.roles.includes("admin") &&
+        target!.primaryRole === "admin";
+      if (roleOk && syncedAdminKey === adminKey) {
+        adminNeedsWrite = false;
+      } else if (target) {
+        const matches = await bcrypt.compare(adminSeed.password, target.passwordHash);
+        if (roleOk && matches) {
+          syncedAdminKey = adminKey;
+          adminNeedsWrite = false;
+        } else {
+          adminHash = matches ? target.passwordHash : await bcrypt.hash(adminSeed.password, 10);
+          adminNeedsWrite = true;
+        }
+      } else {
+        adminHash = await bcrypt.hash(adminSeed.password, 10);
+        adminNeedsWrite = true;
+      }
+    }
+
+    if (!needsDedupe && missingAccounts.length === 0 && !adminNeedsWrite) {
       return { seeded: false };
     }
 
@@ -324,43 +364,44 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
         s.profiles = deduped;
       }
 
-      const byEmail = (email: string) =>
-        s.profiles.find((p) => p.email.trim().toLowerCase() === email);
+      if (adminSeed && adminNeedsWrite && adminHash) {
+        const admin =
+          (adminTargetId ? s.profiles.find((p) => p.id === adminTargetId) : undefined) ??
+          findSeedAdmin(s.profiles, adminSeed.email);
 
-      const legacy = byEmail(LEGACY_ADMIN_EMAIL);
-      let admin = byEmail(ADMIN_EMAIL);
-
-      if (legacy && !admin) {
-        legacy.email = ADMIN_EMAIL;
-        admin = legacy;
-      } else if (legacy && admin && legacy.id !== admin.id) {
-        s.profiles = s.profiles.filter((p) => p.id !== legacy.id);
-      }
-
-      if (!admin) {
-        const account = DEMO_ACCOUNTS.find((a) => a.email === ADMIN_EMAIL)!;
-        admin = {
-          ...account,
-          id: newId(),
-          email: ADMIN_EMAIL,
-          createdAt: now,
-          updatedAt: now,
-          passwordHash: ADMIN_PASSWORD_HASH,
-        };
-        s.profiles.push(admin);
-        ensureWallet(s, admin.id);
-        added += 1;
-      } else {
-        admin.email = ADMIN_EMAIL;
-        admin.passwordHash = ADMIN_PASSWORD_HASH;
-        admin.roles = ["admin"];
-        admin.primaryRole = "admin";
-        admin.updatedAt = now;
+        if (!admin) {
+          const created: Profile = {
+            id: newId(),
+            email: adminSeed.email,
+            passwordHash: adminHash,
+            displayName: "Fweta Admin",
+            bio: "Platform operations",
+            avatarUrl: null,
+            roles: ["admin"],
+            primaryRole: "admin",
+            notifyEmail: true,
+            notifyWithdrawals: true,
+            notifyBookings: true,
+            createdAt: now,
+            updatedAt: now,
+            suspended: false,
+            onboardingCompletedAt: "seeded",
+          };
+          s.profiles.push(created);
+          ensureWallet(s, created.id);
+          added += 1;
+        } else {
+          admin.email = adminSeed.email;
+          admin.passwordHash = adminHash;
+          if (!admin.roles.includes("admin")) admin.roles.push("admin");
+          admin.primaryRole = "admin";
+          admin.updatedAt = now;
+        }
       }
 
       for (const account of missingAccounts) {
         const email = account.email.trim().toLowerCase();
-        if (email === ADMIN_EMAIL) continue;
+        if (adminSeed && email === adminSeed.email) continue;
         if (s.profiles.some((p) => p.email.trim().toLowerCase() === email)) continue;
 
         const profile: Profile = {
@@ -369,7 +410,7 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
           email,
           createdAt: now,
           updatedAt: now,
-          passwordHash: passwordHashForEmail(email),
+          passwordHash: DEMO_PASSWORD_HASH,
         };
         s.profiles.push(profile);
         ensureWallet(s, profile.id);
@@ -377,7 +418,11 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
       }
     });
 
-    return { seeded: added > 0 || needsDedupe || needsAdminSync };
+    if (adminSeed && adminNeedsWrite && adminKey) {
+      syncedAdminKey = adminKey;
+    }
+
+    return { seeded: added > 0 || needsDedupe || adminNeedsWrite };
   } catch (err) {
     console.warn("[fweta] seedDemoAccounts failed:", err);
     return { seeded: false };

@@ -77,6 +77,8 @@ Default (unset) = JSON blob only — safer for MVP.
 |----------|------|------------|
 | `AUTH_SECRET` | Secret | `openssl rand -base64 32` |
 | `PAYOUT_ENCRYPTION_KEY` | Secret | `openssl rand -base64 32` |
+| `ADMIN_EMAIL` | Plain | Admin login email. Seeded on the login page. |
+| `ADMIN_PASSWORD` | **Secret** | Admin password (8+ characters). Bcrypt-hashed at seed time. |
 | `NEXT_PUBLIC_SUPABASE_URL` | Plain | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Plain | Supabase publishable key |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | Supabase **secret** service role key |
@@ -114,7 +116,8 @@ Without `APIFY_API_TOKEN`, polling **simulates** view growth (fine for demo).
 | `brand@fweta.test` | Brand | `password123` |
 | `clipper@fweta.test` | Clipper | `password123` |
 | `creator@fweta.test` | Influencer + clipper | `password123` |
-| `hello@fweta.com` | Admin | `Fweta@100%` |
+
+Admin login is **not** a shared password. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in the environment (local `.env.local`, and Production + Preview on Vercel). The login page hashes `ADMIN_PASSWORD` and creates or updates that admin account. Until those variables are set, demo brand and creator accounts still seed, and no admin is created.
 
 ---
 

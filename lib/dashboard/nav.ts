@@ -310,6 +310,7 @@ const TITLE_OVERRIDES: Record<string, string> = {
 
 export function getScreenTitle(pathname: string): string {
   if (TITLE_OVERRIDES[pathname]) return TITLE_OVERRIDES[pathname];
+  if (/^\/dashboard\/admin\/users\/[^/]+$/.test(pathname)) return "User";
   if (/\/campaigns\/[^/]+\/edit$/.test(pathname)) return "Edit campaign";
   if (/\/campaigns\/[^/]+\/submissions$/.test(pathname)) return "Submissions";
   if (/\/campaigns\/[^/]+$/.test(pathname)) return "Campaign";
