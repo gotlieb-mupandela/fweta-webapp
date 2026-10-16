@@ -34,7 +34,7 @@ export function CampaignStatusButtons({
   return (
     <div>
       <div className="flex flex-wrap gap-2">
-        {status === "draft" || status === "paused" ? (
+        {status === "draft" || status === "paused" || status === "pending" ? (
           <Button size="sm" variant="gold" disabled={pending} onClick={() => setStatus("active")}>
             Activate
           </Button>

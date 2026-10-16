@@ -78,7 +78,12 @@ export async function updateNotificationsAction(raw: unknown) {
 export async function changePasswordAction(raw: unknown) {
   const session = await requireSession();
   const parsed = passwordChangeSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Check password fields." };
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Check password fields.",
+    };
+  }
   const profile = await getProfileById(session.id);
   if (!profile) return { ok: false as const, error: "Not found." };
   const ok = await bcrypt.compare(parsed.data.currentPassword, profile.passwordHash);

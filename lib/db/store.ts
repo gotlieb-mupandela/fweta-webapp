@@ -144,20 +144,23 @@ export async function updateStore(
   // Chain onto a never-rejected queue: a throwing mutator must not poison
   // all future writes (previously `writeQueue.then(...)` stayed rejected).
   const run = writeQueue.catch(() => undefined).then(async () => {
-    const store = await ensureStore();
-    await mutator(store);
-    globalThis.__fwetaStore = store;
+    const current = await ensureStore();
+    // Mutate a copy. A throw (insufficient funds, not allowed) must not leave
+    // a half-applied wallet debit or an orphan campaign in memory.
+    const draft = cloneStore(current);
+    await mutator(draft);
+    globalThis.__fwetaStore = draft;
 
     if (isSupabaseStoreEnabled()) {
       try {
-        await saveStoreToSupabase(store);
+        await saveStoreToSupabase(draft);
       } catch (err) {
         console.warn("[fweta] supabase save failed:", err instanceof Error ? err.message : err);
       }
       return;
     }
 
-    await persist(store);
+    await persist(draft);
   });
   // Keep the queue healthy for the next caller, but still surface this error.
   writeQueue = run.catch(() => undefined);

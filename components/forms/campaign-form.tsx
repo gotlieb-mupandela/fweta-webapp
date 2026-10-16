@@ -7,6 +7,7 @@ import { createCampaignAction, updateCampaignAction } from "@/app/actions/campai
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select, Textarea } from "@/components/ui/input";
 import type { Campaign } from "@/lib/db/types";
+import { campaignCreateSchema, campaignUpdateSchema } from "@/lib/validations/campaign";
 import type { SocialPlatform } from "@/types/enums";
 
 const PLATFORMS: SocialPlatform[] = ["tiktok", "youtube", "instagram", "x"];
@@ -43,7 +44,7 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
         const fd = new FormData(e.currentTarget);
         setError(null);
 
-        const payload = {
+        const fields = {
           title: String(fd.get("title") || ""),
           description: String(fd.get("description") || ""),
           type: String(fd.get("type") || "clipping") as "clipping" | "ugc",
@@ -54,14 +55,29 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
           platforms,
           requirements: String(fd.get("requirements") || ""),
           endDate: String(fd.get("endDate") || "") || null,
-          status: mode === "create" ? (String(fd.get("status") || "draft") as Campaign["status"]) : undefined,
         };
+        const payload =
+          mode === "create"
+            ? {
+                ...fields,
+                status: String(fd.get("status") || "draft") as Campaign["status"],
+              }
+            : fields;
+
+        const parsed = (
+          mode === "create" ? campaignCreateSchema : campaignUpdateSchema
+        ).safeParse(payload);
+        if (!parsed.success) {
+          setError(parsed.error.issues[0]?.message ?? "Invalid campaign details.");
+          return;
+        }
 
         if (
           mode === "create" &&
-          payload.status === "active" &&
+          parsed.data.status === "active" &&
           walletAvailableCents !== undefined &&
-          payload.budgetTotalCents > walletAvailableCents
+          parsed.data.budgetTotalCents !== undefined &&
+          parsed.data.budgetTotalCents > walletAvailableCents
         ) {
           setError("Insufficient wallet balance for this budget. Record a deposit first.");
           return;
@@ -70,8 +86,8 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
         startTransition(async () => {
           const res =
             mode === "create"
-              ? await createCampaignAction(payload)
-              : await updateCampaignAction(campaign!.id, payload);
+              ? await createCampaignAction(parsed.data)
+              : await updateCampaignAction(campaign!.id, parsed.data);
           if (!res.ok) {
             setError(res.error);
             return;
@@ -164,6 +180,9 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
             </label>
           ))}
         </div>
+        {platforms.length === 0 ? (
+          <p className="mt-2 text-sm text-muted">Select at least one platform.</p>
+        ) : null}
       </div>
       <div>
         <Label htmlFor="requirements">Requirements</Label>
@@ -192,7 +211,7 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
       </div>
       <FieldError>{error}</FieldError>
       <div className="flex gap-3">
-        <Button type="submit" disabled={pending || platforms.length === 0}>
+        <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : mode === "create" ? "Create campaign" : "Save changes"}
         </Button>
         <Button
