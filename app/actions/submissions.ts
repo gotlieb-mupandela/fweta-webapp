@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/session";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { Submission } from "@/lib/db/types";
+import { canEditCampaign, canViewCampaign } from "@/lib/onboarding/access";
+import { verifiedAccountsForPlatform } from "@/lib/onboarding/accounts";
 import { submissionReviewSchema, submissionSchema } from "@/lib/validations/submission";
 
 function normalizePostUrl(url: string): string {
@@ -52,6 +54,20 @@ export async function submitClipAction(raw: unknown) {
   if (campaign.budgetSpentCents >= campaign.budgetTotalCents) {
     return { ok: false as const, error: "This campaign's budget is exhausted." };
   }
+  const accountId = parsed.data.socialAccountId;
+  if (accountId) {
+    const account = (store.socialAccounts ?? []).find(
+      (item) => item.id === accountId && item.userId === session.id,
+    );
+    if (!account || account.status !== "verified" || account.platform !== parsed.data.platform) {
+      return { ok: false as const, error: "Choose a verified account on that platform." };
+    }
+  } else {
+    const verified = verifiedAccountsForPlatform(store.socialAccounts ?? [], session.id, parsed.data.platform);
+    if (verified.length > 0) {
+      return { ok: false as const, error: "Choose which connected account this clip came from." };
+    }
+  }
   const alreadySubmitted = store.submissions.some(
     (s) =>
       s.clipperId === session.id &&
@@ -73,6 +89,7 @@ export async function submitClipAction(raw: unknown) {
     reviewNote: null,
     views: 0,
     earningsCents: 0,
+    socialAccountId: accountId ?? null,
     createdAt: now,
     updatedAt: now,
   };
@@ -111,7 +128,7 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
   if (!submission) return { ok: false as const, error: "Not found." };
   const campaign = store.campaigns.find((c) => c.id === submission.campaignId);
   if (!campaign) return { ok: false as const, error: "Campaign missing." };
-  if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
+  if (!canEditCampaign(store, session, campaign)) {
     return { ok: false as const, error: "Not allowed." };
   }
 
@@ -151,7 +168,7 @@ export async function listCampaignSubmissions(campaignId: string) {
   const store = await readStore();
   const campaign = store.campaigns.find((c) => c.id === campaignId);
   if (!campaign) return [];
-  if (campaign.brandId !== session.id && !session.roles.includes("admin")) return [];
+  if (!canViewCampaign(store, session, campaign)) return [];
   return store.submissions
     .filter((s) => s.campaignId === campaignId)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));

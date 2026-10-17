@@ -7,6 +7,8 @@ import { UserSuspendButton } from "@/components/forms/user-suspend-button";
 import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
+import { readStore } from "@/lib/db/store";
+import { summarizeOnboarding } from "@/lib/onboarding/model";
 
 export default async function AdminUsersPage() {
   const session = await getSession();
@@ -14,7 +16,15 @@ export default async function AdminUsersPage() {
     redirect("/dashboard");
   }
 
-  const users = await adminListUsers();
+  const [users, store] = await Promise.all([adminListUsers(), readStore()]);
+  const setupById = new Map(
+    store.profiles.map((profile) => [
+      profile.id,
+      summarizeOnboarding(profile, {
+        hasPayout: store.payoutMethods.some((method) => method.userId === profile.id),
+      }),
+    ]),
+  );
 
   return (
     <div className="dash-stack">
@@ -39,6 +49,7 @@ export default async function AdminUsersPage() {
                 <div className="min-w-0">
                   <p className="truncate font-medium">{u.displayName}</p>
                   <p className="truncate text-sm text-muted">{u.email}</p>
+                  <p className="text-xs text-muted">{setupById.get(u.id)?.label ?? "Not started"}</p>
                   <div className="mt-2 flex flex-wrap gap-1">
                     <Badge tone="gold">{u.primaryRole}</Badge>
                     {u.roles

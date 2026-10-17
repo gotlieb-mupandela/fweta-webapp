@@ -3,9 +3,12 @@ import { notFound, redirect } from "next/navigation";
 
 import { getCampaign } from "@/app/actions/campaigns";
 import { CampaignStatusButtons } from "@/components/forms/campaign-status-buttons";
+import { ContextHelp } from "@/components/onboarding/context-help";
 import { Badge, Card, PageHeader, Stat, StatGrid } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
+import { readStore } from "@/lib/db/store";
+import { canEditCampaign, canViewCampaign } from "@/lib/onboarding/access";
 import { formatMoney } from "@/lib/utils";
 
 export default async function CampaignDetailPage({
@@ -21,9 +24,11 @@ export default async function CampaignDetailPage({
 
   const campaign = await getCampaign(id);
   if (!campaign) notFound();
-  if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
+  const store = await readStore();
+  if (!canViewCampaign(store, session, campaign)) {
     redirect("/dashboard/brand/campaigns");
   }
+  const canEdit = canEditCampaign(store, session, campaign);
 
   return (
     <div className="dash-stack">
@@ -50,7 +55,22 @@ export default async function CampaignDetailPage({
         <Badge tone="neutral">{campaign.category}</Badge>
       </div>
 
-      <CampaignStatusButtons campaignId={campaign.id} status={campaign.status} />
+      {campaign.status === "draft" ? (
+        <ContextHelp
+          title="Going live spends the wallet"
+          body="Activate this draft once an admin has confirmed your transfer and the wallet covers the budget. Creators can submit as soon as it is live."
+          hint="Pause stops new submissions. Mark completed when the campaign should close."
+        />
+      ) : (
+        <ContextHelp
+          title="Review clips as they arrive"
+          body="Open submissions to approve or reject the first clips. Approved clips earn after an admin records views."
+        />
+      )}
+
+      {canEdit ? <CampaignStatusButtons campaignId={campaign.id} status={campaign.status} /> : (
+        <p className="text-sm text-muted">You can view this brand. Managers and the owner can change the campaign.</p>
+      )}
 
       <StatGrid>
         <Stat

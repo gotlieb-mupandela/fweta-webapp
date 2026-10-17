@@ -3,22 +3,33 @@
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { MobileTabBar } from "@/components/dashboard/mobile-tab-bar";
 import { MobileTopBar } from "@/components/dashboard/mobile-top-bar";
+import type { WorkspaceOption } from "@/components/onboarding/workspace-switcher";
 import type { UserRole } from "@/types/enums";
 
 export function AppShell({
   role,
   roles,
   displayName,
+  workspaces = [],
+  activeWorkspaceId = null,
   children,
 }: {
   role: UserRole;
   roles: UserRole[];
   displayName: string;
+  workspaces?: WorkspaceOption[];
+  activeWorkspaceId?: string | null;
   children: React.ReactNode;
 }) {
   return (
     <div className="app-canvas flex min-h-dvh">
-      <DashboardSidebar role={role} roles={roles} displayName={displayName} />
+      <DashboardSidebar
+        role={role}
+        roles={roles}
+        displayName={displayName}
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspaceId}
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileTopBar displayName={displayName} />

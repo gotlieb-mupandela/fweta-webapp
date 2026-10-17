@@ -3,9 +3,9 @@ import { redirect } from "next/navigation";
 
 import { listClipperSubmissions } from "@/app/actions/submissions";
 import { getMyWallet } from "@/app/actions/wallet";
+import { GuidedEmpty } from "@/components/onboarding/guided-empty";
 import {
   Card,
-  EmptyState,
   PageHeader,
   SectionHeader,
   Stat,
@@ -28,6 +28,8 @@ export default async function ClipperDashboardPage() {
     readStore(),
   ]);
 
+  const profile = store.profiles.find((item) => item.id === session.id) ?? null;
+  const hasPayout = store.payoutMethods.some((method) => method.userId === session.id);
   const activeCampaigns = store.campaigns.filter((c) => c.status === "active").length;
   const totalViews = submissions.reduce((s, sub) => s + sub.views, 0);
   const totalEarnings = submissions.reduce((s, sub) => s + sub.earningsCents, 0);
@@ -61,14 +63,16 @@ export default async function ClipperDashboardPage() {
         <section>
           <SectionHeader title="Recent submissions" href="/dashboard/clipper/submissions" />
           {submissions.length === 0 ? (
-            <EmptyState
-              title="No clips yet"
-              description="Browse open campaigns, post your cut, and submit the link to start earning."
-              action={
-                <Link href="/dashboard/clipper/campaigns">
-                  <Button size="sm">Browse campaigns</Button>
-                </Link>
-              }
+            <GuidedEmpty
+              kind="clipper-submissions"
+              profile={profile}
+              hasPayout={hasPayout}
+              fallback={{
+                title: "No clips yet",
+                description: "Browse open campaigns, post your cut, and submit the link to start earning.",
+                href: "/dashboard/clipper/campaigns",
+                cta: "Browse campaigns",
+              }}
             />
           ) : (
             <ul className="space-y-2.5">

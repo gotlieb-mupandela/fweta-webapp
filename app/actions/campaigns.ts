@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { getSession, requireSession } from "@/lib/auth/session";
 import { isCampaignFunded } from "@/lib/campaigns/fund";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
+import { campaignsVisibleToBrand, canEditCampaign } from "@/lib/onboarding/access";
+import { ensureOwnedWorkspace } from "@/lib/onboarding/workspaces";
 import type { Campaign } from "@/lib/db/types";
 import {
   campaignCreateSchema,
@@ -25,9 +27,7 @@ export async function listBrandCampaigns() {
   const session = await getSession();
   if (!session || !assertBrand(session.roles)) return [];
   const store = await readStore();
-  return store.campaigns
-    .filter((c) => (session.roles.includes("admin") ? true : c.brandId === session.id))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return campaignsVisibleToBrand(store, session).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function getCampaign(id: string) {
@@ -65,6 +65,11 @@ export async function createCampaignAction(raw: unknown) {
   // unfunded "active" campaign or orphan a wallet debit.
   try {
     await updateStore((s) => {
+      const profile = s.profiles.find((item) => item.id === session.id);
+      if (profile?.roles.includes("brand")) {
+        const workspaceId = ensureOwnedWorkspace(s, profile, now, newId);
+        if (workspaceId) campaign.workspaceId = workspaceId;
+      }
       s.campaigns.push(campaign);
       if (campaign.status === "active" && !isCampaignFunded(s, campaign.id)) {
         const wallet = s.wallets.find((w) => w.userId === session.id);
@@ -104,7 +109,7 @@ export async function updateCampaignAction(id: string, raw: unknown) {
   await updateStore((s) => {
     const c = s.campaigns.find((x) => x.id === id);
     if (!c) return;
-    if (c.brandId !== session.id && !session.roles.includes("admin")) return;
+    if (!canEditCampaign(s, session, c)) return;
     found = true;
     Object.assign(c, parsed.data, { updatedAt: nowIso() });
   });
@@ -125,7 +130,7 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
     await updateStore((s) => {
       const c = s.campaigns.find((x) => x.id === id);
       if (!c) throw new Error("Campaign not found.");
-      if (c.brandId !== session.id && !session.roles.includes("admin")) {
+      if (!canEditCampaign(s, session, c)) {
         throw new Error("Not allowed.");
       }
       // Atomic fund + activate: previously two writes, so a crash could
@@ -194,7 +199,7 @@ export async function deleteCampaignAction(id: string) {
       const idx = s.campaigns.findIndex((x) => x.id === id);
       if (idx === -1) throw new Error("Campaign not found.");
       const campaign = s.campaigns[idx];
-      if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
+      if (!canEditCampaign(s, session, campaign)) {
         throw new Error("Not allowed.");
       }
       const related = s.submissions.filter((sub) => sub.campaignId === id);

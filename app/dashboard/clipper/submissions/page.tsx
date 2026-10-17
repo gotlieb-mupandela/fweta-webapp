@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { listClipperSubmissions } from "@/app/actions/submissions";
+import { ContextHelp } from "@/components/onboarding/context-help";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
@@ -22,6 +23,11 @@ export default async function ClipperSubmissionsPage() {
   return (
     <div className="dash-stack">
       <PageHeader title="My submissions" description="Track review status and earnings." />
+      <ContextHelp
+        title="Approval or rejection shows here"
+        body="Pending means the brand has not decided. Approved clips can earn after a view check. A rejection includes the brand's note."
+        hint="Submit from the account you posted on so the stats stay with that profile."
+      />
 
       {submissions.length === 0 ? (
         <EmptyState
