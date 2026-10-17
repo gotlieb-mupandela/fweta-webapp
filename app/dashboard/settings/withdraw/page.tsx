@@ -2,10 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import {
+  getMyKyc,
   getMyPayoutMethodMasked,
   getMyWallet,
   listMyWithdrawals,
 } from "@/app/actions/wallet";
+import { KycForm } from "@/components/forms/kyc-form";
 import { WithdrawalForm } from "@/components/forms/withdrawal-form";
 import { Badge, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,15 +18,35 @@ export default async function SettingsWithdrawPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const [wallet, method, withdrawals] = await Promise.all([
+  const [wallet, method, withdrawals, kyc] = await Promise.all([
     getMyWallet(),
     getMyPayoutMethodMasked(),
     listMyWithdrawals(),
+    getMyKyc(),
   ]);
 
   return (
     <div className="dash-stack">
-      <PageHeader title="Withdraw" description="Request a manual EFT payout (min N$100)." />
+      <PageHeader
+        title="Withdraw"
+        description="Namibian EFT only, from N$100. An admin sends the transfer and marks it paid. No crypto."
+      />
+
+      {!kyc ? (
+        <Card>
+          <h2 className="font-display text-xl tracking-tight">Identity for the first payout</h2>
+          <p className="mt-1.5 text-sm text-muted">
+            This is collected when you withdraw, not when you sign up.
+          </p>
+          <div className="mt-4">
+            <KycForm />
+          </div>
+        </Card>
+      ) : (
+        <p className="text-sm text-muted">
+          Identity on file: {kyc.legalName}, {kyc.country}, ID {kyc.idMasked}
+        </p>
+      )}
 
       {!method ? (
         <EmptyState

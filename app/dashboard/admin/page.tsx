@@ -12,6 +12,7 @@ import { formatMoney } from "@/lib/utils";
 const QUICK_LINKS = [
   { href: "/dashboard/admin/withdrawals", label: "Withdrawal queue" },
   { href: "/dashboard/admin/users", label: "User management" },
+  { href: "/dashboard/admin/views", label: "View checks" },
   { href: "/dashboard/admin/fraud", label: "Fraud review" },
   { href: "/dashboard/admin/stats", label: "Platform stats" },
 ];

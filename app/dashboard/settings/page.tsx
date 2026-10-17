@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/dashboard/settings/roles", label: "Roles", desc: "Brand, influencer, clipper" },
   { href: "/dashboard/settings/notifications", label: "Notifications", desc: "Email preferences" },
   { href: "/dashboard/settings/security", label: "Security", desc: "Change password" },
+  { href: "/dashboard/settings/accounts", label: "Connected accounts", desc: "Bio code for TikTok, Instagram, YouTube, X" },
   { href: "/dashboard/settings/wallet", label: "Wallet", desc: "Balance overview" },
   { href: "/dashboard/settings/payout", label: "Payout method", desc: "Bank details for EFT" },
   { href: "/dashboard/settings/withdraw", label: "Withdraw", desc: "Request payout" },

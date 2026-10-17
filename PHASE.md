@@ -32,7 +32,7 @@ This document expands [AGENTS.md](./AGENTS.md) into an actionable build sequence
 
 - **Auth:** Cookie JWT (`fweta_session`) with bcrypt email + password. Demo users seeded on first load (`*@fweta.test` / `password123`). The admin account is seeded from `ADMIN_EMAIL` and `ADMIN_PASSWORD`, hashed at seed time.
 - **Data:** File store at `data/store.json` (gitignored). Ledger discipline enforced in `lib/wallet/ledger.ts`.
-- **Jobs:** `POST /api/jobs/poll-views` runs view growth simulation + CPM earnings.
+- **Jobs:** View counts are manual. `POST /api/jobs/settle-rewards` releases holds and closes ended campaigns. It does not fetch views.
 - **Booking model:** Request → accept/decline → deliver → brand approve (documented decision: not instant book).
 - **Currency:** NAD (Namibia). Minimum withdrawal N$100.
 - **Design:** fweta marketing language — white / black / gold, Newsreader + Karla (match fweta.com).
@@ -128,7 +128,7 @@ See git history and routes under `/app` for full deliverables. Original phase ch
 ## Phase 7 — Automation
 
 ### Exit criteria
-- `POST /api/jobs/poll-views` creates snapshots and credits CPM earnings
+- Saving a confirmed view count credits CPM earnings and stops the campaign when the budget is spent
 - Budget exhaustion ends campaign
 
 ---

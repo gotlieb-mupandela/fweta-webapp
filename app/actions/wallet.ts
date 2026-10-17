@@ -14,7 +14,7 @@ import {
 import type { PayoutMethod, WithdrawalRequest } from "@/lib/db/types";
 import { adjustWallet, applyWalletDelta, getWallet } from "@/lib/wallet/ledger";
 import { payoutMethodSchema } from "@/lib/validations/payout-method";
-import { withdrawalSchema } from "@/lib/validations/withdrawal";
+import { kycSchema, withdrawalSchema } from "@/lib/validations/withdrawal";
 import { maskAccountNumber } from "@/lib/utils";
 
 const MIN_WITHDRAWAL_CENTS = 10000; // N$100
@@ -130,6 +130,10 @@ export async function requestWithdrawalAction(raw: unknown) {
   }
 
   const store = await readStore();
+  const profile = store.profiles.find((p) => p.id === session.id);
+  if (!profile?.kyc) {
+    return { ok: false as const, error: "Add your identity on this page before the first payout." };
+  }
   const method = store.payoutMethods.find(
     (p) => p.id === parsed.data.payoutMethodId && p.userId === session.id,
   );
@@ -151,6 +155,8 @@ export async function requestWithdrawalAction(raw: unknown) {
   // Atomic: wallet move + withdrawal record + ledger link in one write.
   try {
     await updateStore((s) => {
+      const current = s.profiles.find((p) => p.id === session.id);
+      if (!current?.kyc) throw new Error("Add your identity on this page before the first payout.");
       const { entry } = applyWalletDelta(s, {
         userId: session.id,
         availableDelta: -parsed.data.amountCents,
@@ -172,6 +178,48 @@ export async function requestWithdrawalAction(raw: unknown) {
   revalidatePath("/dashboard/clipper/earnings");
   revalidatePath("/dashboard/admin/withdrawals");
   return { ok: true as const, id: req.id };
+}
+
+export async function saveKycAction(raw: unknown) {
+  const session = await requireSession();
+  const parsed = kycSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Check the identity details." };
+  }
+  const idNumberEnc = encryptSecret(parsed.data.idNumber.trim());
+  await updateStore((s) => {
+    const profile = s.profiles.find((p) => p.id === session.id);
+    if (!profile) return;
+    profile.kyc = {
+      legalName: parsed.data.legalName.trim(),
+      idNumberEnc,
+      country: parsed.data.country.toUpperCase(),
+      submittedAt: nowIso(),
+    };
+    profile.updatedAt = profile.kyc.submittedAt;
+  });
+  revalidatePath("/dashboard/settings/withdraw");
+  revalidatePath("/dashboard/admin/withdrawals");
+  return { ok: true as const };
+}
+
+export async function getMyKyc() {
+  const session = await requireSession();
+  const store = await readStore();
+  const profile = store.profiles.find((p) => p.id === session.id);
+  if (!profile?.kyc) return null;
+  let idMasked = "****";
+  try {
+    idMasked = maskAccountNumber(decryptSecret(profile.kyc.idNumberEnc));
+  } catch {
+    idMasked = "****";
+  }
+  return {
+    legalName: profile.kyc.legalName,
+    country: profile.kyc.country,
+    idMasked,
+    submittedAt: profile.kyc.submittedAt,
+  };
 }
 
 export async function listMyWithdrawals() {

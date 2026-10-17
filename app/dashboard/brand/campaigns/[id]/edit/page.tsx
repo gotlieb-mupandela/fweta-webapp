@@ -4,6 +4,8 @@ import { getCampaign } from "@/app/actions/campaigns";
 import { CampaignForm } from "@/components/forms/campaign-form";
 import { PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
+import { isCampaignFunded } from "@/lib/campaigns/fund";
+import { readStore } from "@/lib/db/store";
 
 export default async function EditCampaignPage({
   params,
@@ -21,11 +23,12 @@ export default async function EditCampaignPage({
   if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
     redirect("/dashboard/brand/campaigns");
   }
+  const store = await readStore();
 
   return (
     <div className="dash-stack">
       <PageHeader title="Edit campaign" description={campaign.title} />
-      <CampaignForm mode="edit" campaign={campaign} />
+      <CampaignForm mode="edit" campaign={campaign} budgetLocked={isCampaignFunded(store, campaign.id)} />
     </div>
   );
 }

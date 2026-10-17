@@ -28,7 +28,7 @@ export default async function NewCampaignPage() {
           </Link>
         </p>
         <p className="mt-1.5 text-xs text-muted">
-          Launching an active campaign allocates the full budget from your wallet.
+          Launching reserves the creator budget plus a 10% fee set-aside. The fee is charged only on views that are paid.
         </p>
       </Card>
       <CampaignForm mode="create" walletAvailableCents={wallet.availableCents} />

@@ -21,7 +21,7 @@ export default async function BrandDepositsPage() {
     <div className="dash-stack">
       <PageHeader
         title="Deposits"
-        description="Record manual EFT deposits to fund your wallet (v1)."
+        description="Record a manual EFT. There is no card checkout and no crypto. An admin credits the wallet after the transfer."
       />
 
       <Card className="panel-interactive">

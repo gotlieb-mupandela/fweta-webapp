@@ -2,141 +2,76 @@
 
 import { revalidatePath } from "next/cache";
 
-import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
-import { fetchVideoViewsFromApify, isApifyConfigured } from "@/lib/social/apify";
-import { applyWalletDelta } from "@/lib/wallet/ledger";
+import { readStore, updateStore } from "@/lib/db/store";
+import { finalizeCampaign, settleSubmission } from "@/lib/rewards/earnings";
+
+function resolveNow(asOf?: string): number {
+  if (asOf && process.env.NODE_ENV !== "production") {
+    const parsed = Date.parse(asOf);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return Date.now();
+}
+
+function revalidateMoney() {
+  revalidatePath("/dashboard/clipper");
+  revalidatePath("/dashboard/clipper/earnings");
+  revalidatePath("/dashboard/clipper/submissions");
+  revalidatePath("/dashboard/brand");
+  revalidatePath("/campaigns");
+}
 
 /**
- * Phase 7 automation — callable via /api/jobs/poll-views or cron.
- * Uses Apify when APIFY_API_TOKEN is set; otherwise simulates view growth.
+ * View counts are entered by an admin. This does not call a provider and does not move money.
+ * `asOf` is ignored. Kept so older cron callers fail closed.
  */
-export async function pollSubmissionViewsJob() {
-  const store = await readStore();
-  const approved = store.submissions.filter((s) => s.status === "approved");
-  const useApify = isApifyConfigured();
-  let failed = 0;
-
-  // Phase 1: fetch (network-bound, no writes). One bad URL never aborts the job.
-  const pending = new Map<string, number>();
-  for (const submission of approved) {
-    try {
-      const campaign = store.campaigns.find((c) => c.id === submission.campaignId);
-      if (!campaign || campaign.status !== "active") continue;
-      if (campaign.budgetSpentCents >= campaign.budgetTotalCents) continue;
-
-      let newViews: number;
-      if (useApify) {
-        try {
-          const fetched = await fetchVideoViewsFromApify(submission.postUrl);
-          if (fetched == null) {
-            failed += 1;
-            continue;
-          }
-          // Guard against scraper regressions (views should not go backwards).
-          newViews = Math.max(fetched, submission.views);
-        } catch {
-          failed += 1;
-          continue;
-        }
-      } else {
-        const growth = Math.floor(200 + Math.random() * 1800);
-        newViews = submission.views + growth;
-      }
-
-      if (newViews === submission.views) continue;
-      pending.set(submission.id, newViews);
-    } catch {
-      failed += 1;
-    }
-  }
-
-  // Phase 2: single atomic write for all view updates (was N sequential writes,
-  // each triggering a full Supabase save — slow and timeout-prone).
-  let updated = 0;
-  if (pending.size > 0) {
-    const at = nowIso();
-    await updateStore((s) => {
-      for (const [id, views] of pending) {
-        const sub = s.submissions.find((x) => x.id === id);
-        if (!sub) continue;
-        // Re-check inside the transaction; skip regressions per-record.
-        if (views <= sub.views) continue;
-        s.viewSnapshots.push({ id: newId(), submissionId: id, views, recordedAt: at });
-        sub.views = views;
-        sub.updatedAt = at;
-      }
-    });
-    updated = pending.size;
-  }
-
-  const earnings = await recalculateEarningsJob();
+export async function pollSubmissionViewsJob(asOf?: string) {
+  void asOf;
   return {
-    updated,
-    failed,
-    mode: useApify ? ("apify" as const) : ("simulated" as const),
-    ...earnings,
+    updated: 0,
+    failed: 0,
+    mode: "manual" as const,
+    reservedCents: 0,
+    releasedCents: 0,
+    clawedCents: 0,
+    creditedCents: 0,
+    error: "View checks are manual. Earnings update when an admin saves a count.",
   };
 }
 
-export async function recalculateEarningsJob() {
-  const store = await readStore();
-  const ids = store.submissions.filter((s) => s.status === "approved").map((s) => s.id);
-  let credited = 0;
-
-  // Single write per submission (was two: wallet then record). Math is
-  // recomputed inside the transaction from current budget so concurrent
-  // runs can't overspend the campaign.
-  for (const id of ids) {
-    let delta = 0;
-    try {
-      await updateStore((s) => {
-        const sub = s.submissions.find((x) => x.id === id);
-        if (!sub || sub.status !== "approved") return;
-        const camp = s.campaigns.find((c) => c.id === sub.campaignId);
-        if (!camp) return;
-
-        // CPM math: earnings = views / 1000 * cpm, capped per submission and remaining budget
-        const raw = Math.floor((sub.views / 1000) * camp.cpmCents);
-        const cappedByVideo = Math.min(raw, camp.maxPayoutPerSubmissionCents);
-        const remainingBudget = camp.budgetTotalCents - camp.budgetSpentCents;
-        const targetEarnings = Math.min(cappedByVideo, remainingBudget + sub.earningsCents);
-        const d = targetEarnings - sub.earningsCents;
-        if (d <= 0) return;
-
-        applyWalletDelta(s, {
-          userId: sub.clipperId,
-          availableDelta: d,
-          type: "credit",
-          reason: `Campaign earnings · ${camp.title}`,
-          referenceType: "campaign_earning",
-          referenceId: sub.id,
-        });
-        sub.earningsCents = targetEarnings;
-        sub.updatedAt = nowIso();
-        camp.budgetSpentCents += d;
-        if (camp.budgetSpentCents >= camp.budgetTotalCents) {
-          camp.status = "completed";
-        }
-        camp.updatedAt = nowIso();
-        delta = d;
-      });
-    } catch {
-      // One bad submission (e.g. wallet invariant) skips; rest still credit.
-      continue;
+/**
+ * Ledger-only settlement. Closes ended campaigns, splits a pool, and releases holds
+ * from counts already confirmed. Does not fetch views.
+ */
+export async function settleRewardsJob(asOf?: string) {
+  const nowMs = resolveNow(asOf);
+  let reserved = 0;
+  let released = 0;
+  let clawed = 0;
+  await updateStore((s) => {
+    for (const campaign of s.campaigns) finalizeCampaign(s, campaign, nowMs);
+    for (const sub of s.submissions) {
+      if (sub.status !== "approved") continue;
+      const result = settleSubmission(s, sub.id, nowMs, sub.postLive, sub.postLive != null);
+      reserved += result.reserved;
+      released += result.released;
+      clawed += result.clawed;
     }
-    credited += delta;
-  }
+  });
+  revalidateMoney();
+  return { reservedCents: reserved, releasedCents: released, clawedCents: clawed };
+}
 
-  revalidatePath("/dashboard/clipper");
-  revalidatePath("/dashboard/brand");
-  return { creditedCents: credited };
+export async function recalculateEarningsJob() {
+  const result = await settleRewardsJob();
+  return { creditedCents: result.reservedCents, ...result };
 }
 
 export async function budgetAlertsJob() {
   const store = await readStore();
   const alerts = store.campaigns
-    .filter((c) => c.status === "active")
-    .filter((c) => c.budgetSpentCents / c.budgetTotalCents >= 0.8)
+    .filter((c) => c.status === "active" && c.payModel !== "pool")
+    .filter((c) => c.budgetTotalCents > 0 && c.budgetSpentCents / c.budgetTotalCents >= 0.8)
     .map((c) => ({
       campaignId: c.id,
       title: c.title,

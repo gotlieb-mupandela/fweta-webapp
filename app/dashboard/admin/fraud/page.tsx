@@ -16,7 +16,10 @@ export default async function AdminFraudPage() {
 
   return (
     <div className="dash-stack">
-      <PageHeader title="Fraud review" description="Flagged submissions and resolution queue." />
+      <PageHeader
+        title="Fraud review"
+        description="Uphold forfeits that clip only. Dismiss releases the hold. A manual brand flag does not take the money back."
+      />
 
       {flags.length === 0 ? (
         <EmptyState
