@@ -4,6 +4,8 @@ import path from "path";
 
 import { getPayoutSecret } from "@/lib/auth/secret";
 
+import { hydrateStoreCampaigns } from "@/lib/rewards/content-rewards";
+
 import type { DatabaseStore } from "./types";
 import {
   isSupabaseStoreEnabled,
@@ -39,6 +41,7 @@ const emptyStore = (): DatabaseStore => ({
   fraudFlags: [],
   notifications: [],
   notificationDispatches: [],
+  linkedAccounts: [],
 });
 
 declare global {
@@ -52,7 +55,8 @@ let initPromise: Promise<DatabaseStore> | null = null;
 function cloneStore(store: DatabaseStore): DatabaseStore {
   // Prevent callers mutating the cached store outside updateStore().
   // Store is small (local MVP) so structuredClone cost is negligible.
-  return structuredClone(store);
+  // Hydrate so campaigns saved before content-rewards fields still read cleanly.
+  return hydrateStoreCampaigns(structuredClone(store));
 }
 
 async function loadFromDisk(): Promise<DatabaseStore | null> {
@@ -103,7 +107,7 @@ async function initStore(): Promise<DatabaseStore> {
   if (isSupabaseStoreEnabled()) {
     try {
       const fromRemote = await loadStoreFromSupabase();
-      const store = fromRemote ?? emptyStore();
+      const store = hydrateStoreCampaigns(fromRemote ?? emptyStore());
       globalThis.__fwetaStore = store;
       return store;
     } catch (err) {
@@ -115,7 +119,7 @@ async function initStore(): Promise<DatabaseStore> {
   }
 
   const fromDisk = await loadFromDisk();
-  const store = fromDisk ?? emptyStore();
+  const store = hydrateStoreCampaigns(fromDisk ?? emptyStore());
   globalThis.__fwetaStore = store;
   if (!fromDisk) {
     await persist(store);
@@ -149,6 +153,7 @@ export async function updateStore(
     const current = await ensureStore();
     // Mutate a copy. A throw (insufficient funds, not allowed) must not leave
     // a half-applied wallet debit or an orphan campaign in memory.
+    // cloneStore already hydrates campaigns saved before content-rewards fields.
     const draft = cloneStore(current);
     await mutator(draft);
     globalThis.__fwetaStore = draft;

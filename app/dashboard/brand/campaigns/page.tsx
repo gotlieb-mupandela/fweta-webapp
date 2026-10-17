@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { listBrandCampaigns } from "@/app/actions/campaigns";
+import { BudgetBar } from "@/components/rewards/budget-bar";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
@@ -19,7 +20,7 @@ export default async function BrandCampaignsPage() {
     <div className="dash-stack">
       <PageHeader
         title="Campaigns"
-        description="Manage content rewards campaigns and budgets."
+        description="Fund a budget and a rate per 1,000 views."
         action={
           <Link href="/dashboard/brand/campaigns/new">
             <Button>New campaign</Button>
@@ -30,7 +31,7 @@ export default async function BrandCampaignsPage() {
       {campaigns.length === 0 ? (
         <EmptyState
           title="No campaigns yet"
-          description="Create your first campaign to start receiving clip submissions."
+          description="Create a clipping or UGC campaign, then fund it from your wallet."
           action={
             <Link href="/dashboard/brand/campaigns/new">
               <Button size="sm">Create campaign</Button>
@@ -39,17 +40,20 @@ export default async function BrandCampaignsPage() {
         />
       ) : (
         <ul className="space-y-2.5">
-          {campaigns.map((c) => (
-            <li key={c.id}>
-              <Link href={`/dashboard/brand/campaigns/${c.id}`} className="list-row">
-                <div>
-                  <p className="font-medium">{c.title}</p>
-                  <p className="mt-1 text-sm text-muted">
-                    {c.type} · {c.category} · {formatMoney(c.budgetSpentCents)} /{" "}
-                    {formatMoney(c.budgetTotalCents)}
+          {campaigns.map((campaign) => (
+            <li key={campaign.id}>
+              <Link href={`/dashboard/brand/campaigns/${campaign.id}`} className="list-row items-start">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-medium">{campaign.title}</p>
+                    <Badge tone={campaign.status === "active" ? "gold" : "muted"}>{campaign.status}</Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted">
+                    {campaign.type === "clipping" ? "Clipping" : "UGC"} · {campaign.category} ·{" "}
+                    {formatMoney(campaign.cpmCents)} / 1k
                   </p>
+                  <BudgetBar campaign={campaign} className="mt-3" />
                 </div>
-                <Badge tone={c.status === "active" ? "gold" : "muted"}>{c.status}</Badge>
               </Link>
             </li>
           ))}

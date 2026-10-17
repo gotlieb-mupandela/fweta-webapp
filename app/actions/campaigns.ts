@@ -3,10 +3,17 @@
 import { revalidatePath } from "next/cache";
 
 import { getSession, requireSession } from "@/lib/auth/session";
-import { syncCampaignHold } from "@/lib/campaigns/fund";
+import { allocateCampaignFunds, isCampaignFunded } from "@/lib/campaigns/fund";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import { notifyCampaignLive } from "@/lib/notifications/events";
-import type { Campaign } from "@/lib/db/types";
+import type { Campaign, CampaignAsset } from "@/lib/db/types";
+import { finalizeCampaign, refundUnspentCampaign } from "@/lib/rewards/earnings";
+import {
+  DEFAULT_COUNTRY_CODES,
+  DEFAULT_MIN_VIEWS,
+  campaignIsDiscoverable,
+  remainingBudgetCents,
+} from "@/lib/rewards/content-rewards";
 import {
   campaignCreateSchema,
   campaignUpdateSchema,
@@ -45,6 +52,11 @@ export async function createCampaignAction(raw: unknown) {
   if (!parsed.success) return { ok: false as const, error: zodMessage(parsed.error) };
 
   const now = nowIso();
+  const assets: CampaignAsset[] = (parsed.data.assets ?? []).map((asset) => ({
+    id: newId(),
+    label: asset.label,
+    url: asset.url,
+  }));
   const campaign: Campaign = {
     id: newId(),
     brandId: session.id,
@@ -56,10 +68,23 @@ export async function createCampaignAction(raw: unknown) {
     budgetTotalCents: parsed.data.budgetTotalCents,
     budgetSpentCents: 0,
     cpmCents: parsed.data.cpmCents,
+    minPayoutCents: parsed.data.minPayoutCents ?? 0,
+    minViews: parsed.data.minViews ?? DEFAULT_MIN_VIEWS,
+    payModel: parsed.data.payModel ?? "cpm",
+    countries: parsed.data.countries?.length ? parsed.data.countries : [...DEFAULT_COUNTRY_CODES],
+    feeReservedCents: 0,
+    feeChargedCents: 0,
+    feeRefundedCents: 0,
+    unspentReturnedCents: 0,
+    poolSettledAt: null,
+    closedAt: null,
     maxPayoutPerSubmissionCents: parsed.data.maxPayoutPerSubmissionCents,
     platforms: parsed.data.platforms,
     requirements: parsed.data.requirements ?? "",
-    endDate: parsed.data.endDate ?? null,
+    rules: parsed.data.rules ?? "",
+    assets,
+    startDate: parsed.data.startDate || null,
+    endDate: parsed.data.endDate || null,
     createdAt: now,
     updatedAt: now,
   };
@@ -68,10 +93,8 @@ export async function createCampaignAction(raw: unknown) {
   // unfunded "active" campaign or orphan a wallet debit.
   try {
     await updateStore((s) => {
-      if (campaign.status === "active") {
-        syncCampaignHold(s, campaign, campaign.budgetTotalCents, "Campaign budget allocated");
-      }
       s.campaigns.push(campaign);
+      if (campaign.status === "active") allocateCampaignFunds(s, campaign);
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Could not fund campaign." };
@@ -113,16 +136,27 @@ export async function updateCampaignAction(id: string, raw: unknown) {
         throw new Error("Completed campaigns can't change budget.");
       }
       found = true;
+      const next = { ...parsed.data };
       // Status changes go through setCampaignStatusAction so funding stays in sync.
-      const fields = { ...parsed.data };
-      delete fields.status;
-      Object.assign(c, fields, { updatedAt: nowIso() });
-      if (
-        nextBudget !== undefined &&
-        (c.status === "active" || c.status === "paused")
-      ) {
-        syncCampaignHold(s, c, c.budgetTotalCents, "Campaign budget updated");
+      delete next.status;
+      if (isCampaignFunded(s, c.id) || c.status === "active" || c.status === "paused" || c.status === "completed") {
+        delete next.budgetTotalCents;
+        delete next.payModel;
+        delete next.minViews;
       }
+      if (next.assets) {
+        c.assets = next.assets.map((asset) => ({
+          id: newId(),
+          label: asset.label,
+          url: asset.url,
+        }));
+        delete next.assets;
+      }
+      if ("startDate" in next) c.startDate = next.startDate || null;
+      if ("endDate" in next) c.endDate = next.endDate || null;
+      delete next.startDate;
+      delete next.endDate;
+      Object.assign(c, next, { updatedAt: nowIso() });
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
@@ -151,19 +185,12 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
         throw new Error("Not allowed.");
       }
       if (status === "active" && c.status !== "active") {
+        allocateCampaignFunds(s, c);
         becameActive = true;
-        syncCampaignHold(s, c, c.budgetTotalCents, "Campaign budget allocated");
-      }
-      if (status === "completed" && c.status !== "completed") {
-        syncCampaignHold(
-          s,
-          c,
-          c.budgetSpentCents,
-          "Campaign completed — unused budget returned",
-        );
       }
       c.status = status;
       c.updatedAt = nowIso();
+      if (status === "completed") finalizeCampaign(s, c, Date.now());
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
@@ -194,6 +221,12 @@ export async function duplicateCampaignAction(id: string) {
     title: `${source.title} (copy)`,
     status: "draft",
     budgetSpentCents: 0,
+    feeReservedCents: 0,
+    feeChargedCents: 0,
+    feeRefundedCents: 0,
+    unspentReturnedCents: 0,
+    poolSettledAt: null,
+    closedAt: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -222,12 +255,7 @@ export async function deleteCampaignAction(id: string) {
           "Cannot delete a campaign that has already paid clippers. Mark it completed instead.",
         );
       }
-      syncCampaignHold(
-        s,
-        campaign,
-        campaign.budgetSpentCents,
-        "Campaign deleted — unused budget returned",
-      );
+      refundUnspentCampaign(s, campaign, Date.now());
       const submissionIds = new Set(related.map((sub) => sub.id));
       s.submissions = s.submissions.filter((sub) => sub.campaignId !== id);
       s.viewSnapshots = s.viewSnapshots.filter((snap) => !submissionIds.has(snap.submissionId));
@@ -247,24 +275,77 @@ export async function deleteCampaignAction(id: string) {
   return { ok: true as const };
 }
 
+export type DiscoverSort = "newest" | "budget" | "rate" | "paid";
+
+export type DiscoverCampaign = {
+  campaign: Campaign;
+  approvedClips: number;
+};
+
 export async function listActiveCampaignsPublic(filters?: {
   platform?: string;
   type?: string;
+  category?: string;
   q?: string;
-}) {
+  sort?: string;
+  payModel?: string;
+  country?: string;
+}): Promise<DiscoverCampaign[]> {
   const store = await readStore();
-  return store.campaigns
-    .filter((c) => c.status === "active")
+  const counts = new Map<string, number>();
+  for (const submission of store.submissions) {
+    if (submission.status !== "approved") continue;
+    counts.set(submission.campaignId, (counts.get(submission.campaignId) ?? 0) + 1);
+  }
+
+  const sort = (filters?.sort ?? "newest") as DiscoverSort;
+  const rows = store.campaigns
+    .filter((c) => campaignIsDiscoverable(c))
     .filter((c) => (filters?.type ? c.type === filters.type : true))
+    .filter((c) =>
+      filters?.category
+        ? c.category.toLowerCase() === filters.category.toLowerCase()
+        : true,
+    )
     .filter((c) =>
       filters?.platform ? c.platforms.includes(filters.platform as never) : true,
     )
+    .filter((c) => (filters?.payModel === "cpm" || filters?.payModel === "pool" ? c.payModel === filters.payModel : true))
+    .filter((c) => {
+      const country = filters?.country === undefined ? "NA" : filters.country;
+      if (!country || country === "all") return true;
+      return c.countries.includes(country);
+    })
     .filter((c) =>
       filters?.q
-        ? `${c.title} ${c.category} ${c.description}`
+        ? `${c.title} ${c.category} ${c.description} ${c.requirements}`
             .toLowerCase()
             .includes(filters.q.toLowerCase())
         : true,
     )
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    .map((campaign) => ({
+      campaign,
+      approvedClips: counts.get(campaign.id) ?? 0,
+    }));
+
+  rows.sort((a, b) => {
+    if (sort === "budget") {
+      return remainingBudgetCents(b.campaign) - remainingBudgetCents(a.campaign);
+    }
+    if (sort === "rate") return b.campaign.cpmCents - a.campaign.cpmCents;
+    if (sort === "paid") return b.campaign.budgetSpentCents - a.campaign.budgetSpentCents;
+    return b.campaign.createdAt.localeCompare(a.campaign.createdAt);
+  });
+  return rows;
+}
+
+export async function listDiscoverCategories(): Promise<string[]> {
+  const store = await readStore();
+  const categories = new Set<string>();
+  for (const campaign of store.campaigns) {
+    if (campaignIsDiscoverable(campaign) && campaign.category.trim()) {
+      categories.add(campaign.category.trim());
+    }
+  }
+  return [...categories].sort((a, b) => a.localeCompare(b));
 }

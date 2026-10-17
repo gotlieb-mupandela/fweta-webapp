@@ -106,20 +106,20 @@ If either Resend variable is missing, fweta skips the send and logs a warning. I
 
 ---
 
-## 3. Vercel Cron (view polling + earnings)
+## 3. Vercel Cron (settlement only)
 
-- `vercel.json` defines daily cron: `0 5 * * *` → `/api/jobs/poll-views`
+- `vercel.json` schedules `0 * * * *` → `/api/jobs/settle-rewards`
+- That job closes ended campaigns, splits a pool, and releases holds. It does not fetch views.
+- View counts are entered by an admin. Earnings update when the count is saved.
 - Requires **Vercel Pro** (Crons not on Hobby)
-- Cron sends `Authorization: Bearer <CRON_SECRET>` — must match env var
+- Cron sends `Authorization: Bearer <CRON_SECRET>`, which must match the env var
 
 **Manual test** (replace secrets):
 
 ```bash
-curl -X POST "https://app.fweta.com/api/jobs/poll-views" \
+curl -X POST "https://app.fweta.com/api/jobs/settle-rewards" \
   -H "Authorization: Bearer YOUR_CRON_SECRET"
 ```
-
-Without `APIFY_API_TOKEN`, polling **simulates** view growth (fine for demo).
 
 ---
 

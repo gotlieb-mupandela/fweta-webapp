@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
+import { hydrateStoreCampaigns } from "@/lib/rewards/content-rewards";
+
 import type { DatabaseStore } from "./types";
 
 const STORE_ROW_ID = "default";
@@ -20,6 +22,7 @@ const emptyStore = (): DatabaseStore => ({
   fraudFlags: [],
   notifications: [],
   notificationDispatches: [],
+  linkedAccounts: [],
 });
 
 function supabaseUrl(): string | undefined {
@@ -64,7 +67,7 @@ export function normalizeStore(raw: unknown): DatabaseStore | null {
     }
   });
 
-  return store;
+  return hydrateStoreCampaigns(store);
 }
 
 function hasData(store: DatabaseStore): boolean {

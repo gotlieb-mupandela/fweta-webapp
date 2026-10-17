@@ -9,6 +9,7 @@ import {
   requireSession,
 } from "@/lib/auth/session";
 import { nowIso, readStore, updateStore } from "@/lib/db/store";
+import { clawbackSubmission } from "@/lib/rewards/earnings";
 import {
   notificationPrefsSchema,
   passwordChangeSchema,
@@ -150,7 +151,14 @@ export async function getPlatformStats() {
   const store = await readStore();
   const gmv =
     store.ledgerEntries
-      .filter((e) => e.type === "credit" && e.referenceType !== "admin_credit")
+      .filter(
+        (e) =>
+          e.type === "credit" &&
+          e.referenceType !== "admin_credit" &&
+          e.referenceType !== "campaign_release" &&
+          e.referenceType !== "campaign_fee" &&
+          e.referenceType !== "campaign_fund",
+      )
       .reduce((sum, e) => sum + e.amountCents, 0) || 0;
   return {
     users: store.profiles.length,
@@ -177,9 +185,19 @@ export async function resolveFraudFlag(id: string, status: "resolved" | "dismiss
   if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
   await updateStore((s) => {
     const f = s.fraudFlags.find((x) => x.id === id);
-    if (!f) return;
+    if (!f || f.status !== "open") return;
     f.status = status;
     f.resolvedAt = nowIso();
+    if (f.kind !== "score") return;
+    const sub = s.submissions.find((item) => item.id === f.submissionId);
+    if (!sub) return;
+    if (status === "dismissed") {
+      sub.fraudState = "dismissed";
+      sub.updatedAt = f.resolvedAt;
+      return;
+    }
+    sub.fraudState = "upheld";
+    clawbackSubmission(s, sub.id, Date.now(), "Review upheld. This clip was forfeited.");
   });
   revalidatePath("/dashboard/admin/fraud");
   return { ok: true as const };

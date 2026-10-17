@@ -1,72 +1,129 @@
 import Link from "next/link";
 
-import { listActiveCampaignsPublic } from "@/app/actions/campaigns";
+import { listActiveCampaignsPublic, listDiscoverCategories } from "@/app/actions/campaigns";
 import { PublicChrome } from "@/components/public-chrome";
-import { Badge, Card, EmptyState } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { formatMoney } from "@/lib/utils";
+import { CampaignCard } from "@/components/rewards/campaign-card";
+import { DiscoverFilters } from "@/components/rewards/discover-filters";
+import { EmptyState } from "@/components/ui/card";
+import { readStore } from "@/lib/db/store";
+import { buildPublicCatalog } from "@/lib/rewards/content-rewards";
+import { formatNumber } from "@/lib/utils";
 
 export default async function CampaignsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; type?: string; platform?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    type?: string;
+    platform?: string;
+    category?: string;
+    sort?: string;
+    payModel?: string;
+    country?: string;
+  }>;
 }) {
   const params = await searchParams;
-  const campaigns = await listActiveCampaignsPublic({
-    q: params.q,
-    type: params.type,
-    platform: params.platform,
-  });
+  const [rows, categories, store] = await Promise.all([
+    listActiveCampaignsPublic({
+      q: params.q,
+      type: params.type,
+      platform: params.platform,
+      category: params.category,
+      sort: params.sort,
+      payModel: params.payModel,
+      country: params.country,
+    }),
+    listDiscoverCategories(),
+    readStore(),
+  ]);
+  const catalog = buildPublicCatalog(store, params.country);
 
   return (
     <PublicChrome
-      title="Open campaigns"
-      description="Browse content rewards campaigns and start earning."
+      title="Discover campaigns"
+      description="Brands reserve a budget first. You earn the rate on the card, in NAD."
     >
-      <form className="flex flex-wrap gap-3">
-        <input
-          name="q"
-          defaultValue={params.q}
-          placeholder="Search…"
-          className="input-capsule h-11 min-w-[200px] flex-1"
-        />
-        <select name="type" defaultValue={params.type ?? ""} className="input-capsule h-11">
-          <option value="">All types</option>
-          <option value="clipping">Clipping</option>
-          <option value="ugc">UGC</option>
-        </select>
-        <select name="platform" defaultValue={params.platform ?? ""} className="input-capsule h-11">
-          <option value="">All platforms</option>
-          <option value="tiktok">TikTok</option>
-          <option value="youtube">YouTube</option>
-          <option value="instagram">Instagram</option>
-          <option value="x">X</option>
-        </select>
-        <Button type="submit" size="sm">
-          Filter
-        </Button>
-      </form>
+      <DiscoverFilters
+        q={params.q}
+        type={params.type}
+        platform={params.platform}
+        category={params.category}
+        sort={params.sort}
+        payModel={params.payModel}
+        country={params.country}
+        categories={categories}
+      />
 
-      <div className="mt-10">
-        {campaigns.length === 0 ? (
-          <EmptyState title="No campaigns found" description="Try adjusting your filters." />
+      <section className="mt-8 space-y-3">
+        <h2 className="font-display text-2xl tracking-tight">Featured</h2>
+        {catalog.featured.length === 0 ? (
+          <p className="text-sm text-muted">No live campaigns yet.</p>
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2">
-            {campaigns.map((c) => (
-              <li key={c.id}>
-                <Link href={`/campaigns/${c.id}`} className="block h-full">
-                  <Card className="h-full transition hover:border-foreground/20 hover:shadow-[var(--shadow-lift)]">
-                    <h2 className="font-display text-xl tracking-tight">{c.title}</h2>
-                    <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted">
-                      {c.description}
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {catalog.featured.map((row) => (
+              <li key={row.campaign.id}>
+                <CampaignCard campaign={row.campaign} approvedClips={row.approvedClips} href={`/campaigns/${row.campaign.id}`} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="mt-10 space-y-3">
+        <h2 className="font-display text-2xl tracking-tight">Top campaigns</h2>
+        {catalog.topCampaigns.length === 0 ? (
+          <p className="text-sm text-muted">Ranks appear after approved clips have confirmed views.</p>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {catalog.topCampaigns.map((row) => (
+              <li key={row.campaign.id}>
+                <CampaignCard campaign={row.campaign} approvedClips={row.approvedClips} href={`/campaigns/${row.campaign.id}`} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="mt-10 space-y-3">
+        <h2 className="font-display text-2xl tracking-tight">Top clips</h2>
+        {catalog.topClips.length === 0 ? (
+          <p className="text-sm text-muted">Confirmed views will rank clips here.</p>
+        ) : (
+          <ol className="space-y-2">
+            {catalog.topClips.map((clip, index) => (
+              <li key={clip.submissionId}>
+                <Link href={`/campaigns/${clip.campaignId}`} className="list-row">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">
+                      {index + 1}. {clip.creatorName}
+                      {clip.handle ? ` · ${clip.handle}` : ""}
                     </p>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Badge tone="gold">{c.type}</Badge>
-                      <Badge>{c.category}</Badge>
-                      <Badge tone="muted">CPM {formatMoney(c.cpmCents)}</Badge>
-                    </div>
-                  </Card>
+                    <p className="truncate text-xs text-muted">{clip.campaignTitle}</p>
+                  </div>
+                  <p className="shrink-0 text-sm font-medium">{formatNumber(clip.views)} views</p>
                 </Link>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
+      <h2 className="mt-10 font-display text-2xl tracking-tight">All campaigns</h2>
+      <div className="mt-4">
+        {rows.length === 0 ? (
+          <EmptyState
+            title="No campaigns match"
+            description="Try another platform, category, or search."
+          />
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {rows.map((row) => (
+              <li key={row.campaign.id}>
+                <CampaignCard
+                  campaign={row.campaign}
+                  approvedClips={row.approvedClips}
+                  href={`/campaigns/${row.campaign.id}`}
+                />
               </li>
             ))}
           </ul>

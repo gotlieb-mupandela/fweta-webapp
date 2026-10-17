@@ -1,0 +1,82 @@
+import { Button } from "@/components/ui/button";
+
+export function DiscoverFilters({
+  q,
+  type,
+  platform,
+  category,
+  sort,
+  payModel,
+  country,
+  categories,
+}: {
+  q?: string;
+  type?: string;
+  platform?: string;
+  category?: string;
+  sort?: string;
+  payModel?: string;
+  country?: string;
+  categories: string[];
+}) {
+  return (
+    <form className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+      <input
+        name="q"
+        defaultValue={q}
+        placeholder="Search campaigns"
+        className="input-capsule col-span-2 h-11 sm:min-w-[180px] sm:flex-1"
+      />
+      <select name="payModel" defaultValue={payModel ?? ""} className="input-capsule h-11" aria-label="Pay model">
+        <option value="">CPM and pool</option>
+        <option value="cpm">CPM</option>
+        <option value="pool">Pool</option>
+      </select>
+      <select name="country" defaultValue={country ?? "NA"} className="input-capsule h-11" aria-label="Country">
+        <option value="NA">Namibia</option>
+        <option value="ZA">South Africa</option>
+        <option value="BW">Botswana</option>
+        <option value="all">All countries</option>
+      </select>
+      <select name="type" defaultValue={type ?? ""} className="input-capsule h-11" aria-label="Type">
+        <option value="">All types</option>
+        <option value="clipping">Clipping</option>
+        <option value="ugc">UGC</option>
+      </select>
+      <select
+        name="platform"
+        defaultValue={platform ?? ""}
+        className="input-capsule h-11"
+        aria-label="Platform"
+      >
+        <option value="">All platforms</option>
+        <option value="tiktok">TikTok</option>
+        <option value="instagram">Instagram</option>
+        <option value="youtube">YouTube</option>
+        <option value="x">X</option>
+      </select>
+      <select
+        name="category"
+        defaultValue={category ?? ""}
+        className="input-capsule h-11"
+        aria-label="Category"
+      >
+        <option value="">All categories</option>
+        {categories.map((item) => (
+          <option key={item} value={item}>
+            {item}
+          </option>
+        ))}
+      </select>
+      <select name="sort" defaultValue={sort ?? "newest"} className="input-capsule h-11" aria-label="Sort">
+        <option value="newest">Newest</option>
+        <option value="budget">Budget left</option>
+        <option value="rate">Rate</option>
+        <option value="paid">Paid out</option>
+      </select>
+      <Button type="submit" size="sm" className="col-span-2 sm:col-span-1">
+        Apply
+      </Button>
+    </form>
+  );
+}

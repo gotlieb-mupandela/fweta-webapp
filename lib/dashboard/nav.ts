@@ -240,6 +240,13 @@ export const ROLE_NAV: Record<UserRole, RoleNavConfig> = {
     ],
     sidebarExtra: [
       {
+        href: "/dashboard/admin/views",
+        label: "View checks",
+        shortLabel: "Views",
+        icon: ClipboardList,
+        match: "prefix",
+      },
+      {
         href: "/dashboard/admin/stats",
         label: "Stats",
         shortLabel: "Stats",
@@ -305,6 +312,7 @@ const TITLE_OVERRIDES: Record<string, string> = {
   "/dashboard/admin/withdrawals": "Withdrawals",
   "/dashboard/admin/users": "Users",
   "/dashboard/admin/fraud": "Fraud",
+  "/dashboard/admin/views": "View checks",
   "/dashboard/admin/stats": "Stats",
   "/dashboard/admin/emails": "Emails",
   "/dashboard/notifications": "Notifications",
@@ -316,6 +324,7 @@ const TITLE_OVERRIDES: Record<string, string> = {
   "/dashboard/settings/wallet": "Wallet",
   "/dashboard/settings/payout": "Payout method",
   "/dashboard/settings/withdraw": "Withdraw",
+  "/dashboard/settings/accounts": "Connected accounts",
 };
 
 export function getScreenTitle(pathname: string): string {
