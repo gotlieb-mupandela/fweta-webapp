@@ -5,55 +5,86 @@ import { useState, useTransition } from "react";
 
 import { reviewSubmissionAction } from "@/app/actions/submissions";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label } from "@/components/ui/input";
+import { FieldError, Label, Textarea } from "@/components/ui/input";
 
-export function SubmissionReviewForm({ submissionId }: { submissionId: string }) {
+export function SubmissionReviewForm({
+  submissionId,
+  canApprove = true,
+  cancelOnly = false,
+}: {
+  submissionId: string;
+  canApprove?: boolean;
+  cancelOnly?: boolean;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
   const [pending, startTransition] = useTransition();
 
-  function review(status: "approved" | "rejected" | "flagged", note?: string) {
+  function review(status: "approved" | "rejected" | "flagged") {
     setError(null);
     startTransition(async () => {
-      const res = await reviewSubmissionAction(submissionId, { status, reviewNote: note });
+      const res = await reviewSubmissionAction(submissionId, {
+        status,
+        reviewNote: reason.trim() || undefined,
+      });
       if (!res.ok) setError(res.error);
-      else router.refresh();
+      else {
+        setReason("");
+        router.refresh();
+      }
     });
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="space-y-2">
+      <div>
+        <Label htmlFor={`reason-${submissionId}`}>Reason</Label>
+        <Textarea
+          id={`reason-${submissionId}`}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder={
+            cancelOnly
+              ? "Required. The unsettled share returns to the brand. Wallet money stays."
+              : "Required to reject or flag. Name the rule the clip missed."
+          }
+          className="min-h-20"
+        />
+      </div>
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="gold" disabled={pending} onClick={() => review("approved")}>
-          Approve
-        </Button>
-        <Button size="sm" variant="secondary" disabled={pending} onClick={() => review("rejected")}>
-          Reject
-        </Button>
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const fd = new FormData(e.currentTarget);
-            review("flagged", String(fd.get("note") || "Flagged"));
-          }}
+        {cancelOnly ? null : (
+          <Button
+            size="sm"
+            variant="gold"
+            disabled={pending || !canApprove}
+            onClick={() => review("approved")}
+          >
+            Approve
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={pending || reason.trim().length < 3}
+          onClick={() => review("rejected")}
         >
-          <div>
-            <Label htmlFor={`flag-${submissionId}`} className="sr-only">
-              Flag note
-            </Label>
-            <Input
-              id={`flag-${submissionId}`}
-              name="note"
-              placeholder="Flag reason"
-              className="h-9 w-40"
-            />
-          </div>
-          <Button size="sm" variant="danger" type="submit" disabled={pending}>
+          {cancelOnly ? "Reject and return" : "Reject"}
+        </Button>
+        {cancelOnly ? null : (
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={pending || reason.trim().length < 3}
+            onClick={() => review("flagged")}
+          >
             Flag
           </Button>
-        </form>
+        )}
       </div>
+      {!canApprove ? (
+        <p className="text-xs text-muted">Approve unlocks once estimated earnings clear the minimum.</p>
+      ) : null}
       <FieldError>{error}</FieldError>
     </div>
   );
