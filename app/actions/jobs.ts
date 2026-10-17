@@ -7,8 +7,8 @@ import { fetchVideoViewsFromApify, isApifyConfigured } from "@/lib/social/apify"
 import { applyWalletDelta } from "@/lib/wallet/ledger";
 
 /**
- * Phase 7 automation — callable via /api/jobs/poll-views or cron.
- * Uses Apify when APIFY_API_TOKEN is set; otherwise simulates view growth.
+ * Unused by the scheduled jobs. View counts are entered by an admin.
+ * Do not call this from a cron or an HTTP route.
  */
 export async function pollSubmissionViewsJob() {
   const store = await readStore();
@@ -93,7 +93,7 @@ export async function recalculateEarningsJob() {
         const sub = s.submissions.find((x) => x.id === id);
         if (!sub || sub.status !== "approved") return;
         const camp = s.campaigns.find((c) => c.id === sub.campaignId);
-        if (!camp) return;
+        if (!camp || camp.settledAt) return;
 
         // CPM math: earnings = views / 1000 * cpm, capped per submission and remaining budget
         const raw = Math.floor((sub.views / 1000) * camp.cpmCents);

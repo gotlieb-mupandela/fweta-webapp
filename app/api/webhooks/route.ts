@@ -1,29 +1,14 @@
 import { NextResponse } from "next/server";
 
 /**
- * Webhook endpoint placeholder for Stripe, PayFast, etc.
- * POST /api/webhooks
- *
- * Phase 13 — implement signature verification and event routing.
+ * fweta does not accept payment-gateway webhooks.
+ * Brand deposits are recorded manually. Creator payouts are manual EFT.
  */
-export async function POST(request: Request) {
-  const contentType = request.headers.get("content-type") ?? "";
-
-  // Stub: acknowledge receipt without processing
-  if (contentType.includes("application/json")) {
-    try {
-      await request.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-    }
-  }
-
+export async function POST() {
   return NextResponse.json(
     {
-      received: true,
-      status: "not_implemented",
-      message: "Webhook handler stub — Phase 13",
+      error: "No payment webhook is configured. Deposits and payouts are manual.",
     },
-    { status: 202 },
+    { status: 404 },
   );
 }

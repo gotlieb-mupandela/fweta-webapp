@@ -42,6 +42,8 @@ export type Profile = {
   createdAt: string;
   updatedAt: string;
   suspended: boolean;
+  /** Bumped on password change so older session cookies stop working. */
+  credentialVersion?: number;
 };
 
 export type Campaign = {
@@ -59,6 +61,8 @@ export type Campaign = {
   platforms: SocialPlatform[];
   requirements: string;
   endDate: string | null;
+  /** Set when unused budget has been returned. Further view credits stop. */
+  settledAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -101,6 +105,7 @@ export type LedgerEntry = {
     | "admin_credit"
     | "campaign_earning"
     | "campaign_fund"
+    | "campaign_settlement"
     | "withdrawal"
     | "booking_escrow"
     | "booking_release"

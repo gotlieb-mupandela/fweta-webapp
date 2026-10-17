@@ -8,6 +8,7 @@ import { SignJWT, jwtVerify } from "jose";
 
 import { readStore, updateStore, newId, nowIso } from "@/lib/db/store";
 import { getAuthSecretKey } from "@/lib/auth/secret";
+import { sessionGate } from "@/lib/auth/session-gate";
 import type { Profile, Wallet } from "@/lib/db/types";
 import type { UserRole } from "@/types/enums";
 
@@ -19,6 +20,7 @@ export type SessionUser = {
   displayName: string;
   roles: UserRole[];
   primaryRole: UserRole;
+  credentialVersion: number;
 };
 
 async function signSession(user: SessionUser) {
@@ -27,6 +29,7 @@ async function signSession(user: SessionUser) {
     displayName: user.displayName,
     roles: user.roles,
     primaryRole: user.primaryRole,
+    cv: user.credentialVersion,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(user.id)
@@ -67,6 +70,7 @@ export async function getSession(): Promise<SessionUser | null> {
       displayName: String(payload.displayName || ""),
       roles: (payload.roles as UserRole[]) || [],
       primaryRole: (payload.primaryRole as UserRole) || "clipper",
+      credentialVersion: typeof payload.cv === "number" ? payload.cv : 0,
     };
   } catch {
     return null;
@@ -76,6 +80,9 @@ export async function getSession(): Promise<SessionUser | null> {
 export async function requireSession(): Promise<SessionUser> {
   const session = await getSession();
   if (!session) throw new Error("Unauthorized");
+  const profile = await getProfileById(session.id);
+  const gate = sessionGate(session, profile);
+  if (gate === "suspended" || gate === "expired") throw new Error("Unauthorized");
   return session;
 }
 
@@ -160,6 +167,7 @@ export async function signup(input: {
     displayName: profile.displayName,
     roles: profile.roles,
     primaryRole: profile.primaryRole,
+    credentialVersion: 0,
   });
   await setSessionCookie(token);
   return { ok: true };
@@ -184,6 +192,7 @@ export async function login(input: {
     displayName: profile.displayName,
     roles: profile.roles,
     primaryRole: profile.primaryRole,
+    credentialVersion: profile.credentialVersion ?? 0,
   });
   await setSessionCookie(token);
   return { ok: true };
@@ -200,6 +209,7 @@ export async function refreshSessionFromProfile(profile: Profile) {
     displayName: profile.displayName,
     roles: profile.roles,
     primaryRole: profile.primaryRole,
+    credentialVersion: profile.credentialVersion ?? 0,
   });
   await setSessionCookie(token);
 }
@@ -272,7 +282,9 @@ function readAdminSeed(): AdminSeed | null {
     if (!adminEnvWarningShown) {
       adminEnvWarningShown = true;
       console.warn(
-        "[fweta] ADMIN_EMAIL and ADMIN_PASSWORD are unset. Demo accounts still seed; the admin account does not.",
+        process.env.NODE_ENV === "production"
+          ? "[fweta] ADMIN_EMAIL and ADMIN_PASSWORD are unset. No admin account will be seeded."
+          : "[fweta] ADMIN_EMAIL and ADMIN_PASSWORD are unset. Demo accounts still seed; the admin account does not.",
       );
     }
     return null;
@@ -316,12 +328,16 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
       ? createHash("sha256").update(`${adminSeed.email}\n${adminSeed.password}`).digest("hex")
       : null;
 
-    const missingAccounts = DEMO_ACCOUNTS.filter(
-      (account) =>
-        !existing.profiles.some(
-          (p) => p.email.trim().toLowerCase() === account.email.trim().toLowerCase(),
-        ),
-    );
+    const seedDemoUsers =
+      process.env.FWETA_SEED_DEMO === "true" || process.env.NODE_ENV !== "production";
+    const missingAccounts = seedDemoUsers
+      ? DEMO_ACCOUNTS.filter(
+          (account) =>
+            !existing.profiles.some(
+              (p) => p.email.trim().toLowerCase() === account.email.trim().toLowerCase(),
+            ),
+        )
+      : [];
 
     let adminNeedsWrite = false;
     let adminHash: string | null = null;

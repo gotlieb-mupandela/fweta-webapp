@@ -13,6 +13,15 @@ export default function DashboardError({
 }) {
   useEffect(() => {
     console.error("[fweta] dashboard error:", error);
+    void fetch("/api/observability", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        message: error.message,
+        digest: error.digest ?? "",
+        source: "dashboard",
+      }),
+    }).catch(() => undefined);
   }, [error]);
 
   return (

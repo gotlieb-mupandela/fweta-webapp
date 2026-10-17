@@ -23,19 +23,29 @@ export default async function CampaignsPage({
       title="Open campaigns"
       description="Browse content rewards campaigns and start earning."
     >
-      <form className="flex flex-wrap gap-3">
+      <form className="flex flex-wrap gap-3" role="search">
+        <label className="sr-only" htmlFor="campaign-q">
+          Search campaigns
+        </label>
         <input
+          id="campaign-q"
           name="q"
           defaultValue={params.q}
           placeholder="Search…"
           className="input-capsule h-11 min-w-[200px] flex-1"
         />
-        <select name="type" defaultValue={params.type ?? ""} className="input-capsule h-11">
+        <label className="sr-only" htmlFor="campaign-type">
+          Campaign type
+        </label>
+        <select id="campaign-type" name="type" defaultValue={params.type ?? ""} className="input-capsule h-11">
           <option value="">All types</option>
           <option value="clipping">Clipping</option>
           <option value="ugc">UGC</option>
         </select>
-        <select name="platform" defaultValue={params.platform ?? ""} className="input-capsule h-11">
+        <label className="sr-only" htmlFor="campaign-platform">
+          Platform
+        </label>
+        <select id="campaign-platform" name="platform" defaultValue={params.platform ?? ""} className="input-capsule h-11">
           <option value="">All platforms</option>
           <option value="tiktok">TikTok</option>
           <option value="youtube">YouTube</option>

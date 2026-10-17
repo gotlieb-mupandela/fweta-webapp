@@ -23,7 +23,7 @@ This document expands [AGENTS.md](./AGENTS.md) into an actionable build sequence
 | 10 | Brand Portal (full) | Spend analytics, deposits | Done |
 | 11 | Creator Portals (full) | Clipper + influencer earnings | Done |
 | 12 | Admin Portal (full) | Fraud, stats, users, withdrawals | Done |
-| 13 | Payments & Deposits | PayFast/Stripe (optional) | Stub |
+| 13 | Payments & Deposits | Manual deposits and EFT payouts | Done (no gateway) |
 | 14 | Moat | AI review, fraud, analytics | Partial (fraud queue) |
 
 ---
@@ -32,7 +32,7 @@ This document expands [AGENTS.md](./AGENTS.md) into an actionable build sequence
 
 - **Auth:** Cookie JWT (`fweta_session`) with bcrypt email + password. Demo users seeded on first load (`*@fweta.test` / `password123`). The admin account is seeded from `ADMIN_EMAIL` and `ADMIN_PASSWORD`, hashed at seed time.
 - **Data:** File store at `data/store.json` (gitignored). Ledger discipline enforced in `lib/wallet/ledger.ts`.
-- **Jobs:** `POST /api/jobs/poll-views` runs view growth simulation + CPM earnings.
+- **Jobs:** An admin records view counts at `/dashboard/admin/views`, which credits CPM earnings. `POST /api/jobs/housekeeping` ends campaigns, returns unused budget, and releases stale booking holds. It does not fetch views. `/api/jobs/poll-views` returns 410.
 - **Booking model:** Request → accept/decline → deliver → brand approve (documented decision: not instant book).
 - **Currency:** NAD (Namibia). Minimum withdrawal N$100.
 - **Design:** fweta marketing language — white / black / gold, Newsreader + Karla (match fweta.com).
@@ -128,8 +128,10 @@ See git history and routes under `/app` for full deliverables. Original phase ch
 ## Phase 7 — Automation
 
 ### Exit criteria
-- `POST /api/jobs/poll-views` creates snapshots and credits CPM earnings
-- Budget exhaustion ends campaign
+- An admin records a view count, a snapshot is stored, and CPM earnings are credited
+- Daily housekeeping ends a campaign past its end date and returns unused funded budget once
+- Budget exhaustion stops further earnings
+- Official TikTok and Meta view providers are later work, after those developer apps exist
 
 ---
 
@@ -154,10 +156,13 @@ See git history and routes under `/app` for full deliverables. Original phase ch
 
 ---
 
-## Phase 13 — Payments & Deposits (Optional)
+## Phase 13 — Payments & Deposits
 
-- [x] Webhook stub under `/api/webhooks`
-- [ ] PayFast/Stripe live integration
+Owner decision: do not integrate a payment gateway.
+
+- [x] Brand wallet credits are recorded manually
+- [x] Creator withdrawals are manual EFT, marked paid by an admin
+- [x] `/api/webhooks` rejects gateway posts instead of acknowledging them
 
 ---
 
@@ -175,7 +180,7 @@ See git history and routes under `/app` for full deliverables. Original phase ch
 |----------|--------|
 | Platform name | **fweta** |
 | Niche | African creators · Windhoek-built |
-| Brand deposit | Manual credit v1 |
+| Brand deposit | Manual record. No payment gateway. |
 | Influencer booking | Request/accept |
 | Auto-approve submissions | Manual only v1 |
 | Minimum withdrawal | N$100 |
