@@ -1,8 +1,10 @@
 /**
- * Event-driven — notify admin when a creator requests a withdrawal.
+ * Event-driven alert when a creator requests a withdrawal.
+ * In-app notification plus email (Resend) for admins and the creator.
  */
+import { notifyWithdrawalRequested } from "@/lib/notifications/events";
+
 export async function notifyAdminWithdrawal(withdrawalRequestId: string) {
-  // Local MVP: dashboard is source of truth. Wire email provider later.
-  void withdrawalRequestId;
+  await notifyWithdrawalRequested(withdrawalRequestId);
   return { ok: true as const };
 }

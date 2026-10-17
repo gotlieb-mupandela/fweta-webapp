@@ -2,10 +2,22 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { listClipperSubmissions } from "@/app/actions/submissions";
+import { AppealForm } from "@/components/forms/appeal-form";
+import { CreatorViewReportForm } from "@/components/forms/creator-view-report-form";
+import { ContextHelp } from "@/components/onboarding/context-help";
+import { ClipTimeline } from "@/components/rewards/clip-timeline";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+import {
+  PLATFORM_LABEL,
+  clipperClipStatus,
+  lastCheckedLabel,
+  latestConfirmedSnapshot,
+  pendingCreatorSnapshot,
+  qualifiedViewCount,
+} from "@/lib/rewards/content-rewards";
 import { formatMoney, formatNumber } from "@/lib/utils";
 
 export default async function ClipperSubmissionsPage() {
@@ -22,6 +34,11 @@ export default async function ClipperSubmissionsPage() {
   return (
     <div className="dash-stack">
       <PageHeader title="My submissions" description="Track review status and earnings." />
+      <ContextHelp
+        title="Approval or rejection shows here"
+        body="Pending means the brand has not decided. Approved clips can earn after a view check. A rejection includes the brand's note."
+        hint="Submit from the account you posted on so the stats stay with that profile."
+      />
 
       {submissions.length === 0 ? (
         <EmptyState
@@ -37,6 +54,9 @@ export default async function ClipperSubmissionsPage() {
         <ul className="space-y-2.5">
           {submissions.map((s) => {
             const campaign = store.campaigns.find((c) => c.id === s.campaignId);
+            const clipStatus = campaign ? clipperClipStatus(s, campaign, store.submissions) : null;
+            const checked = latestConfirmedSnapshot(store.viewSnapshots, s.id);
+            const waiting = pendingCreatorSnapshot(store.viewSnapshots, s.id);
             return (
               <li key={s.id} className="list-row items-start">
                 <div className="flex w-full flex-wrap items-start justify-between gap-3">
@@ -51,24 +71,34 @@ export default async function ClipperSubmissionsPage() {
                       {s.postUrl}
                     </a>
                     <p className="mt-1 text-xs text-muted">
-                      {s.platform} · {formatNumber(s.views)} views · {formatMoney(s.earningsCents)}
+                      {PLATFORM_LABEL[s.platform]} · {formatNumber(qualifiedViewCount(s))} qualified views ·{" "}
+                      {formatMoney(s.earningsCents)} · {lastCheckedLabel(checked?.recordedAt ?? null)}
                     </p>
-                    {s.reviewNote ? (
-                      <p className="mt-2 text-xs text-muted">Reviewer note: {s.reviewNote}</p>
+                    {waiting ? (
+                      <p className="mt-1 text-xs text-muted">Creator report waiting for confirmation.</p>
+                    ) : null}
+                    {clipStatus?.note ? <p className="mt-1 text-xs text-muted">{clipStatus.note}</p> : null}
+                    {s.status === "rejected" && s.reviewNote ? (
+                      <p className="mt-1 text-xs text-foreground">Brand note: {s.reviewNote}</p>
+                    ) : null}
+                    <ClipTimeline submission={s} />
+                    {s.status !== "rejected" ? <CreatorViewReportForm submissionId={s.id} /> : null}
+                    {s.fraudState === "review" && !s.appealUsed ? (
+                      <div className="mt-3">
+                        <AppealForm submissionId={s.id} />
+                      </div>
                     ) : null}
                   </div>
                   <Badge
                     tone={
-                      s.status === "approved"
+                      clipStatus?.key === "paid"
                         ? "success"
-                        : s.status === "rejected"
+                        : clipStatus?.key === "rejected" || clipStatus?.key === "budget_stopped"
                           ? "danger"
-                          : s.status === "flagged"
-                            ? "gold"
-                            : "muted"
+                          : "gold"
                     }
                   >
-                    {s.status}
+                    {clipStatus?.label ?? s.status}
                   </Badge>
                 </div>
               </li>

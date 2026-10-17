@@ -13,6 +13,15 @@ export default function RootError({
 }) {
   useEffect(() => {
     console.error("[fweta] route error:", error);
+    void fetch("/api/observability", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        message: error.message,
+        digest: error.digest ?? "",
+        source: "route",
+      }),
+    }).catch(() => undefined);
   }, [error]);
 
   return (
@@ -21,7 +30,7 @@ export default function RootError({
         Page unavailable
       </h1>
       <p className="mt-3 max-w-md text-sm leading-relaxed text-muted">
-        Something went wrong loading this page. Try again — if it persists, check your connection
+        Something went wrong loading this page. Try again. If it persists, check your connection
         and Supabase configuration.
       </p>
       {error.digest ? (

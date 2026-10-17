@@ -13,6 +13,10 @@
  */
 
 const DEV_FALLBACK = "fweta-local-dev-secret-change-me";
+const INSECURE_DEFAULTS = new Set([
+  DEV_FALLBACK,
+  "fweta-payout-key-change-me",
+]);
 
 let warnedAuth = false;
 let warnedPayout = false;
@@ -22,12 +26,19 @@ function readEnv(name: "AUTH_SECRET" | "PAYOUT_ENCRYPTION_KEY"): string | undefi
   return value ? value : undefined;
 }
 
+function usableSecret(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  // The documented local default must not sign production sessions.
+  if (process.env.NODE_ENV === "production" && INSECURE_DEFAULTS.has(value)) return undefined;
+  return value;
+}
+
 function requireSecret(kind: "auth" | "payout"): string {
-  const auth = readEnv("AUTH_SECRET");
+  const auth = usableSecret(readEnv("AUTH_SECRET"));
   if (kind === "auth") {
     if (auth) return auth;
   } else {
-    const payout = readEnv("PAYOUT_ENCRYPTION_KEY");
+    const payout = usableSecret(readEnv("PAYOUT_ENCRYPTION_KEY"));
     if (payout) return payout;
     if (auth) return auth;
   }

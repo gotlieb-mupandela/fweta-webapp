@@ -59,7 +59,7 @@ export function WithdrawalForm({
           required
           placeholder="100.00"
         />
-        <p className="mt-1 text-xs text-muted">Minimum N$100. Available balance applies.</p>
+        <p className="mt-1 text-xs text-muted">Minimum N$100. Namibian EFT only. No crypto.</p>
       </div>
       <FieldError>{error}</FieldError>
       <FieldSuccess>{success ? "Withdrawal requested. An admin will process the EFT." : null}</FieldSuccess>

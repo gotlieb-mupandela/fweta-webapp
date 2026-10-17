@@ -16,13 +16,13 @@ Use this as your single checklist. Tick items in order.
 | Wallet, deposits, campaigns | Yes | Depends on persistence |
 | Influencer bookings + escrow | Yes | Depends on persistence |
 | Manual withdrawals (admin EFT) | Yes | Depends on persistence |
-| View polling (Apify) | Yes | Needs `APIFY_API_TOKEN` |
-| Vercel Cron (daily poll) | Yes | Needs **Pro** plan + `CRON_SECRET` |
+| Admin view counts | Yes | Entered at `/dashboard/admin/views` |
+| Vercel Cron (daily housekeeping) | Yes | Daily schedule works on Hobby. Needs `CRON_SECRET` |
 | Trigger.dev | Not wired in code | Optional — cron route is enough |
-| PayFast / Stripe deposits | Stub only | Phase 13 — not built |
+| Brand deposits and creator payouts | Manual, in the product | No payment gateway |
 | Supabase Auth (replace cookie auth) | Not built | Future migration |
-| Email notifications | Stub | Not built |
-| Real TikTok/IG/YouTube APIs | Not built | Apify used instead |
+| Email notifications | Yes (Resend) | Needs `RESEND_API_KEY` and `RESEND_FROM` |
+| Official TikTok / Meta view APIs | Not enabled | Later, after developer apps are approved. Apify is optional. |
 
 **Production health check:** `https://app.fweta.com/api/health/store`  
 You want `"ok": true` and `"profileCount" >= 4` after first login.
@@ -38,7 +38,12 @@ Without this, **every deploy forgets your data** (deposits, campaigns, users).
 Run **in order**, paste full file contents:
 
 1. `supabase/migrations/20260829140000_fweta_app_store.sql` — JSON store (required)
-2. `supabase/migrations/20260829150000_fweta_full_schema.sql` — relational tables (optional for now)
+2. `supabase/migrations/20260829150000_fweta_full_schema.sql` — relational tables
+3. `supabase/migrations/20260830153000_fweta_app_store_grants.sql` — service role grants
+4. `supabase/migrations/20260913140000_avatars_bucket.sql` — avatar storage
+5. `supabase/migrations/20261017160000_production_hardening.sql` — profile columns, campaign `settled_at`, ledger checks, revoke anon access to the store functions
+
+Do not apply these from the app. Paste them in the Supabase SQL editor for the project you create. The hardening migration refuses to replace a populated relational store with an empty profile list, and it revokes `anon` / `authenticated` execute on `fweta_load_store` and `fweta_save_store`.
 
 After running #1, verify:
 
@@ -84,32 +89,50 @@ Default (unset) = JSON blob only — safer for MVP.
 | `SUPABASE_SERVICE_ROLE_KEY` | **Secret** | Supabase **secret** service role key |
 | `NEXT_PUBLIC_APP_URL` | Plain | `https://app.fweta.com` |
 | `CRON_SECRET` | Secret | `openssl rand -base64 32` |
-| `APIFY_API_TOKEN` | Secret | [Apify → Integrations](https://console.apify.com/settings/integrations) |
+| `RESEND_API_KEY` | **Secret** | [Resend API keys](https://resend.com/api-keys) |
+| `RESEND_FROM` | Plain | Address on a verified Resend domain, e.g. `fweta <notifications@fweta.com>` |
+| `APIFY_API_TOKEN` | Secret | Optional. Leave unset and an admin enters view counts. |
 
-**Not needed yet:** `TRIGGER_SECRET_KEY` (jobs use Vercel Cron + `/api/jobs/poll-views`).
+**Not needed yet:** `TRIGGER_SECRET_KEY`. Housekeeping uses Vercel Cron. Leave payment gateway keys unset.
 
 After changing env vars → **Redeploy** (Deployments → … → Redeploy).
 
+### Resend domain
+
+1. In Resend, open **Domains** and add the domain you will send from (for example `fweta.com` or `mail.fweta.com`).
+2. Add the DNS records Resend shows (SPF, DKIM, and the return-path record if one is listed).
+3. Wait until the domain status is **Verified**.
+4. Set `RESEND_FROM` to an address on that domain, such as `fweta <notifications@fweta.com>`.
+5. Set `RESEND_API_KEY` to an API key that can send mail. Keep it server-only.
+6. Set both on Vercel Production and Preview, then redeploy.
+7. `NEXT_PUBLIC_APP_URL` should be `https://app.fweta.com` so email links and the logo resolve.
+
+If either Resend variable is missing, fweta skips the send and logs a warning. In-app notifications still save. Admins can review every template at `/dashboard/admin/emails` without sending.
+
 ---
 
-## 3. Vercel Cron (view polling + earnings)
+## 3. Vercel Cron
 
-- `vercel.json` defines daily cron: `0 5 * * *` → `/api/jobs/poll-views`
-- Requires **Vercel Pro** (Crons not on Hobby)
-- Cron sends `Authorization: Bearer <CRON_SECRET>` — must match env var
+- `vercel.json` schedules `0 * * * *` to `/api/jobs/settle-rewards` and `0 5 * * *` to `/api/jobs/housekeeping`.
+- Settle closes ended campaigns, splits a pool, and releases holds. It does not fetch views.
+- Housekeeping does the same close once a day and releases booking requests older than 14 days.
+- View counts are entered by an admin unless `APIFY_API_TOKEN` is set. Without it, `/api/jobs/poll-views` returns 410.
+- The hourly settle cron needs a Vercel plan that allows more than one cron. The daily housekeeping schedule can run on Hobby by itself.
+- Cron sends `Authorization: Bearer <CRON_SECRET>`, which must match the env var.
 
-**Manual test** (replace secrets):
+**Manual test** (replace the secret):
 
 ```bash
-curl -X POST "https://app.fweta.com/api/jobs/poll-views" \
+curl -X POST "https://app.fweta.com/api/jobs/settle-rewards" \
+  -H "Authorization: Bearer YOUR_CRON_SECRET"
+curl -X POST "https://app.fweta.com/api/jobs/housekeeping" \
   -H "Authorization: Bearer YOUR_CRON_SECRET"
 ```
-
-Without `APIFY_API_TOKEN`, polling **simulates** view growth (fine for demo).
-
 ---
 
-## 4. Demo logins (seeded on first login page load)
+## 4. Demo logins (local only)
+
+These accounts are seeded on the login page **outside production**. Production does not create them unless `FWETA_SEED_DEMO=true`.
 
 | Email | Role | Password |
 |-------|------|----------|
@@ -117,31 +140,31 @@ Without `APIFY_API_TOKEN`, polling **simulates** view growth (fine for demo).
 | `clipper@fweta.test` | Clipper | `password123` |
 | `creator@fweta.test` | Influencer + clipper | `password123` |
 
-Admin login is **not** a shared password. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in the environment (local `.env.local`, and Production + Preview on Vercel). The login page hashes `ADMIN_PASSWORD` and creates or updates that admin account. Until those variables are set, demo brand and creator accounts still seed, and no admin is created.
+Admin login is **not** a shared password. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in the environment (local `.env.local`, and Production + Preview on Vercel). The login page hashes `ADMIN_PASSWORD` and creates or updates that admin account. Until those variables are set, no admin is created. If demo accounts were already written to production, delete the `*@fweta.test` profiles before go-live.
 
 ---
 
 ## 5. Verify production (5 minutes)
 
 1. Open `https://app.fweta.com/api/health/store`  
-   - Expect `"supabase": true`, `"jsonBlob": "ok"`, eventually `"profileCount": 4`
-2. Log in as `brand@fweta.test`
-3. **Deposits** → record N$500
-4. Log out, log in again → wallet should still show N$500  
-   - If **N$0** → persistence still broken (re-check §1)
+   - Expect `"ok": true`, `"mode": "supabase"`, `"checks.jsonBlobLoad": "ok"`
+   - The public check does not write. A save probe is `?probe=1` with `Authorization: Bearer CRON_SECRET`
+2. Log in with `ADMIN_EMAIL`
+3. As a brand (or a brand you create), **Deposits** → record a manual amount
+4. Log out, log in again → the wallet should still show that credit  
+   - If it reset → persistence is still broken (re-check §1)
 5. **New campaign** → set budget, launch active  
-   - Wallet should decrease by budget amount
+   - Wallet should decrease by the budget amount
 
 ---
 
 ## 6. Not built yet (don’t expect these to work)
 
-- **PayFast / Stripe** brand deposits (manual “record deposit” only)
+- **Payment gateway** — owner decision: brand deposits stay manual, creator payouts stay manual EFT. `/api/webhooks` does not accept gateway events.
 - **Trigger.dev** scheduled jobs (use Vercel Cron instead)
-- **Email** on withdrawal / booking
 - **Supabase Auth** (still cookie auth + `password_hash` in store)
 - **AI** content review
-- **Native** TikTok/Instagram/YouTube view APIs (Apify scraper used when token set)
+- **Automatic view counts.** An admin enters them. Later: apply for TikTok and Meta developer apps, then enable the official providers. No scraper.
 
 ---
 

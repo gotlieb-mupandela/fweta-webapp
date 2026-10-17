@@ -1,0 +1,23 @@
+import type { NotificationKind } from "@/lib/db/types";
+
+export const NOTIFICATION_LABEL: Record<NotificationKind, string> = {
+  welcome: "Welcome",
+  campaign_live: "Campaign",
+  campaign_budget_low: "Budget",
+  submission_approved: "Submission",
+  submission_rejected: "Submission",
+  booking_requested: "Booking",
+  booking_accepted: "Booking",
+  booking_declined: "Booking",
+  booking_completed: "Booking",
+  withdrawal_requested: "Payout",
+  withdrawal_paid: "Payout",
+  withdrawal_rejected: "Payout",
+  deposit_confirmed: "Wallet",
+  workspace_invite: "Team",
+  campaign_match: "Campaign",
+  support_reply: "Support",
+  kyc_reviewed: "Identity",
+  prize_awarded: "Prize",
+  referral_bonus: "Referral",
+};

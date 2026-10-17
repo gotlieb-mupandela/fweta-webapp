@@ -1,23 +1,34 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronLeft, Settings } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 
-import { Logo } from "@/components/brand/logo";
+import { MobileMenu } from "@/components/dashboard/mobile-menu";
+import { NotificationBell } from "@/components/dashboard/notification-bell";
+import type { WorkspaceOption } from "@/components/onboarding/workspace-switcher";
 import { getBackHref, getScreenTitle } from "@/lib/dashboard/nav";
 import { cn } from "@/lib/utils";
+import type { UserRole } from "@/types/enums";
 
-export function MobileTopBar({ displayName }: { displayName: string }) {
+export function MobileTopBar({
+  displayName,
+  unreadCount,
+  role,
+  roles,
+  workspaces = [],
+  activeWorkspaceId = null,
+}: {
+  displayName: string;
+  unreadCount: number;
+  role: UserRole;
+  roles: UserRole[];
+  workspaces?: WorkspaceOption[];
+  activeWorkspaceId?: string | null;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const backHref = getBackHref(pathname);
   const title = getScreenTitle(pathname);
-  const initials = displayName
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? "")
-    .join("");
 
   return (
     <header className="public-header sticky top-0 z-40 md:hidden">
@@ -25,6 +36,12 @@ export function MobileTopBar({ displayName }: { displayName: string }) {
         className="flex h-12 items-center gap-2 px-3"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
+        <MobileMenu
+          role={role}
+          roles={roles}
+          workspaces={workspaces}
+          activeWorkspaceId={activeWorkspaceId}
+        />
         {backHref ? (
           <button
             type="button"
@@ -34,36 +51,19 @@ export function MobileTopBar({ displayName }: { displayName: string }) {
           >
             <ChevronLeft className="size-6" strokeWidth={1.75} />
           </button>
-        ) : (
-          <Logo
-            href="/dashboard"
-            size="sm"
-            markOnly
-            className="tab-press -ml-0.5 flex size-11 items-center justify-center rounded-xl active:bg-surface-2"
-          />
-        )}
+        ) : null}
 
+        <span className="sr-only">{displayName}</span>
         <h1
           className={cn(
-            "min-w-0 flex-1 truncate text-center font-display text-[1.35rem] leading-none tracking-tight text-foreground",
+            "min-w-0 flex-1 truncate font-display text-[1.35rem] leading-none tracking-tight text-foreground",
+            backHref ? "text-center" : "text-left",
           )}
         >
           {title}
         </h1>
 
-        <Link
-          href="/dashboard/settings"
-          className="tab-press flex size-11 items-center justify-center rounded-xl active:bg-surface-2"
-          aria-label="Settings"
-        >
-          {initials ? (
-            <span className="flex size-8 items-center justify-center rounded-full border border-border bg-surface-2 text-[11px] font-semibold tracking-tight text-foreground">
-              {initials}
-            </span>
-          ) : (
-            <Settings className="size-5 text-muted" strokeWidth={1.75} />
-          )}
-        </Link>
+        <NotificationBell count={unreadCount} className="md:hidden" />
       </div>
     </header>
   );

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { listFraudFlags } from "@/app/actions/settings";
@@ -5,6 +6,7 @@ import { FraudFlagActions } from "@/components/forms/fraud-flag-actions";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+import { FRAUD_CATEGORY_LABEL } from "@/lib/marketplace/growth";
 
 export default async function AdminFraudPage() {
   const session = await getSession();
@@ -16,7 +18,15 @@ export default async function AdminFraudPage() {
 
   return (
     <div className="dash-stack">
-      <PageHeader title="Fraud review" description="Flagged submissions and resolution queue." />
+      <PageHeader
+        title="Fraud review"
+        description="Uphold forfeits that clip only. Dismiss releases the hold. A manual brand flag does not take the money back."
+        action={
+          <Link href="/legal/abuse" className="section-link">
+            Abuse rules
+          </Link>
+        }
+      />
 
       {flags.length === 0 ? (
         <EmptyState
@@ -35,7 +45,10 @@ export default async function AdminFraudPage() {
                 <div className="w-full space-y-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="font-medium">{f.reason}</p>
+                      <p className="font-medium">
+                        {f.category ? `${FRAUD_CATEGORY_LABEL[f.category]} · ` : ""}
+                        {f.reason}
+                      </p>
                       <p className="text-sm text-muted">
                         {campaign?.title ?? "Unknown campaign"}
                         {submission ? ` · ${submission.postUrl}` : ""}

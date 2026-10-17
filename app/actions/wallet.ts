@@ -12,9 +12,17 @@ import {
   updateStore,
 } from "@/lib/db/store";
 import type { PayoutMethod, WithdrawalRequest } from "@/lib/db/types";
+import {
+  notifyDepositConfirmed,
+  notifyWithdrawalPaid,
+  notifyWithdrawalRejected,
+  notifyWithdrawalRequested,
+} from "@/lib/notifications/events";
 import { adjustWallet, applyWalletDelta, getWallet } from "@/lib/wallet/ledger";
 import { payoutMethodSchema } from "@/lib/validations/payout-method";
-import { withdrawalSchema } from "@/lib/validations/withdrawal";
+import { pushAudit } from "@/lib/marketplace/audit";
+import { payoutIdentityReady } from "@/lib/marketplace/growth";
+import { kycSchema, withdrawalSchema } from "@/lib/validations/withdrawal";
 import { maskAccountNumber } from "@/lib/utils";
 
 const MIN_WITHDRAWAL_CENTS = 10000; // N$100
@@ -42,6 +50,15 @@ export async function adminCreditWalletAction(userId: string, amountCents: numbe
     type: "credit",
     reason: reason || "Admin credit",
     referenceType: "admin_credit",
+  });
+  await updateStore((store) => {
+    pushAudit(store, {
+      actorId: session.id,
+      action: "wallet.credit",
+      summary: reason || "Admin credit",
+      targetType: "profile",
+      targetId: userId,
+    });
   });
   revalidatePath("/dashboard/admin");
   return { ok: true as const };
@@ -130,6 +147,15 @@ export async function requestWithdrawalAction(raw: unknown) {
   }
 
   const store = await readStore();
+  const profile = store.profiles.find((p) => p.id === session.id);
+  if (!payoutIdentityReady(profile?.kyc)) {
+    return {
+      ok: false as const,
+      error: profile?.kyc
+        ? "Your ID is waiting for an admin review before the first payout."
+        : "Add your identity on this page before the first payout.",
+    };
+  }
   const method = store.payoutMethods.find(
     (p) => p.id === parsed.data.payoutMethodId && p.userId === session.id,
   );
@@ -151,6 +177,10 @@ export async function requestWithdrawalAction(raw: unknown) {
   // Atomic: wallet move + withdrawal record + ledger link in one write.
   try {
     await updateStore((s) => {
+      const current = s.profiles.find((p) => p.id === session.id);
+      if (!payoutIdentityReady(current?.kyc)) {
+        throw new Error("Your ID needs an admin review before the first payout.");
+      }
       const { entry } = applyWalletDelta(s, {
         userId: session.id,
         availableDelta: -parsed.data.amountCents,
@@ -171,7 +201,57 @@ export async function requestWithdrawalAction(raw: unknown) {
   revalidatePath("/dashboard/settings/wallet");
   revalidatePath("/dashboard/clipper/earnings");
   revalidatePath("/dashboard/admin/withdrawals");
+  await notifyWithdrawalRequested(req.id);
   return { ok: true as const, id: req.id };
+}
+
+export async function saveKycAction(raw: unknown) {
+  const session = await requireSession();
+  const parsed = kycSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Check the identity details." };
+  }
+  const idNumberEnc = encryptSecret(parsed.data.idNumber.trim());
+  await updateStore((s) => {
+    const profile = s.profiles.find((p) => p.id === session.id);
+    if (!profile) return;
+    profile.kyc = {
+      legalName: parsed.data.legalName.trim(),
+      idNumberEnc,
+      country: parsed.data.country.toUpperCase(),
+      submittedAt: nowIso(),
+      documentPath: profile.kyc?.documentPath ?? null,
+      status: "pending",
+      reviewedAt: null,
+      reviewNote: null,
+    };
+    profile.updatedAt = profile.kyc.submittedAt;
+  });
+  revalidatePath("/dashboard/settings/withdraw");
+  revalidatePath("/dashboard/admin/withdrawals");
+  return { ok: true as const };
+}
+
+export async function getMyKyc() {
+  const session = await requireSession();
+  const store = await readStore();
+  const profile = store.profiles.find((p) => p.id === session.id);
+  if (!profile?.kyc) return null;
+  let idMasked = "****";
+  try {
+    idMasked = maskAccountNumber(decryptSecret(profile.kyc.idNumberEnc));
+  } catch {
+    idMasked = "****";
+  }
+  return {
+    legalName: profile.kyc.legalName,
+    country: profile.kyc.country,
+    idMasked,
+    submittedAt: profile.kyc.submittedAt,
+    status: profile.kyc.status ?? "pending",
+    reviewNote: profile.kyc.reviewNote ?? null,
+    documentOnFile: Boolean(profile.kyc.documentPath),
+  };
 }
 
 export async function listMyWithdrawals() {
@@ -205,6 +285,8 @@ export async function markWithdrawalPaidAction(
 
   try {
     await updateStore((s) => {
+      const current = s.withdrawalRequests.find((x) => x.id === id);
+      if (!current || current.status !== "pending") throw new Error("Already handled.");
       applyWalletDelta(s, {
         userId: req.userId,
         availableDelta: 0,
@@ -220,12 +302,20 @@ export async function markWithdrawalPaidAction(
       w.bankReference = bankReference || null;
       w.paidAt = nowIso();
       w.updatedAt = nowIso();
+      pushAudit(s, {
+        actorId: session.id,
+        action: "withdrawal.paid",
+        summary: `Marked payout paid${bankReference ? ` ${bankReference}` : ""}`,
+        targetType: "withdrawal",
+        targetId: id,
+      });
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
   }
 
   revalidatePath("/dashboard/admin/withdrawals");
+  await notifyWithdrawalPaid(id);
   return { ok: true as const };
 }
 
@@ -238,12 +328,14 @@ export async function rejectWithdrawalAction(id: string, note?: string) {
 
   try {
     await updateStore((s) => {
+      const current = s.withdrawalRequests.find((x) => x.id === id);
+      if (!current || current.status !== "pending") throw new Error("Already handled.");
       applyWalletDelta(s, {
         userId: req.userId,
         availableDelta: req.amountCents,
         pendingDelta: -req.amountCents,
         type: "credit",
-        reason: "Withdrawal rejected — funds restored",
+        reason: "Withdrawal rejected. Funds restored",
         referenceType: "withdrawal",
         referenceId: req.id,
       });
@@ -258,6 +350,7 @@ export async function rejectWithdrawalAction(id: string, note?: string) {
   }
 
   revalidatePath("/dashboard/admin/withdrawals");
+  await notifyWithdrawalRejected(id);
   return { ok: true as const };
 }
 
@@ -291,6 +384,10 @@ export async function brandDepositAction(amountCents: number, note?: string) {
   }
 
   revalidatePath("/dashboard/brand/deposits");
+  revalidatePath("/dashboard/brand");
+  revalidatePath("/dashboard/brand/analytics");
+  revalidatePath("/dashboard/settings/wallet");
+  await notifyDepositConfirmed(id);
   return { ok: true as const };
 }
 

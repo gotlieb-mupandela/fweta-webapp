@@ -15,7 +15,10 @@ export default async function SettingsWalletPage() {
 
   return (
     <div className="dash-stack">
-      <PageHeader title="Wallet" description="Your available and pending balances." />
+      <PageHeader
+        title="Wallet"
+        description="Available can be withdrawn by Namibian EFT. Pending is money set aside until a hold ends. Bank payouts are marked paid by an admin."
+      />
 
       <StatGrid>
         <Stat label="Available" value={formatMoney(wallet.availableCents)} />
@@ -29,7 +32,7 @@ export default async function SettingsWalletPage() {
           </Button>
         </Link>
         <Link href="/dashboard/settings/withdraw">
-          <Button size="sm">Request withdrawal</Button>
+          <Button size="sm">Request a payout</Button>
         </Link>
       </div>
     </div>

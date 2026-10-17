@@ -1,7 +1,5 @@
 /**
- * Scheduled: every hour — fetch view counts from social APIs and store snapshots.
- * Canonical implementation lives in `@/app/actions/jobs` (callable via
- * `/api/jobs/poll-views` or cron); re-exported here under the Trigger.dev
- * job name so `lib/jobs/*` never throws "not implemented".
+ * Re-export. Without Apify this does not fetch views.
+ * Settlement without a view fetch lives at `/api/jobs/settle-rewards`.
  */
 export { pollSubmissionViewsJob as pollSubmissionViews } from "@/app/actions/jobs";

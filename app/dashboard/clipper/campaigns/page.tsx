@@ -1,97 +1,97 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { listActiveCampaignsPublic } from "@/app/actions/campaigns";
-import { listClipperSubmissions } from "@/app/actions/submissions";
-import { SubmitClipForm } from "@/components/forms/submit-clip-form";
-import { Badge, Card, EmptyState, PageHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { listActiveCampaignsPublic, listDiscoverCategories } from "@/app/actions/campaigns";
+import { CampaignCard } from "@/components/rewards/campaign-card";
+import { DiscoverFilters } from "@/components/rewards/discover-filters";
+import { InfluencerOffers } from "@/components/rewards/influencer-offers";
+import { EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
-import { formatMoney } from "@/lib/utils";
 
-export default async function ClipperCampaignsPage() {
+function nadToCents(value?: string): number | undefined {
+  if (!value) return undefined;
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return undefined;
+  return Math.round(amount * 100);
+}
+
+export default async function ClipperCampaignsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    q?: string;
+    type?: string;
+    platform?: string;
+    category?: string;
+    sort?: string;
+    payModel?: string;
+    country?: string;
+    minRate?: string;
+    minBudget?: string;
+  }>;
+}) {
   const session = await getSession();
   if (!session?.roles.includes("clipper") && !session?.roles.includes("admin")) {
     redirect("/dashboard");
   }
 
-  const [campaigns, submissions] = await Promise.all([
-    listActiveCampaignsPublic(),
-    listClipperSubmissions(),
+  const params = await searchParams;
+  const [rows, categories] = await Promise.all([
+    listActiveCampaignsPublic({
+      q: params.q,
+      type: params.type,
+      platform: params.platform,
+      category: params.category,
+      sort: params.sort,
+      payModel: params.payModel,
+      country: params.country,
+      minRateCents: nadToCents(params.minRate),
+      minBudgetCents: nadToCents(params.minBudget),
+    }),
+    listDiscoverCategories(),
   ]);
 
   return (
     <div className="dash-stack">
       <PageHeader
-        title="Active campaigns"
-        description="Join open campaigns and submit your clips."
+        title="Discover"
+        description="CPM and pool campaigns. The rate on the card is what you receive."
       />
+      <DiscoverFilters
+        q={params.q}
+        type={params.type}
+        platform={params.platform}
+        category={params.category}
+        sort={params.sort}
+        payModel={params.payModel}
+        country={params.country}
+        minRate={params.minRate}
+        minBudget={params.minBudget}
+        categories={categories}
+      />
+      <InfluencerOffers />
 
-      {campaigns.length === 0 ? (
+      {rows.length === 0 ? (
         <EmptyState
-          title="No active campaigns"
-          description="Check back soon for new clipping and UGC opportunities."
+          title="No campaigns match"
+          description="Try another filter, or check the public marketplace."
           action={
-            <Link href="/campaigns">
-              <Button size="sm" variant="secondary">
-                Browse marketplace
-              </Button>
+            <Link href="/campaigns" className="section-link">
+              Open marketplace
             </Link>
           }
         />
       ) : (
-        <ul className="space-y-3.5">
-          {campaigns.map((c) => {
-            const remaining = Math.max(0, c.budgetTotalCents - c.budgetSpentCents);
-            const excerpt =
-              c.description.length > 180 ? `${c.description.slice(0, 180)}…` : c.description;
-            const mine = submissions.filter((s) => s.campaignId === c.id);
-            return (
-              <li key={c.id}>
-                <Card className="panel-interactive">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-display text-xl tracking-tight">{c.title}</h3>
-                      <p className="mt-1.5 text-sm leading-relaxed text-muted">{excerpt}</p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Badge tone="gold">{c.type}</Badge>
-                        <Badge>{c.category}</Badge>
-                        <Badge tone="muted">CPM {formatMoney(c.cpmCents)}</Badge>
-                        <Badge tone="muted">Max {formatMoney(c.maxPayoutPerSubmissionCents)}</Badge>
-                        <Badge tone="muted">Left {formatMoney(remaining)}</Badge>
-                      </div>
-                      <p className="mt-2.5 text-xs text-muted">
-                        {c.platforms.join(" · ")}
-                        {c.endDate ? ` · Ends ${c.endDate.slice(0, 10)}` : ""}
-                      </p>
-                      {c.requirements ? (
-                        <p className="mt-2 whitespace-pre-wrap text-xs text-muted">{c.requirements}</p>
-                      ) : null}
-                      <Link
-                        href={`/campaigns/${c.id}`}
-                        className="mt-2.5 inline-block text-xs font-medium text-gold-deep hover:underline"
-                      >
-                        Open campaign page →
-                      </Link>
-                    </div>
-                  </div>
-                  {mine.length > 0 ? (
-                    <p className="mt-3 text-xs text-muted">
-                      You have {mine.length} submission{mine.length === 1 ? "" : "s"} on this campaign
-                      ({mine.map((s) => s.status).join(", ")}).
-                    </p>
-                  ) : null}
-                  <div className="mt-4 border-t border-border/80 pt-4">
-                    <SubmitClipForm
-                      campaignId={c.id}
-                      platforms={c.platforms}
-                      remainingBudgetCents={remaining}
-                    />
-                  </div>
-                </Card>
-              </li>
-            );
-          })}
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {rows.map((row) => (
+            <li key={row.campaign.id}>
+              <CampaignCard
+                campaign={row.campaign}
+                approvedClips={row.approvedClips}
+                href={`/campaigns/${row.campaign.id}`}
+              />
+            </li>
+          ))}
         </ul>
       )}
     </div>
