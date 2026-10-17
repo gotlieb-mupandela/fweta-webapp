@@ -12,6 +12,12 @@ import {
   updateStore,
 } from "@/lib/db/store";
 import type { PayoutMethod, WithdrawalRequest } from "@/lib/db/types";
+import {
+  notifyDepositConfirmed,
+  notifyWithdrawalPaid,
+  notifyWithdrawalRejected,
+  notifyWithdrawalRequested,
+} from "@/lib/notifications/events";
 import { adjustWallet, applyWalletDelta, getWallet } from "@/lib/wallet/ledger";
 import { payoutMethodSchema } from "@/lib/validations/payout-method";
 import { withdrawalSchema } from "@/lib/validations/withdrawal";
@@ -171,6 +177,7 @@ export async function requestWithdrawalAction(raw: unknown) {
   revalidatePath("/dashboard/settings/wallet");
   revalidatePath("/dashboard/clipper/earnings");
   revalidatePath("/dashboard/admin/withdrawals");
+  await notifyWithdrawalRequested(req.id);
   return { ok: true as const, id: req.id };
 }
 
@@ -226,6 +233,7 @@ export async function markWithdrawalPaidAction(
   }
 
   revalidatePath("/dashboard/admin/withdrawals");
+  await notifyWithdrawalPaid(id);
   return { ok: true as const };
 }
 
@@ -258,6 +266,7 @@ export async function rejectWithdrawalAction(id: string, note?: string) {
   }
 
   revalidatePath("/dashboard/admin/withdrawals");
+  await notifyWithdrawalRejected(id);
   return { ok: true as const };
 }
 
@@ -294,6 +303,7 @@ export async function brandDepositAction(amountCents: number, note?: string) {
   revalidatePath("/dashboard/brand");
   revalidatePath("/dashboard/brand/analytics");
   revalidatePath("/dashboard/settings/wallet");
+  await notifyDepositConfirmed(id);
   return { ok: true as const };
 }
 

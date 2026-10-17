@@ -37,6 +37,8 @@ const emptyStore = (): DatabaseStore => ({
   bookings: [],
   brandDeposits: [],
   fraudFlags: [],
+  notifications: [],
+  notificationDispatches: [],
 });
 
 declare global {

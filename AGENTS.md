@@ -266,6 +266,8 @@ Not required for MVP — track in product design for later.
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=          # Server only — never expose
+RESEND_API_KEY=                     # Server only — never expose
+RESEND_FROM=                        # Verified domain, e.g. fweta <notifications@fweta.com>
 TRIGGER_SECRET_KEY=                 # Or INNGEST_* keys
 # Future: social API keys for view polling
 # Future: Stripe/PayFast for brand deposits

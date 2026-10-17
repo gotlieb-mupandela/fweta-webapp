@@ -4,6 +4,12 @@ import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
+import {
+  notifyBookingAccepted,
+  notifyBookingCompleted,
+  notifyBookingDeclined,
+  notifyBookingRequested,
+} from "@/lib/notifications/events";
 import type { Booking } from "@/lib/db/types";
 import { applyWalletDelta } from "@/lib/wallet/ledger";
 import { bookingSchema } from "@/lib/validations/booking";
@@ -75,6 +81,7 @@ export async function requestBookingAction(raw: unknown) {
 
   revalidatePath("/dashboard/brand/bookings");
   revalidatePath("/dashboard/influencer/bookings");
+  await notifyBookingRequested(booking.id);
   return { ok: true as const, id: booking.id };
 }
 
@@ -120,6 +127,8 @@ export async function respondBookingAction(id: string, accept: boolean) {
 
   revalidatePath("/dashboard/influencer/bookings");
   revalidatePath("/dashboard/brand/bookings");
+  if (accept) await notifyBookingAccepted(id);
+  else await notifyBookingDeclined(id);
   return { ok: true as const };
 }
 
@@ -191,6 +200,7 @@ export async function approveBookingAction(id: string) {
 
   revalidatePath("/dashboard/brand/bookings");
   revalidatePath("/dashboard/influencer/bookings");
+  await notifyBookingCompleted(id);
   return { ok: true as const };
 }
 

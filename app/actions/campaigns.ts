@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getSession, requireSession } from "@/lib/auth/session";
 import { syncCampaignHold } from "@/lib/campaigns/fund";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
+import { notifyCampaignLive } from "@/lib/notifications/events";
 import type { Campaign } from "@/lib/db/types";
 import {
   campaignCreateSchema,
@@ -82,6 +83,9 @@ export async function createCampaignAction(raw: unknown) {
   revalidatePath("/dashboard/settings/wallet");
   revalidatePath("/dashboard/clipper/campaigns");
   revalidatePath("/campaigns");
+  if (campaign.status === "active") {
+    await notifyCampaignLive(campaign.id);
+  }
   return { ok: true as const, id: campaign.id };
 }
 
@@ -138,6 +142,7 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
   const session = await requireSession();
   if (!assertBrand(session.roles)) return { ok: false as const, error: "Brand role required." };
 
+  let becameActive = false;
   try {
     await updateStore((s) => {
       const c = s.campaigns.find((x) => x.id === id);
@@ -146,6 +151,7 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
         throw new Error("Not allowed.");
       }
       if (status === "active" && c.status !== "active") {
+        becameActive = true;
         syncCampaignHold(s, c, c.budgetTotalCents, "Campaign budget allocated");
       }
       if (status === "completed" && c.status !== "completed") {
@@ -162,6 +168,7 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
   }
+  if (becameActive) await notifyCampaignLive(id);
   revalidatePath(`/dashboard/brand/campaigns/${id}`);
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/brand");
