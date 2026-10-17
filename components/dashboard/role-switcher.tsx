@@ -19,10 +19,12 @@ export function RoleSwitcher({
   roles,
   current,
   compact = false,
+  id = "role-switcher",
 }: {
   roles: UserRole[];
   current: UserRole;
   compact?: boolean;
+  id?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -52,12 +54,12 @@ export function RoleSwitcher({
 
   return (
     <div className={cn("relative", compact ? "w-full" : "w-full")}>
-      <label className="sr-only" htmlFor="role-switcher">
+      <label className="sr-only" htmlFor={id}>
         Switch role
       </label>
       <div className="relative">
         <select
-          id="role-switcher"
+          id={id}
           value={current}
           disabled={pending}
           onChange={(e) => switchRole(e.target.value as UserRole)}

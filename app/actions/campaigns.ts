@@ -232,6 +232,7 @@ export async function duplicateCampaignAction(id: string) {
     unspentReturnedCents: 0,
     poolSettledAt: null,
     closedAt: null,
+    settledAt: null,
     createdAt: now,
     updatedAt: now,
   };

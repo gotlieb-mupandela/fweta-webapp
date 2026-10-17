@@ -1,17 +1,20 @@
 import { NextResponse } from "next/server";
 
+import { activeStoreDriver } from "@/lib/db/adapter";
 import { diagnoseLocalStore } from "@/lib/db/store";
-import {
-  diagnoseSupabaseStore,
-  isSupabaseStoreEnabled,
-} from "@/lib/db/supabase-store";
+import { diagnoseSupabaseStore } from "@/lib/db/supabase-store";
+import { safeBearerEqual } from "@/lib/security/bearer";
 
-export async function GET() {
-  if (!isSupabaseStoreEnabled()) {
+export const dynamic = "force-dynamic";
+
+export async function GET(request: Request) {
+  const driver = activeStoreDriver();
+  if (driver === "file") {
     const local = await diagnoseLocalStore();
     return NextResponse.json({
       ok: local.persisted,
       mode: "local",
+      driver,
       profileCount: local.profileCount,
       campaignCount: local.campaignCount,
       submissionCount: local.submissionCount,
@@ -26,22 +29,31 @@ export async function GET() {
     });
   }
 
-  const diag = await diagnoseSupabaseStore();
+  const secret = process.env.CRON_SECRET?.trim() ?? "";
+  const probe =
+    secret.length > 0 &&
+    safeBearerEqual(request.headers.get("authorization"), secret) &&
+    new URL(request.url).searchParams.get("probe") === "1";
+  const diag = await diagnoseSupabaseStore({ probe });
   return NextResponse.json({
-    ok: diag.jsonBlobLoadOk && diag.jsonBlobSaveOk,
+    ok: diag.jsonBlobLoadOk,
     mode: "supabase",
+    driver,
     relationalSync: process.env.FWETA_RELATIONAL_SYNC === "true",
     profileCount: diag.profileCount,
     checks: {
       jsonBlobLoad: diag.jsonBlobLoadOk ? "ok" : diag.jsonBlobLoadError,
-      jsonBlobSave: diag.jsonBlobSaveOk ? "ok" : diag.jsonBlobSaveError,
+      jsonBlobSave: probe ? (diag.jsonBlobSaveOk ? "ok" : diag.jsonBlobSaveError) : "not probed",
       relationalLoad: diag.relationalLoadOk ? "ok" : diag.relationalLoadError,
     },
-    hint:
-      !diag.jsonBlobSaveOk
-        ? "JSON save failed — run supabase/migrations/20260829140000_fweta_app_store.sql and verify SUPABASE_SERVICE_ROLE_KEY is the SECRET key (not publishable)."
-        : diag.profileCount === 0
-          ? "Store empty — log in once at /login to seed demo users, then re-check."
-          : null,
+    hint: !diag.jsonBlobLoadOk
+      ? "JSON load failed — run supabase/migrations in order and verify SUPABASE_SERVICE_ROLE_KEY is the secret key."
+      : !probe
+        ? "Read-only check. Call with ?probe=1 and Authorization: Bearer CRON_SECRET to test a write."
+        : !diag.jsonBlobSaveOk
+          ? "JSON save probe failed. Confirm the service role key and fweta_app_store grants."
+          : diag.profileCount === 0
+            ? "Store is empty. Sign in once so the admin seed can run, then re-check."
+            : null,
   });
 }

@@ -14,4 +14,5 @@ export const NOTIFICATION_LABEL: Record<NotificationKind, string> = {
   withdrawal_paid: "Payout",
   withdrawal_rejected: "Payout",
   deposit_confirmed: "Wallet",
+  workspace_invite: "Team",
 };

@@ -49,7 +49,11 @@ export function Label({
 
 export function FieldError({ children }: { children?: React.ReactNode }) {
   if (!children) return null;
-  return <p className="mt-1.5 text-sm text-danger">{children}</p>;
+  return (
+    <p role="alert" className="mt-1.5 text-sm text-danger">
+      {children}
+    </p>
+  );
 }
 
 export function FieldSuccess({ children }: { children?: React.ReactNode }) {

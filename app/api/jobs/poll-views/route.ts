@@ -1,18 +1,37 @@
 import { NextResponse } from "next/server";
 
+import { pollSubmissionViewsJob } from "@/app/actions/jobs";
+import { authorizeCron } from "@/lib/security/cron";
+import { isApifyConfigured } from "@/lib/social/apify";
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const body = {
-  ok: false,
-  error: "View checks are manual. Earnings update when an admin saves a count.",
-};
-
-/** Disabled. View polling must not run. */
-export function GET() {
-  return NextResponse.json(body, { status: 410 });
+/**
+ * Without Apify, view checks stay on the admin form and this route returns 410.
+ * With Apify configured, a valid cron bearer fetches counts and settles earnings.
+ */
+async function handle(request: Request) {
+  if (!authorizeCron(request)) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+  if (!isApifyConfigured()) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "View polling is off. An admin enters view counts, and earnings follow from that number.",
+      },
+      { status: 410 },
+    );
+  }
+  const result = await pollSubmissionViewsJob();
+  return NextResponse.json({ ok: true, ...result });
 }
 
-export function POST() {
-  return NextResponse.json(body, { status: 410 });
+export async function GET(request: Request) {
+  return handle(request);
+}
+
+export async function POST(request: Request) {
+  return handle(request);
 }

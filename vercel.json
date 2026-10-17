@@ -4,6 +4,10 @@
     {
       "path": "/api/jobs/settle-rewards",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/jobs/housekeeping",
+      "schedule": "0 5 * * *"
     }
   ]
 }

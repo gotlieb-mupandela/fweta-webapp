@@ -10,6 +10,8 @@ import {
 } from "@/lib/auth/session";
 import { nowIso, readStore, updateStore } from "@/lib/db/store";
 import { clawbackSubmission } from "@/lib/rewards/earnings";
+import { clientIp } from "@/lib/security/client-ip";
+import { rateLimit } from "@/lib/security/rate-limit";
 import {
   notificationPrefsSchema,
   passwordChangeSchema,
@@ -85,17 +87,29 @@ export async function changePasswordAction(raw: unknown) {
       error: parsed.error.issues[0]?.message ?? "Check password fields.",
     };
   }
+  const limited = rateLimit(`password:${await clientIp()}:${session.id}`, 5, 15 * 60 * 1000);
+  if (!limited.ok) {
+    return { ok: false as const, error: `Too many attempts. Try again in ${limited.retryAfterSec}s.` };
+  }
   const profile = await getProfileById(session.id);
   if (!profile) return { ok: false as const, error: "Not found." };
   const ok = await bcrypt.compare(parsed.data.currentPassword, profile.passwordHash);
   if (!ok) return { ok: false as const, error: "Current password incorrect." };
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+  let nextVersion = (profile.credentialVersion ?? 0) + 1;
   await updateStore((s) => {
     const p = s.profiles.find((x) => x.id === session.id);
     if (!p) return;
     p.passwordHash = passwordHash;
+    p.credentialVersion = (p.credentialVersion ?? 0) + 1;
+    nextVersion = p.credentialVersion;
     p.updatedAt = nowIso();
   });
+  const updated = await getProfileById(session.id);
+  if (updated) {
+    updated.credentialVersion = nextVersion;
+    await refreshSessionFromProfile(updated);
+  }
   return { ok: true as const };
 }
 

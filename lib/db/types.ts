@@ -116,6 +116,8 @@ export type Profile = {
     country: string;
     submittedAt: string;
   } | null;
+  /** Bumped on password change so older session cookies stop working. */
+  credentialVersion?: number;
 };
 
 export type CampaignAsset = {
@@ -167,6 +169,8 @@ export type Campaign = {
   endDate: string | null;
   /** Set when the campaign belongs to a brand workspace. Missing on older rows. */
   workspaceId?: string | null;
+  /** Set when unused budget has been returned. Further view credits stop. */
+  settledAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -266,6 +270,7 @@ export type LedgerEntry = {
     | "campaign_clawback"
     | "campaign_fee"
     | "campaign_fund"
+    | "campaign_settlement"
     | "withdrawal"
     | "booking_escrow"
     | "booking_release"
@@ -422,7 +427,8 @@ export type NotificationKind =
   | "withdrawal_requested"
   | "withdrawal_paid"
   | "withdrawal_rejected"
-  | "deposit_confirmed";
+  | "deposit_confirmed"
+  | "workspace_invite";
 
 export type AppNotification = {
   id: string;

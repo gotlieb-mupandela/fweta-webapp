@@ -46,7 +46,7 @@ export default async function BrandTeamPage() {
       />
       <ContextHelp
         title="Roles on a brand"
-        body="Owners and managers can edit campaigns and invite people. Viewers can look at the workspace. An invite is accepted by signing in with that email."
+        body="Owners and managers can edit campaigns and invite people. Viewers can look at the workspace. The invited person accepts from the banner at the top of their workspace."
         hint="Adding another brand creates a separate workspace. Campaigns stay with the brand that was open when you created them."
       />
       <Card className="panel-interactive space-y-4">

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { AdminViewForm, BulkViewForm, ConfirmViewForm } from "@/components/forms/view-check-forms";
+import { AdminViewForm, BulkViewForm, ConfirmViewForm, ViewCheckNotice } from "@/components/forms/view-check-forms";
 import type { PendingViewReport, ViewCheckRow } from "@/components/forms/view-check-forms";
 import { EmptyState, PageHeader, SectionHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
@@ -87,6 +87,7 @@ export default async function AdminViewChecksPage() {
         title="View checks"
         description="Saving a count updates that clip's earnings, the creator wallet, the campaign budget, and the leaderboard immediately. The bank payout stays a manual EFT."
       />
+      <ViewCheckNotice />
 
       <section className="space-y-3">
         <SectionHeader title="Creator reports" />

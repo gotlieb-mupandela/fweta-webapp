@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 import type { CampaignDefaults } from "@/components/onboarding/campaign-step";
+import { sessionGate } from "@/lib/auth/session-gate";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import {
@@ -34,6 +35,10 @@ export default async function OnboardingPage({
   const store = await readStore();
   const profile = store.profiles.find((item) => item.id === session.id);
   if (!profile) redirect("/login");
+  const gate = sessionGate(session, profile);
+  if (gate === "suspended" || gate === "expired") {
+    redirect(`/api/auth/end-session?reason=${gate}`);
+  }
   if (profile.roles.includes("admin") && profile.roles.length === 1) redirect("/dashboard");
   if (isLegacyAccount(profile)) redirect("/dashboard");
 

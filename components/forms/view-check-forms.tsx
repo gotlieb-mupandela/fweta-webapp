@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { confirmCreatorViewAction, saveAdminViewAction, saveBulkViewsAction } from "@/app/actions/views";
@@ -33,6 +33,38 @@ export type PendingViewReport = {
   screenshotPath: string | null;
   reportedAt: string;
 };
+
+const NOTICE_KEY = "fweta-view-notice";
+
+function rememberNotice(message: string) {
+  try {
+    sessionStorage.setItem(NOTICE_KEY, message);
+  } catch {
+    // The in-form message still shows when the row stays on the page.
+  }
+}
+
+export function ViewCheckNotice() {
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(NOTICE_KEY);
+      if (!saved) return;
+      sessionStorage.removeItem(NOTICE_KEY);
+      setMessage(saved);
+    } catch {
+      setMessage(null);
+    }
+  }, []);
+
+  if (!message) return null;
+  return (
+    <p className="rounded-2xl border border-border bg-white px-4 py-3 text-sm text-foreground" role="status">
+      {message}
+    </p>
+  );
+}
 
 function CountFields({
   viewsDefault,
@@ -81,6 +113,7 @@ export function AdminViewForm({ row }: { row: ViewCheckRow }) {
           if (!res.ok) setError(res.error);
           else {
             setSuccess(res.message);
+            rememberNotice(res.message);
             router.refresh();
           }
         });
@@ -125,6 +158,7 @@ export function ConfirmViewForm({ report }: { report: PendingViewReport }) {
           if (!res.ok) setError(res.error);
           else {
             setSuccess(res.message);
+            rememberNotice(res.message);
             router.refresh();
           }
         });
@@ -185,6 +219,7 @@ export function BulkViewForm({ rows }: { rows: ViewCheckRow[] }) {
           if (!res.ok) setError(res.error);
           else {
             setSuccess(res.message);
+            rememberNotice(res.message);
             router.refresh();
           }
         });

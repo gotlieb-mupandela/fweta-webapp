@@ -108,7 +108,7 @@ export async function pollSubmissionViewsJob(asOf?: string) {
 
 /**
  * Ledger-only settlement. Closes ended campaigns, splits a pool, and releases holds
- * from counts already confirmed. Does not fetch views.
+ * from counts already confirmed. Does not fetch views. Skips a campaign already settled.
  */
 export async function settleRewardsJob(asOf?: string) {
   const nowMs = resolveNow(asOf);
@@ -116,7 +116,11 @@ export async function settleRewardsJob(asOf?: string) {
   let released = 0;
   let clawed = 0;
   await updateStore((s) => {
-    for (const campaign of s.campaigns) finalizeCampaign(s, campaign, nowMs);
+    for (const campaign of s.campaigns) {
+      if (campaign.settledAt) continue;
+      finalizeCampaign(s, campaign, nowMs);
+      if (campaign.closedAt && !campaign.settledAt) campaign.settledAt = campaign.closedAt;
+    }
     for (const sub of s.submissions) {
       if (sub.status !== "approved") continue;
       const result = settleSubmission(s, sub.id, nowMs, sub.postLive, sub.postLive != null);

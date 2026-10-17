@@ -8,7 +8,7 @@ import type { DatabaseStore, Submission, ViewSnapshot } from "@/lib/db/types";
 import { applyFraudScore } from "@/lib/rewards/fraud";
 import { applyConfirmedViews } from "@/lib/rewards/earnings";
 import { recordViewsSchema } from "@/lib/validations/accounts";
-import { bulkViewsSchema, confirmViewSchema, viewCountSchema, type ViewCountInput } from "@/lib/validations/views";
+import { bulkViewsSchema, confirmViewSchema, manualViewsSchema, viewCountSchema, type ViewCountInput } from "@/lib/validations/views";
 import { saveViewScreenshot } from "@/lib/views/screenshots";
 
 function revalidateViewSurfaces(campaignIds: string[]) {
@@ -366,4 +366,34 @@ export async function recordSubmissionViewsAction(raw: unknown) {
 
   revalidateViewSurfaces(campaignId ? [campaignId] : []);
   return { ok: true as const, creditedCents: 0 };
+}
+
+/** Admin total used by the simple view form. Earnings follow the saved count. */
+export async function setManualViewsAction(raw: unknown) {
+  const session = await requireSession();
+  if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
+  const parsed = manualViewsSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false as const, error: "Enter a whole view count." };
+
+  const nowMs = Date.now();
+  let campaignId = "";
+  try {
+    await updateStore((store) => {
+      const submission = assertApproved(store.submissions.find((item) => item.id === parsed.data.submissionId));
+      const campaign = store.campaigns.find((item) => item.id === submission.campaignId);
+      if (campaign?.settledAt || campaign?.closedAt) {
+        throw new Error("This campaign is already settled. Further views are not paid.");
+      }
+      if (parsed.data.views < submission.views) {
+        throw new Error("Views cannot go backwards.");
+      }
+      campaignId = submission.campaignId;
+      if (parsed.data.views === submission.views) return;
+      commitConfirmed(store, submission, parsed.data, "admin", session.id, null, nowMs);
+    });
+  } catch (err) {
+    return { ok: false as const, error: err instanceof Error ? err.message : "Could not save the count." };
+  }
+  revalidateViewSurfaces(campaignId ? [campaignId] : []);
+  return { ok: true as const };
 }

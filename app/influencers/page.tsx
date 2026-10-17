@@ -22,14 +22,22 @@ export default async function InfluencersPage({
       title="Influencers"
       description="Browse creator profiles and book at listed rates."
     >
-      <form className="flex flex-wrap gap-3">
+      <form className="flex flex-wrap gap-3" role="search">
+        <label className="sr-only" htmlFor="influencer-q">
+          Search influencers
+        </label>
         <input
+          id="influencer-q"
           name="q"
           defaultValue={params.q}
           placeholder="Search…"
           className="input-capsule h-11 min-w-[200px] flex-1"
         />
+        <label className="sr-only" htmlFor="influencer-niche">
+          Niche
+        </label>
         <input
+          id="influencer-niche"
           name="niche"
           defaultValue={params.niche}
           placeholder="Niche"

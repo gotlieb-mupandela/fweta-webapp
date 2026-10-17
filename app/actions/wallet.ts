@@ -260,6 +260,8 @@ export async function markWithdrawalPaidAction(
 
   try {
     await updateStore((s) => {
+      const current = s.withdrawalRequests.find((x) => x.id === id);
+      if (!current || current.status !== "pending") throw new Error("Already handled.");
       applyWalletDelta(s, {
         userId: req.userId,
         availableDelta: 0,
@@ -294,6 +296,8 @@ export async function rejectWithdrawalAction(id: string, note?: string) {
 
   try {
     await updateStore((s) => {
+      const current = s.withdrawalRequests.find((x) => x.id === id);
+      if (!current || current.status !== "pending") throw new Error("Already handled.");
       applyWalletDelta(s, {
         userId: req.userId,
         availableDelta: req.amountCents,

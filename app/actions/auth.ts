@@ -13,12 +13,23 @@ import {
 } from "@/lib/auth/session";
 import { loginSchema, signupSchema } from "@/lib/validations/auth";
 import { updateStore, nowIso } from "@/lib/db/store";
+import { clientIp } from "@/lib/security/client-ip";
+import { rateLimit } from "@/lib/security/rate-limit";
 import type { UserRole } from "@/types/enums";
 
 export async function loginAction(input: { email: string; password: string }) {
+  const ip = await clientIp();
+  const burst = rateLimit(`login:${ip}`, 20, 15 * 60 * 1000);
+  if (!burst.ok) {
+    return { ok: false as const, error: `Too many attempts. Try again in ${burst.retryAfterSec}s.` };
+  }
   await seedDemoAccounts().catch(() => undefined);
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: "Invalid email or password." };
+  const limited = rateLimit(`login:${ip}:${parsed.data.email}`, 8, 15 * 60 * 1000);
+  if (!limited.ok) {
+    return { ok: false as const, error: `Too many attempts. Try again in ${limited.retryAfterSec}s.` };
+  }
   return login(parsed.data);
 }
 
@@ -30,6 +41,11 @@ export async function signupAction(input: {
 }) {
   const parsed = signupSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: "Check your details and try again." };
+  const ip = await clientIp();
+  const limited = rateLimit(`signup:${ip}`, 5, 60 * 60 * 1000);
+  if (!limited.ok) {
+    return { ok: false as const, error: `Too many signups from this network. Try again in ${limited.retryAfterSec}s.` };
+  }
   return signup(parsed.data);
 }
 

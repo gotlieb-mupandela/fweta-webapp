@@ -5,14 +5,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Logo } from "@/components/brand/logo";
+import { LegalFooter } from "@/components/legal-footer";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { loginAction } from "@/app/actions/auth";
+import { safeNextPath } from "@/lib/security/safe-next";
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/dashboard";
+  const next = safeNextPath(searchParams.get("next"));
+  const reason = searchParams.get("reason");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -38,7 +41,7 @@ export function LoginForm() {
         </p>
       </aside>
 
-      <div className="auth-panel bg-atmosphere">
+      <div id="main" className="auth-panel bg-atmosphere">
         <div className="auth-card animate-soft-scale">
           <div className="mb-8 flex items-center justify-between md:hidden">
             <Logo size="sm" />
@@ -59,6 +62,17 @@ export function LoginForm() {
           </h1>
           <p className="mt-3 text-sm text-muted">Access your fweta workspace with email and password.</p>
           <div className="hairline-gold my-7" />
+
+          {reason === "suspended" ? (
+            <p role="status" className="mb-4 text-sm text-danger">
+              This account is suspended.
+            </p>
+          ) : null}
+          {reason === "expired" ? (
+            <p role="status" className="mb-4 text-sm text-muted">
+              Your session ended. Sign in again.
+            </p>
+          ) : null}
 
           <form
             className="space-y-4"
@@ -100,6 +114,8 @@ export function LoginForm() {
               {pending ? "Signing in…" : "Continue"}
             </Button>
           </form>
+
+          <LegalFooter className="mt-8 w-full justify-center" />
 
           <p className="mt-6 text-center text-sm text-muted md:hidden">
             No account?{" "}

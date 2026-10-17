@@ -11,6 +11,15 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error("[fweta] global error:", error);
+    void fetch("/api/observability", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        message: error.message,
+        digest: error.digest ?? "",
+        source: "global",
+      }),
+    }).catch(() => undefined);
   }, [error]);
 
   return (

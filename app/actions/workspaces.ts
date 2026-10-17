@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getProfileById, refreshSessionFromProfile, requireSession } from "@/lib/auth/session";
 import { newId, nowIso, updateStore } from "@/lib/db/store";
+import { pushNotification } from "@/lib/notifications/inbox";
 import type { WorkspaceRole } from "@/lib/db/types";
 import {
   canInviteRole,
@@ -18,6 +19,7 @@ function revalidateTeam() {
   revalidatePath("/dashboard/brand/team");
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/admin/workspaces");
+  revalidatePath("/dashboard/notifications");
   revalidatePath("/dashboard");
 }
 
@@ -122,8 +124,9 @@ export async function inviteMemberAction(raw: unknown) {
       const known = store.profiles.find((item) => item.email.trim().toLowerCase() === email);
       const now = nowIso();
       if (!store.workspaceMembers) store.workspaceMembers = [];
+      const memberId = newId();
       store.workspaceMembers.push({
-        id: newId(),
+        id: memberId,
         workspaceId,
         userId: null,
         email: known?.email ?? parsed.data.email.trim(),
@@ -132,6 +135,19 @@ export async function inviteMemberAction(raw: unknown) {
         createdAt: now,
         updatedAt: now,
       });
+      if (known && !known.suspended) {
+        const workspace = (store.workspaces ?? []).find((item) => item.id === workspaceId);
+        pushNotification(store, {
+          id: newId(),
+          userId: known.id,
+          kind: "workspace_invite",
+          title: "Brand invite",
+          body: `${profile.displayName} invited you to ${workspace?.name ?? "a brand"} as ${parsed.data.role}. Accept it from the banner in your workspace.`,
+          href: "/dashboard",
+          readAt: null,
+          createdAt: now,
+        });
+      }
     });
   } catch (err) {
     return { ok: false as const, error: err instanceof Error ? err.message : "Could not send the invite." };

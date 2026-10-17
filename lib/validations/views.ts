@@ -19,3 +19,5 @@ export const confirmViewSchema = viewCountSchema.extend({
 });
 
 export type ViewCountInput = z.infer<typeof viewCountSchema>;
+
+export const manualViewsSchema = viewCountSchema.pick({ submissionId: true, views: true });

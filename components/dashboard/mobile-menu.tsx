@@ -60,7 +60,7 @@ export function MobileMenu({
               </button>
             </div>
             <div className="mb-4 space-y-2">
-              <RoleSwitcher roles={roles} current={role} />
+              <RoleSwitcher roles={roles} current={role} id="role-switcher-mobile" />
               {role === "brand" ? (
                 <WorkspaceSwitcher workspaces={workspaces} activeId={activeWorkspaceId} />
               ) : null}
