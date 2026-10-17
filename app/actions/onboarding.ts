@@ -27,6 +27,8 @@ import {
   CREATOR_INTERESTS,
   type StepPatch,
 } from "@/lib/onboarding/model";
+import { readPublicProfileHtml } from "@/lib/onboarding/profile-html";
+import { ensureOwnedWorkspace } from "@/lib/onboarding/workspaces";
 import {
   onboardingCampaignSchema,
   onboardingHandleSchema,
@@ -34,17 +36,6 @@ import {
   onboardingStepSchema,
 } from "@/lib/validations/onboarding";
 import type { SocialPlatform } from "@/types/enums";
-
-const ALLOWED_HOSTS = new Set([
-  "www.tiktok.com",
-  "tiktok.com",
-  "www.instagram.com",
-  "instagram.com",
-  "www.youtube.com",
-  "youtube.com",
-  "x.com",
-  "www.x.com",
-]);
 
 const INTEREST_SET = new Set<string>(CREATOR_INTERESTS);
 
@@ -185,36 +176,7 @@ function finalize(store: DatabaseStore, profile: Profile, now: string) {
 }
 
 async function readPublicHtml(url: string): Promise<string | null> {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return null;
-  }
-  if (parsed.protocol !== "https:" || !ALLOWED_HOSTS.has(parsed.hostname)) return null;
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
-  try {
-    const response = await fetch(parsed.toString(), {
-      method: "GET",
-      redirect: "follow",
-      signal: controller.signal,
-      headers: {
-        accept: "text/html",
-        "user-agent": "FwetaBioCheck/1.0",
-      },
-    });
-    if (!response.ok) return null;
-    const finalUrl = new URL(response.url);
-    if (finalUrl.protocol !== "https:" || !ALLOWED_HOSTS.has(finalUrl.hostname)) return null;
-    const text = await response.text();
-    return text.slice(0, 400_000);
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
+  return readPublicProfileHtml(url);
 }
 
 export async function saveOnboardingStepAction(raw: unknown): Promise<Saved | Failed> {
@@ -509,6 +471,8 @@ export async function saveOnboardingCampaignAction(raw: unknown): Promise<Saved 
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
         };
+        const workspaceId = ensureOwnedWorkspace(store, profile, now, newId);
+        if (workspaceId) nextCampaign.workspaceId = existing?.workspaceId ?? workspaceId;
         if (existing) Object.assign(existing, nextCampaign);
         else store.campaigns.push(nextCampaign);
         draft.campaignId = nextCampaign.id;

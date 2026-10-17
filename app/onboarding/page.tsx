@@ -75,6 +75,7 @@ export default async function OnboardingPage({
         initialStepId,
         avatarUrl: profile.avatarUrl,
         hasPayout,
+        accounts: (store.socialAccounts ?? []).filter((account) => account.userId === profile.id),
         campaignDefaults,
         deposit: depositInstructions(profile.id, {
           bankName: process.env.FWETA_DEPOSIT_BANK_NAME,

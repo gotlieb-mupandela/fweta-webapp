@@ -8,6 +8,8 @@ import { SubmitClipForm } from "@/components/forms/submit-clip-form";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
+import { readStore } from "@/lib/db/store";
+import { accountsForUser } from "@/lib/onboarding/accounts";
 import { formatMoney } from "@/lib/utils";
 
 export default async function PublicCampaignPage({
@@ -20,6 +22,17 @@ export default async function PublicCampaignPage({
   if (!campaign || campaign.status !== "active") notFound();
 
   const session = await getSession();
+  const store = await readStore();
+  const accounts = session
+    ? accountsForUser(store.socialAccounts, session.id)
+        .filter((account) => account.status === "verified" && campaign.platforms.includes(account.platform))
+        .map((account) => ({
+          id: account.id,
+          handle: account.handle,
+          platform: account.platform,
+          isDefault: account.isDefault,
+        }))
+    : [];
   const canSubmit = Boolean(
     session && (session.roles.includes("clipper") || session.roles.includes("admin")),
   );
@@ -92,6 +105,7 @@ export default async function PublicCampaignPage({
                   campaignId={campaign.id}
                   platforms={campaign.platforms}
                   remainingBudgetCents={remaining}
+                  accounts={accounts}
                 />
               </div>
             </Card>

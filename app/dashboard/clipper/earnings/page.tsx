@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getMyLedger, getMyWallet } from "@/app/actions/wallet";
+import { ContextHelp } from "@/components/onboarding/context-help";
 import { EmptyState, PageHeader, SectionHeader, Stat, StatGrid } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
@@ -17,6 +18,11 @@ export default async function ClipperEarningsPage() {
   return (
     <div className="dash-stack">
       <PageHeader title="Earnings" description="Campaign earnings and ledger history." />
+      <ContextHelp
+        title="Earnings follow a view check"
+        body="Approved clips earn after an admin records qualified views. The amount is the rate per 1,000 views, capped by the per-clip maximum and the budget still left."
+        hint="A rejection does not earn. The note on the submission explains why."
+      />
 
       <StatGrid>
         <Stat label="Available" value={formatMoney(wallet.availableCents)} />
@@ -31,8 +37,8 @@ export default async function ClipperEarningsPage() {
         <SectionHeader title="Ledger" />
         {ledger.length === 0 ? (
           <EmptyState
-            title="No transactions yet"
-            description="Approved clip earnings will show up here."
+            title="No earnings yet"
+            description="Earnings appear after a clip is approved and an admin records its views."
           />
         ) : (
           <ul className="space-y-2.5">

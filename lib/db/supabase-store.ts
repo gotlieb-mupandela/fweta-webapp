@@ -18,6 +18,9 @@ const emptyStore = (): DatabaseStore => ({
   bookings: [],
   brandDeposits: [],
   fraudFlags: [],
+  socialAccounts: [],
+  workspaces: [],
+  workspaceMembers: [],
 });
 
 function supabaseUrl(): string | undefined {

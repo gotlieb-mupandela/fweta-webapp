@@ -9,7 +9,9 @@ import { getSession } from "@/lib/auth/session";
 
 const LINKS = [
   { href: "/dashboard/settings/profile", label: "Profile", desc: "Display name and bio" },
-  { href: "/dashboard/settings/roles", label: "Roles", desc: "Brand, influencer, clipper" },
+  { href: "/dashboard/settings/roles", label: "Roles", desc: "Brand and creator on one login" },
+  { href: "/dashboard/settings/accounts", label: "Social accounts", desc: "Several accounts per platform" },
+  { href: "/help", label: "Help center", desc: "First campaign, first clip, first payout" },
   { href: "/dashboard/settings/notifications", label: "Notifications", desc: "Email preferences" },
   { href: "/dashboard/settings/security", label: "Security", desc: "Change password" },
   { href: "/dashboard/settings/wallet", label: "Wallet", desc: "Balance overview" },

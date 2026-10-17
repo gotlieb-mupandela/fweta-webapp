@@ -14,7 +14,7 @@ import { PayoutStep } from "@/components/onboarding/payout-step";
 import { SocialStep } from "@/components/onboarding/social-step";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
-import type { OnboardingDraft, OnboardingStepId } from "@/lib/db/types";
+import type { OnboardingDraft, OnboardingStepId, SocialAccount } from "@/lib/db/types";
 import {
   CREATOR_INTERESTS,
   STEP_COPY,
@@ -39,6 +39,7 @@ export type OnboardingBoot = {
   deposit: DepositInstructions;
   hasPayout: boolean;
   campaignDefaults: CampaignDefaults | null;
+  accounts: SocialAccount[];
 };
 
 type StepResult = Awaited<ReturnType<typeof saveOnboardingStepAction>>;
@@ -123,7 +124,14 @@ export function OnboardingWizard({ boot }: { boot: OnboardingBoot }) {
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">Setup saved</p>
           <h1 className="font-display text-4xl tracking-tight">You&apos;re in.</h1>
           <p className="text-sm leading-relaxed text-muted">
-            Your workspace is ready. Anything you skipped stays on the checklist.
+            {brand && !creator
+              ? "Next, create a draft campaign if you have not yet, request a transfer, and go live after an admin confirms the funds."
+              : creator && !brand
+                ? "Next, add any extra social accounts, then submit your first clip from a live campaign."
+                : "Use the role switcher to move between brand and creator. Each side has its own next step."}
+          </p>
+          <p className="text-sm leading-relaxed text-muted">
+            Anything you skipped stays on the checklist at the top of the workspace.
           </p>
           <Button type="button" onClick={() => router.push("/dashboard")}>
             Go to dashboard
@@ -138,6 +146,9 @@ export function OnboardingWizard({ boot }: { boot: OnboardingBoot }) {
       <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-4 py-5 sm:px-6 md:py-10">
         <header className="mb-6 flex items-center justify-between gap-3">
           <Logo size="sm" href="/dashboard" />
+          <a href="/help" className="text-sm font-medium text-muted hover:text-foreground">
+            Help
+          </a>
           <button
             type="button"
             onClick={exitSetup}
@@ -148,6 +159,11 @@ export function OnboardingWizard({ boot }: { boot: OnboardingBoot }) {
           </button>
         </header>
 
+        {index === 0 ? (
+          <p className="mb-4 rounded-2xl border border-border bg-white px-4 py-3 text-sm leading-relaxed text-muted">
+            Welcome. This setup is short, and you can leave a step for later. The dashboard then shows the next useful action, from the first campaign to the first payout.
+          </p>
+        ) : null}
         <div className="mb-5">
           <div className="mb-2 flex items-center justify-between text-xs font-medium text-muted">
             <span>
@@ -358,7 +374,7 @@ function StepBody({
   }
 
   if (stepId === "socials") {
-    return <SocialStep draft={draft} onDraft={setDraft} />;
+    return <SocialStep draft={draft} accounts={boot.accounts} onDraft={setDraft} />;
   }
 
   if (stepId === "payout") {

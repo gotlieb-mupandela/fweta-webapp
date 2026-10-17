@@ -4,10 +4,12 @@ import { notFound, redirect } from "next/navigation";
 import { getCampaign } from "@/app/actions/campaigns";
 import { listCampaignSubmissions } from "@/app/actions/submissions";
 import { SubmissionReviewForm } from "@/components/forms/submission-review-form";
+import { ContextHelp } from "@/components/onboarding/context-help";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+import { canEditCampaign, canViewCampaign } from "@/lib/onboarding/access";
 import { formatMoney, formatNumber } from "@/lib/utils";
 
 export default async function CampaignSubmissionsPage({
@@ -23,9 +25,11 @@ export default async function CampaignSubmissionsPage({
 
   const campaign = await getCampaign(id);
   if (!campaign) notFound();
-  if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
+  const accessStore = await readStore();
+  if (!canViewCampaign(accessStore, session, campaign)) {
     redirect("/dashboard/brand/campaigns");
   }
+  const canEdit = canEditCampaign(accessStore, session, campaign);
 
   const [submissions, store] = await Promise.all([
     listCampaignSubmissions(id),
@@ -46,10 +50,16 @@ export default async function CampaignSubmissionsPage({
         }
       />
 
+      <ContextHelp
+        title="First review"
+        body="Approve a clip that matches the brief, or reject it with a short note. Approved clips can earn after an admin records views."
+        hint="A viewer can read the queue. Owners and managers decide."
+      />
+
       {submissions.length === 0 ? (
         <EmptyState
-          title="No submissions"
-          description="Clippers haven't submitted clips yet."
+          title="No clips yet"
+          description="When a creator submits a link, approve it or reject it from this queue."
         />
       ) : (
         <ul className="space-y-2.5">
@@ -88,7 +98,7 @@ export default async function CampaignSubmissionsPage({
                       {s.status}
                     </Badge>
                   </div>
-                  {s.status === "pending" ? (
+                  {s.status === "pending" && canEdit ? (
                     <div className="border-t border-border/80 pt-3">
                       <SubmissionReviewForm submissionId={s.id} />
                     </div>

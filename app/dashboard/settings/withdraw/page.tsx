@@ -6,6 +6,7 @@ import {
   getMyWallet,
   listMyWithdrawals,
 } from "@/app/actions/wallet";
+import { ContextHelp } from "@/components/onboarding/context-help";
 import { WithdrawalForm } from "@/components/forms/withdrawal-form";
 import { Badge, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,11 @@ export default async function SettingsWithdrawPage() {
   return (
     <div className="dash-stack">
       <PageHeader title="Withdraw" description="Request a manual EFT payout (min N$100)." />
+      <ContextHelp
+        title="Payouts are sent by hand"
+        body="Request a withdrawal from the available balance. An admin pays it by EFT to the bank details you saved and then marks it paid."
+        hint="The minimum withdrawal is N$100. Bank details stay masked after you save them."
+      />
 
       {!method ? (
         <EmptyState

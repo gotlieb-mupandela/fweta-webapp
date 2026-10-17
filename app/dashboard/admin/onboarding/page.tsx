@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ContextHelp } from "@/components/onboarding/context-help";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
@@ -33,6 +34,22 @@ export default async function AdminOnboardingPage() {
         title="Onboarding"
         description="See who finished setup, who left early, and which steps are still open."
       />
+      <ContextHelp
+        title="Your first admin checks"
+        body="Confirm a brand pay-in before their campaign can go live, then record views on approved clips so earnings calculate automatically. Teams, extra brands, and social accounts are listed in the admin menu."
+        hint="This page is the setup status for every account. Pay-ins and view checks are the actions only an admin can take."
+      />
+      <div className="flex flex-wrap gap-2">
+        <Link href="/dashboard/admin/payins" className="list-row inline-flex">
+          <span className="text-sm font-medium">Open pay-ins</span>
+        </Link>
+        <Link href="/dashboard/admin/views" className="list-row inline-flex">
+          <span className="text-sm font-medium">Open view checks</span>
+        </Link>
+        <Link href="/help" className="list-row inline-flex">
+          <span className="text-sm font-medium">Help center</span>
+        </Link>
+      </div>
 
       {rows.length === 0 ? (
         <EmptyState title="No accounts yet" description="Signup progress will show up here." />
@@ -62,6 +79,11 @@ export default async function AdminOnboardingPage() {
                   {row.skipped.length > 0 ? (
                     <p className="mt-1 text-xs text-muted">Skipped: {row.skipped.join(", ")}</p>
                   ) : null}
+                  <p className="mt-1 text-xs text-muted">
+                    {(store.socialAccounts ?? []).filter((account) => account.userId === row.userId).length} social accounts
+                    {" · "}
+                    {(store.workspaceMembers ?? []).filter((member) => member.userId === row.userId).length} brand memberships
+                  </p>
                 </div>
                 <div className="w-full sm:w-36">
                   <div

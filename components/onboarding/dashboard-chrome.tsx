@@ -1,8 +1,10 @@
 import { Suspense } from "react";
 
 import { OnboardingChecklist } from "@/components/onboarding/checklist";
+import { JourneyPanel } from "@/components/onboarding/journey-panel";
 import { ProductTour } from "@/components/onboarding/tour";
 import { readStore } from "@/lib/db/store";
+import { journeyFactsFromStore, openJourneyMoment } from "@/lib/onboarding/journey";
 import {
   checklistItems,
   completionPercent,
@@ -28,11 +30,17 @@ export async function DashboardOnboarding({
   const items = checklistItems(profile, { hasPayout });
   const showChecklist = shouldShowChecklist(profile, { hasPayout });
   const replayHref = `/dashboard/${role}?tour=1`;
+  const moment = openJourneyMoment(journeyFactsFromStore(store, profile, role));
 
   return (
     <>
       {showChecklist ? (
         <OnboardingChecklist items={items} percent={completionPercent(items)} replayHref={replayHref} />
+      ) : null}
+      {moment ? (
+        <div className="mb-5">
+          <JourneyPanel moment={moment} />
+        </div>
       ) : null}
       <Suspense fallback={null}>
         <ProductTour

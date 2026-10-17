@@ -7,6 +7,8 @@ import { SubmitClipForm } from "@/components/forms/submit-clip-form";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
+import { readStore } from "@/lib/db/store";
+import { accountsForUser } from "@/lib/onboarding/accounts";
 import { formatMoney } from "@/lib/utils";
 
 export default async function ClipperCampaignsPage() {
@@ -15,10 +17,19 @@ export default async function ClipperCampaignsPage() {
     redirect("/dashboard");
   }
 
-  const [campaigns, submissions] = await Promise.all([
+  const [campaigns, submissions, store] = await Promise.all([
     listActiveCampaignsPublic(),
     listClipperSubmissions(),
+    readStore(),
   ]);
+  const accounts = accountsForUser(store.socialAccounts, session.id)
+    .filter((account) => account.status === "verified")
+    .map((account) => ({
+      id: account.id,
+      handle: account.handle,
+      platform: account.platform,
+      isDefault: account.isDefault,
+    }));
 
   return (
     <div className="dash-stack">
@@ -86,6 +97,7 @@ export default async function ClipperCampaignsPage() {
                       campaignId={c.id}
                       platforms={c.platforms}
                       remainingBudgetCents={remaining}
+                      accounts={accounts.filter((account) => c.platforms.includes(account.platform))}
                     />
                   </div>
                 </Card>

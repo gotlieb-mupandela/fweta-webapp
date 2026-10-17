@@ -340,7 +340,14 @@ test("onboarding copy has no em dashes", () => {
   const roots = [
     "components/onboarding",
     "app/onboarding",
+    "app/help",
     "app/dashboard/admin/onboarding",
+    "app/dashboard/admin/payins",
+    "app/dashboard/admin/views",
+    "app/dashboard/admin/accounts",
+    "app/dashboard/admin/workspaces",
+    "app/dashboard/brand/team",
+    "app/dashboard/settings/accounts",
     "lib/onboarding",
   ];
   const files: string[] = [];

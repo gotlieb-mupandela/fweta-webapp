@@ -6,6 +6,7 @@ export const submissionSchema = z.object({
   campaignId: z.string().uuid(),
   postUrl: z.string().url(),
   platform: socialPlatformSchema,
+  socialAccountId: z.string().uuid().optional(),
 });
 
 export const submissionReviewSchema = z.object({
