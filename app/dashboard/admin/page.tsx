@@ -1,85 +1,53 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { adminListUsers, getPlatformStats } from "@/app/actions/settings";
+import { adminListUsers } from "@/app/actions/settings";
 import { listPendingWithdrawalsAdmin } from "@/app/actions/wallet";
 import { AdminCreditForm } from "@/components/forms/admin-credit-form";
 import { PageHeader, SectionHeader, Stat, StatGrid } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
-import { formatMoney } from "@/lib/utils";
-
-const QUICK_LINKS = [
-  { href: "/dashboard/admin/withdrawals", label: "Withdrawal queue" },
-  { href: "/dashboard/admin/users", label: "User management" },
-  { href: "/dashboard/admin/onboarding", label: "Onboarding status" },
-  { href: "/dashboard/admin/payins", label: "Confirm pay-ins" },
-  { href: "/dashboard/admin/views", label: "View checks" },
-  { href: "/dashboard/admin/accounts", label: "Social accounts" },
-  { href: "/dashboard/admin/workspaces", label: "Teams and brands" },
-  { href: "/dashboard/admin/fraud", label: "Fraud review" },
-  { href: "/dashboard/admin/stats", label: "Platform stats" },
-  { href: "/dashboard/admin/emails", label: "Email previews" },
-];
+import { readStore } from "@/lib/db/store";
+import { latestConfirmedSnapshot } from "@/lib/rewards/content-rewards";
 
 export default async function AdminDashboardPage() {
   const session = await getSession();
-  if (!session?.roles.includes("admin")) {
-    redirect("/dashboard");
-  }
+  if (!session?.roles.includes("admin")) redirect("/dashboard");
 
-  const [stats, withdrawals, users] = await Promise.all([
-    getPlatformStats(),
+  const [withdrawals, users, store] = await Promise.all([
     listPendingWithdrawalsAdmin(),
     adminListUsers(),
+    readStore(),
   ]);
 
-  const pending = withdrawals.filter((w) => w.status === "pending").length;
+  const payIns = store.brandDeposits.filter((deposit) => deposit.status === "pending").length;
+  const payouts = withdrawals.filter((withdrawal) => withdrawal.status === "pending").length;
+  const flags = store.fraudFlags.filter((flag) => flag.status === "open").length;
+  const pendingReports = store.viewSnapshots.filter((snap) => snap.status === "pending").length;
+  const unchecked = store.submissions.filter((submission) => {
+    if (submission.status !== "approved" || submission.payoutState === "clawed_back") return false;
+    const campaign = store.campaigns.find((item) => item.id === submission.campaignId);
+    if (!campaign || campaign.status !== "active") return false;
+    return !latestConfirmedSnapshot(store.viewSnapshots, submission.id);
+  }).length;
+  const viewChecks = pendingReports + unchecked;
 
   return (
     <div className="dash-stack">
       <PageHeader
-        title="Admin overview"
-        description="Withdrawal queue, manual EFT payouts, and platform oversight."
-        action={
-          <Link href="/dashboard/admin/withdrawals">
-            <Button variant="secondary" size="sm">
-              Withdrawals ({pending})
-            </Button>
-          </Link>
-        }
+        title="Overview"
+        description="What needs a person before money moves. Open a number to work that queue."
       />
 
-      {stats ? (
-        <StatGrid>
-          <Stat label="Users" value={String(stats.users)} />
-          <Stat label="Active campaigns" value={String(stats.activeCampaigns)} />
-          <Stat label="Pending withdrawals" value={String(stats.pendingWithdrawals)} />
-          <Stat label="Open fraud flags" value={String(stats.openFraudFlags)} />
-        </StatGrid>
-      ) : null}
+      <StatGrid>
+        <Stat href="/dashboard/admin/payins" label="Pay-ins to confirm" value={String(payIns)} hint="Brand transfers waiting" />
+        <Stat href="/dashboard/admin/views" label="View checks due" value={String(viewChecks)} hint="Reports and clips with no count" />
+        <Stat href="/dashboard/admin/withdrawals" label="Payouts due" value={String(payouts)} hint="Creator withdrawals" />
+        <Stat href="/dashboard/admin/fraud" label="Flags" value={String(flags)} hint="Open fraud reviews" />
+      </StatGrid>
 
-      <div className="dash-split">
-        <AdminCreditForm users={users.map((u) => ({ id: u.id, email: u.email }))} />
-        <section>
-          <SectionHeader title="Quick links" />
-          <ul className="space-y-2.5">
-            {QUICK_LINKS.map((l) => (
-              <li key={l.href}>
-                <Link href={l.href} className="list-row">
-                  <span className="text-sm font-medium">{l.label}</span>
-                  <span className="text-muted-light" aria-hidden>
-                    ›
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          {stats ? (
-            <p className="mt-5 text-sm text-muted">GMV tracked: {formatMoney(stats.gmvCents)}</p>
-          ) : null}
-        </section>
-      </div>
+      <section>
+        <SectionHeader title="Credit a wallet" />
+        <AdminCreditForm users={users.map((user) => ({ id: user.id, email: user.email }))} />
+      </section>
     </div>
   );
 }

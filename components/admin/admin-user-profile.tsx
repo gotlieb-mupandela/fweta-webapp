@@ -24,7 +24,7 @@ const RATE_LABEL: Record<string, string> = {
 };
 
 function formatWhen(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return "Not set";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleString("en-NA", { dateStyle: "medium", timeStyle: "short" });
@@ -225,12 +225,12 @@ export function AdminUserProfile({ dossier }: { dossier: AdminUserDossier }) {
         <dl className="mt-5 grid grid-cols-2 divide-x divide-y divide-border border-t border-border sm:grid-cols-4 sm:divide-y-0">
           <Stat
             label="Available"
-            value={dossier.wallet ? formatMoney(dossier.wallet.availableCents) : "—"}
+            value={dossier.wallet ? formatMoney(dossier.wallet.availableCents) : "Not set"}
             hint={dossier.wallet ? undefined : "No wallet row"}
           />
           <Stat
             label="Pending"
-            value={dossier.wallet ? formatMoney(dossier.wallet.pendingCents) : "—"}
+            value={dossier.wallet ? formatMoney(dossier.wallet.pendingCents) : "Not set"}
           />
           <Stat label="Clips" value={formatNumber(dossier.submissions.length)} />
           <Stat label="Bookings" value={formatNumber(dossier.bookings.length)} />

@@ -4,7 +4,7 @@
   --background: #f4f3ef;
   --foreground: #12110f;
   --muted: #6f6b63;
-  --muted-light: #9a958c;
+  --muted-light: #5c5852;
   --border: #e4e1da;
   --border-strong: #d0cbc2;
   --gold: #b8962e;
@@ -424,6 +424,53 @@ h3,
 
 .pt-safe {
   padding-top: var(--safe-top);
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold-deep);
+  outline-offset: 2px;
+}
+
+.skeleton {
+  border-radius: 1rem;
+  background: linear-gradient(90deg, #e7e3db 0%, #f6f4ef 45%, #e7e3db 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.data-table th {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.data-table td {
+  padding: 0.9rem 1rem;
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.data-table tbody tr:hover {
+  background: #fcfbf8;
 }
 
 /* Mobile auth — full-bleed form, less “website card” */

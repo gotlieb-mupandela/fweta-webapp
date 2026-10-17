@@ -48,7 +48,7 @@ export function SignupForm() {
             One account. Multiple ways to earn and grow.
           </h2>
           <p className="text-sm leading-relaxed text-white/65">
-            Join as a creator, influencer, business — or all three. Switch roles anytime from
+            Join as a creator, influencer, business, or all three. Switch roles anytime from
             settings.
           </p>
         </div>

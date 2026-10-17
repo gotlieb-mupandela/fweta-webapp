@@ -53,13 +53,13 @@ export default async function InfluencerDashboardPage() {
       />
 
       <StatGrid>
-        <Stat label="Wallet" value={formatMoney(wallet.availableCents)} />
-        <Stat label="Active rates" value={String(activeRates)} />
-        <Stat label="Pending bookings" value={String(pendingBookings)} />
+        <Stat label="Available" value={formatMoney(wallet.availableCents)} hint="Ready to withdraw" />
+        <Stat label="Pending" value={formatMoney(wallet.pendingCents)} hint="Held until a booking clears" />
+        <Stat label="Bookings waiting" value={String(pendingBookings)} />
         <Stat
-          label="Profile"
-          value={profile?.published ? "Published" : "Draft"}
-          hint={profile?.slug ? `/influencers/${profile.slug}` : undefined}
+          label="Active rates"
+          value={String(activeRates)}
+          hint={profile?.published ? "Profile is public" : "Profile is still a draft"}
         />
       </StatGrid>
 

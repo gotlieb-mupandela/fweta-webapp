@@ -39,7 +39,7 @@ export function syncCampaignHold(
     const wallet = store.wallets.find((w) => w.userId === campaign.brandId);
     if (!wallet || wallet.availableCents < delta) {
       throw new Error(
-        `Insufficient wallet balance. You need ${formatMoney(delta)} available — record a deposit first.`,
+        `Insufficient wallet balance. You need ${formatMoney(delta)} available. Record a deposit first.`,
       );
     }
     applyWalletDelta(store, {

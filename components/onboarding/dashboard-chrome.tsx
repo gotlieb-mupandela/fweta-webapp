@@ -36,8 +36,7 @@ export async function DashboardOnboarding({
     <>
       {showChecklist ? (
         <OnboardingChecklist items={items} percent={completionPercent(items)} replayHref={replayHref} />
-      ) : null}
-      {moment ? (
+      ) : moment ? (
         <div className="mb-5">
           <JourneyPanel moment={moment} />
         </div>

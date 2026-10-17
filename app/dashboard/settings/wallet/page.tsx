@@ -32,7 +32,7 @@ export default async function SettingsWalletPage() {
           </Button>
         </Link>
         <Link href="/dashboard/settings/withdraw">
-          <Button size="sm">Request withdrawal</Button>
+          <Button size="sm">Request a payout</Button>
         </Link>
       </div>
     </div>

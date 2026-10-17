@@ -299,7 +299,7 @@ export async function rejectWithdrawalAction(id: string, note?: string) {
         availableDelta: req.amountCents,
         pendingDelta: -req.amountCents,
         type: "credit",
-        reason: "Withdrawal rejected — funds restored",
+        reason: "Withdrawal rejected. Funds restored",
         referenceType: "withdrawal",
         referenceId: req.id,
       });

@@ -21,7 +21,7 @@ export default function RootError({
         Page unavailable
       </h1>
       <p className="mt-3 max-w-md text-sm leading-relaxed text-muted">
-        Something went wrong loading this page. Try again — if it persists, check your connection
+        Something went wrong loading this page. Try again. If it persists, check your connection
         and Supabase configuration.
       </p>
       {error.digest ? (

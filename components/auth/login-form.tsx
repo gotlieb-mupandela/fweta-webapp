@@ -26,7 +26,7 @@ export function LoginForm() {
             Your workspace for campaigns, bookings, and payouts.
           </h2>
           <p className="text-sm leading-relaxed text-white/65">
-            Sign in to manage creator commerce — budgets, submissions, escrow, and EFT withdrawals
+            Sign in to manage creator commerce: budgets, submissions, escrow, and EFT withdrawals
             in one place.
           </p>
         </div>

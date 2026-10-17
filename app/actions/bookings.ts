@@ -104,7 +104,7 @@ export async function respondBookingAction(id: string, accept: boolean) {
           availableDelta: booking.amountCents,
           pendingDelta: -booking.amountCents,
           type: "credit",
-          reason: "Booking declined — escrow refunded",
+          reason: "Booking declined. Escrow refunded",
           referenceType: "booking_refund",
           referenceId: booking.id,
         });
@@ -173,7 +173,7 @@ export async function approveBookingAction(id: string) {
         availableDelta: 0,
         pendingDelta: -b.amountCents,
         type: "debit",
-        reason: "Booking approved — escrow released",
+        reason: "Booking approved. Escrow released",
         referenceType: "booking_release",
         referenceId: b.id,
       });
