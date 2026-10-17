@@ -15,8 +15,8 @@ import { loadStoreFromSupabase, saveStoreToSupabase } from "./supabase-store";
  * - Local dev (no Supabase keys, or FWETA_STORE=file): data/store.json
  * - Production (Supabase URL + service role key): Postgres JSON document,
  *   with optional relational tables when FWETA_RELATIONAL_SYNC=true.
- * A failed Supabase load throws. It does not switch to an empty file and
- * write that back. See lib/db/adapter.ts.
+ * A failed Supabase load serves an empty view for that request and does not
+ * write it back. See lib/db/adapter.ts.
  */
 const DATA_DIR =
   process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
@@ -59,6 +59,8 @@ declare global {
 
 let writeQueue: Promise<void> = Promise.resolve();
 let initPromise: Promise<DatabaseStore> | null = null;
+/** True when the last Supabase load failed. Reads stay empty and writes are refused. */
+let remoteLoadFailed = false;
 
 function cloneStore(store: DatabaseStore): DatabaseStore {
   // Prevent callers mutating the cached store outside updateStore().
@@ -113,15 +115,24 @@ async function initStore(): Promise<DatabaseStore> {
   }
 
   if (activeStoreDriver() === "supabase") {
-    const fromRemote = await loadStoreFromSupabase();
-    if (!fromRemote) {
-      throw new Error(
-        "[fweta] Supabase store could not be loaded. Refusing to cache an empty store.",
-      );
+    try {
+      const fromRemote = await loadStoreFromSupabase();
+      if (!fromRemote) {
+        remoteLoadFailed = true;
+        console.warn(
+          "[fweta] Supabase store could not be loaded. Serving an empty view for this request and not writing it back.",
+        );
+        return hydrateStoreCampaigns(emptyStore());
+      }
+      remoteLoadFailed = false;
+      const store = hydrateStoreCampaigns(fromRemote);
+      globalThis.__fwetaStore = store;
+      return store;
+    } catch (err) {
+      remoteLoadFailed = true;
+      console.warn("[fweta] ensureStore supabase failed:", err instanceof Error ? err.message : err);
+      return hydrateStoreCampaigns(emptyStore());
     }
-    const store = hydrateStoreCampaigns(fromRemote);
-    globalThis.__fwetaStore = store;
-    return store;
   }
 
   const fromDisk = await loadFromDisk();
@@ -157,6 +168,10 @@ export async function updateStore(
   // all future writes (previously `writeQueue.then(...)` stayed rejected).
   const run = writeQueue.catch(() => undefined).then(async () => {
     const current = await ensureStore();
+    if (activeStoreDriver() === "supabase" && (remoteLoadFailed || !globalThis.__fwetaStore)) {
+      console.warn("[fweta] Store write skipped because the store could not be loaded.");
+      throw new Error("The workspace store is unavailable. Nothing was saved.");
+    }
     // Mutate a copy. A throw (insufficient funds, not allowed) must not leave
     // a half-applied wallet debit or an orphan campaign in memory.
     // cloneStore already hydrates campaigns saved before content-rewards fields.

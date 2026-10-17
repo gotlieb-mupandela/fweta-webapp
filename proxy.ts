@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-import { getAuthSecretKey } from "@/lib/auth/secret";
+import { readAuthSecretKey } from "@/lib/auth/secret";
 
 const COOKIE_NAME = "fweta_session";
 
@@ -14,14 +14,9 @@ export async function proxy(request: NextRequest) {
   if (pathname === "/") {
     const token = request.cookies.get(COOKIE_NAME)?.value;
     const url = request.nextUrl.clone();
-    if (token) {
-      try {
-        await jwtVerify(token, getAuthSecretKey());
-        url.pathname = "/dashboard";
-        return NextResponse.redirect(url);
-      } catch {
-        // fall through to login (covers invalid token AND missing prod secret)
-      }
+    if (token && (await sessionCookieValid(token))) {
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
     }
     url.pathname = "/login";
     return NextResponse.redirect(url);
@@ -43,19 +38,26 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Resolved outside try: a missing prod secret must throw loudly (500),
-  // never masquerade as "not logged in" via the redirect below.
-  const key = getAuthSecretKey();
+  if (await sessionCookieValid(token)) {
+    return NextResponse.next();
+  }
+
+  const url = request.nextUrl.clone();
+  url.pathname = "/login";
+  url.searchParams.set("next", pathname);
+  const res = NextResponse.redirect(url);
+  res.cookies.delete(COOKIE_NAME);
+  return res;
+}
+
+async function sessionCookieValid(token: string): Promise<boolean> {
+  const key = readAuthSecretKey();
+  if (!key) return false;
   try {
     await jwtVerify(token, key);
-    return NextResponse.next();
+    return true;
   } catch {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", pathname);
-    const res = NextResponse.redirect(url);
-    res.cookies.delete(COOKIE_NAME);
-    return res;
+    return false;
   }
 }
 

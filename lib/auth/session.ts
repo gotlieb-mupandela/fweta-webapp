@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 
 import { readStore, updateStore, newId, nowIso } from "@/lib/db/store";
-import { getAuthSecretKey } from "@/lib/auth/secret";
+import { getAuthSecretKey, readAuthSecretKey } from "@/lib/auth/secret";
 import { sessionGate } from "@/lib/auth/session-gate";
 import { referralCodeFor } from "@/lib/marketplace/growth";
 import { notifyWelcome } from "@/lib/notifications/events";
@@ -61,9 +61,8 @@ export async function getSession(): Promise<SessionUser | null> {
   const jar = await cookies();
   const token = jar.get(COOKIE_NAME)?.value;
   if (!token) return null;
-  // Resolved outside try: a missing prod secret must throw loudly,
-  // never masquerade as "logged out".
-  const key = getAuthSecretKey();
+  const key = readAuthSecretKey();
+  if (!key) return null;
   try {
     const { payload } = await jwtVerify(token, key);
     if (!payload.sub || typeof payload.email !== "string") return null;
@@ -173,15 +172,20 @@ export async function signup(input: {
     return { ok: false, error: e instanceof Error ? e.message : "Signup failed." };
   }
 
-  const token = await signSession({
-    id: profile.id,
-    email: profile.email,
-    displayName: profile.displayName,
-    roles: profile.roles,
-    primaryRole: profile.primaryRole,
-    credentialVersion: 0,
-  });
-  await setSessionCookie(token);
+  try {
+    const token = await signSession({
+      id: profile.id,
+      email: profile.email,
+      displayName: profile.displayName,
+      roles: profile.roles,
+      primaryRole: profile.primaryRole,
+      credentialVersion: 0,
+    });
+    await setSessionCookie(token);
+  } catch (err) {
+    console.warn("[fweta] signup could not start a session:", err instanceof Error ? err.message : err);
+    return { ok: false, error: "Account saved, but sign-in is unavailable right now." };
+  }
   await notifyWelcome(profile);
   await triggerWelcomeEmail({
     userId: profile.id,
@@ -205,15 +209,20 @@ export async function login(input: {
   const valid = await bcrypt.compare(input.password, profile.passwordHash);
   if (!valid) return { ok: false, error: "Invalid email or password." };
 
-  const token = await signSession({
-    id: profile.id,
-    email: profile.email,
-    displayName: profile.displayName,
-    roles: profile.roles,
-    primaryRole: profile.primaryRole,
-    credentialVersion: profile.credentialVersion ?? 0,
-  });
-  await setSessionCookie(token);
+  try {
+    const token = await signSession({
+      id: profile.id,
+      email: profile.email,
+      displayName: profile.displayName,
+      roles: profile.roles,
+      primaryRole: profile.primaryRole,
+      credentialVersion: profile.credentialVersion ?? 0,
+    });
+    await setSessionCookie(token);
+  } catch (err) {
+    console.warn("[fweta] login could not start a session:", err instanceof Error ? err.message : err);
+    return { ok: false, error: "Sign-in is unavailable right now." };
+  }
   return { ok: true };
 }
 
@@ -302,7 +311,7 @@ function readAdminSeed(): AdminSeed | null {
       adminEnvWarningShown = true;
       console.warn(
         process.env.NODE_ENV === "production"
-          ? "[fweta] ADMIN_EMAIL and ADMIN_PASSWORD are unset. No admin account will be seeded."
+          ? "[fweta] ADMIN_EMAIL and ADMIN_PASSWORD are unset. Seeding skipped."
           : "[fweta] ADMIN_EMAIL and ADMIN_PASSWORD are unset. Demo accounts still seed; the admin account does not.",
       );
     }
@@ -332,6 +341,15 @@ function findSeedAdmin(profiles: Profile[], email: string): Profile | undefined 
 
 async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
   try {
+    const adminSeed = readAdminSeed();
+    if (
+      !adminSeed &&
+      process.env.NODE_ENV === "production" &&
+      process.env.FWETA_SEED_DEMO !== "true"
+    ) {
+      return { seeded: false };
+    }
+
     const existing = await readStore();
     const seen = new Set<string>();
     const deduped = existing.profiles.filter((p) => {
@@ -342,7 +360,6 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
     });
     const needsDedupe = deduped.length !== existing.profiles.length;
 
-    const adminSeed = readAdminSeed();
     const adminKey = adminSeed
       ? createHash("sha256").update(`${adminSeed.email}\n${adminSeed.password}`).digest("hex")
       : null;
