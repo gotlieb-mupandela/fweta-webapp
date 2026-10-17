@@ -34,3 +34,4 @@ The admin account is seeded from `ADMIN_EMAIL` and `ADMIN_PASSWORD` (bcrypt-hash
 
 - [AGENTS.md](./AGENTS.md) — product & architecture
 - [PHASE.md](./PHASE.md) — phased build status
+- [docs/GO-LIVE.md](./docs/GO-LIVE.md) — production checklist

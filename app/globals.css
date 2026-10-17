@@ -418,6 +418,25 @@ h3,
   -webkit-backdrop-filter: saturate(180%) blur(16px);
 }
 
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: 0;
+  z-index: 80;
+  transform: translateY(-140%);
+  border-radius: 0.75rem;
+  background: var(--foreground);
+  color: #fff;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.875rem;
+}
+
+.skip-link:focus {
+  transform: translateY(0.75rem);
+  outline: 2px solid var(--gold-deep);
+  outline-offset: 2px;
+}
+
 .pb-safe {
   padding-bottom: var(--safe-bottom);
 }

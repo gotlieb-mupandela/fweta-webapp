@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { Logo } from "@/components/brand/logo";
+import { LegalFooter } from "@/components/legal-footer";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { signupAction } from "@/app/actions/auth";
@@ -60,7 +61,7 @@ export function SignupForm() {
         </p>
       </aside>
 
-      <div className="auth-panel bg-atmosphere">
+      <div id="main" className="auth-panel bg-atmosphere">
         <div className="auth-card animate-soft-scale">
           <div className="mb-8 flex items-center justify-between md:hidden">
             <Logo size="sm" />
@@ -130,6 +131,7 @@ export function SignupForm() {
                     <button
                       key={opt.id}
                       type="button"
+                      aria-pressed={active}
                       onClick={() => toggleRole(opt.id)}
                       className={cn(
                         "flex items-center justify-between rounded-2xl border px-4 py-3.5 text-left transition",
@@ -161,6 +163,10 @@ export function SignupForm() {
               {pending ? "Creating…" : "Create account"}
             </Button>
           </form>
+          <p className="mt-4 text-xs leading-relaxed text-muted">
+            Creating an account agrees to the terms, privacy notice, and creator terms linked below.
+          </p>
+          <LegalFooter className="mt-3 w-full" />
         </div>
       </div>
     </div>

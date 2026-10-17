@@ -9,6 +9,7 @@ import {
   Users,
   Wallet,
   ShieldAlert,
+  Eye,
   FileText,
   CalendarDays,
   BadgeDollarSign,
@@ -239,6 +240,13 @@ export const ROLE_NAV: Record<UserRole, RoleNavConfig> = {
     ],
     sidebarExtra: [
       {
+        href: "/dashboard/admin/views",
+        label: "View counts",
+        shortLabel: "Views",
+        icon: Eye,
+        match: "prefix",
+      },
+      {
         href: "/dashboard/admin/stats",
         label: "Stats",
         shortLabel: "Stats",
@@ -297,6 +305,7 @@ const TITLE_OVERRIDES: Record<string, string> = {
   "/dashboard/admin/withdrawals": "Withdrawals",
   "/dashboard/admin/users": "Users",
   "/dashboard/admin/fraud": "Fraud",
+  "/dashboard/admin/views": "Views",
   "/dashboard/admin/stats": "Stats",
   "/dashboard/settings": "Settings",
   "/dashboard/settings/profile": "Profile",
