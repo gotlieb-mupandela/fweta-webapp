@@ -74,7 +74,6 @@ function hasData(store: DatabaseStore): boolean {
 }
 
 async function loadJsonBlob(): Promise<DatabaseStore | null> {
-  try {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("fweta_app_store")
@@ -82,12 +81,9 @@ async function loadJsonBlob(): Promise<DatabaseStore | null> {
     .eq("id", STORE_ROW_ID)
     .maybeSingle();
 
-  if (error || !data?.data) return null;
+  if (error) throw new Error(error.message);
+  if (!data?.data) return null;
   return normalizeStore(data.data);
-  } catch (err) {
-    console.warn("[fweta] JSON blob load failed:", err instanceof Error ? err.message : err);
-    return null;
-  }
 }
 
 async function saveJsonBlob(store: DatabaseStore): Promise<boolean> {
@@ -168,7 +164,7 @@ export async function loadStoreFromSupabase(): Promise<DatabaseStore | null> {
     return relational ?? jsonBlob ?? emptyStore();
   } catch (err) {
     console.warn("[fweta] loadStoreFromSupabase failed:", err instanceof Error ? err.message : err);
-    return emptyStore();
+    return null;
   }
 }
 

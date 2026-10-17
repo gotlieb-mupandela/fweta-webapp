@@ -16,6 +16,7 @@ const DEV_FALLBACK = "fweta-local-dev-secret-change-me";
 
 let warnedAuth = false;
 let warnedPayout = false;
+let warnedUnverifiable = false;
 
 function readEnv(name: "AUTH_SECRET" | "PAYOUT_ENCRYPTION_KEY"): string | undefined {
   const value = process.env[name]?.trim();
@@ -59,9 +60,29 @@ export function getAuthSecret(): string {
   return requireSecret("auth");
 }
 
-/** Encoded key for `jose` sign/verify. */
+/** Encoded key for `jose` sign/verify. Throws in production when unset. */
 export function getAuthSecretKey(): Uint8Array {
   return new TextEncoder().encode(getAuthSecret());
+}
+
+/**
+ * Key for verifying an existing cookie. Production returns null when
+ * AUTH_SECRET is unset so a stale cookie cannot take down the page.
+ * Signing still uses getAuthSecretKey and will not fall back to a public key.
+ */
+export function readAuthSecretKey(): Uint8Array | null {
+  const auth = readEnv("AUTH_SECRET");
+  if (auth) return new TextEncoder().encode(auth);
+  if (process.env.NODE_ENV === "production") {
+    if (!warnedUnverifiable) {
+      warnedUnverifiable = true;
+      console.warn(
+        "[fweta] AUTH_SECRET is not set. Existing sessions cannot be verified until it is configured.",
+      );
+    }
+    return null;
+  }
+  return getAuthSecretKey();
 }
 
 /** Raw secret for payout-details encryption (key falls back to AUTH_SECRET). */

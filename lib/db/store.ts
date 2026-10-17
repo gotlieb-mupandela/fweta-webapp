@@ -46,6 +46,8 @@ declare global {
 
 let writeQueue: Promise<void> = Promise.resolve();
 let initPromise: Promise<DatabaseStore> | null = null;
+/** True when the last Supabase load failed. Reads stay empty and writes are refused. */
+let remoteLoadFailed = false;
 
 function cloneStore(store: DatabaseStore): DatabaseStore {
   // Prevent callers mutating the cached store outside updateStore().
@@ -101,14 +103,20 @@ async function initStore(): Promise<DatabaseStore> {
   if (isSupabaseStoreEnabled()) {
     try {
       const fromRemote = await loadStoreFromSupabase();
-      const store = fromRemote ?? emptyStore();
-      globalThis.__fwetaStore = store;
-      return store;
+      if (!fromRemote) {
+        remoteLoadFailed = true;
+        console.warn(
+          "[fweta] Supabase store could not be loaded. Serving an empty view for this request and not writing it back.",
+        );
+        return emptyStore();
+      }
+      remoteLoadFailed = false;
+      globalThis.__fwetaStore = fromRemote;
+      return fromRemote;
     } catch (err) {
+      remoteLoadFailed = true;
       console.warn("[fweta] ensureStore supabase failed:", err instanceof Error ? err.message : err);
-      const store = emptyStore();
-      globalThis.__fwetaStore = store;
-      return store;
+      return emptyStore();
     }
   }
 
@@ -145,6 +153,10 @@ export async function updateStore(
   // all future writes (previously `writeQueue.then(...)` stayed rejected).
   const run = writeQueue.catch(() => undefined).then(async () => {
     const store = await ensureStore();
+    if (isSupabaseStoreEnabled() && (remoteLoadFailed || !globalThis.__fwetaStore)) {
+      console.warn("[fweta] Store write skipped because the store could not be loaded.");
+      throw new Error("The workspace store is unavailable. Nothing was saved.");
+    }
     await mutator(store);
     globalThis.__fwetaStore = store;
 
