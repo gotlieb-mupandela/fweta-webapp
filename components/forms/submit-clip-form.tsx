@@ -22,11 +22,15 @@ export function SubmitClipForm({
   platforms,
   remainingBudgetCents,
   accounts = [],
+  requiredChecks = [],
+  hashtags = [],
 }: {
   campaignId: string;
   platforms: SocialPlatform[];
   remainingBudgetCents?: number;
   accounts?: SubmitAccount[];
+  requiredChecks?: string[];
+  hashtags?: string[];
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +38,7 @@ export function SubmitClipForm({
   const [url, setUrl] = useState("");
   const [viewsAtSubmit, setViewsAtSubmit] = useState("");
   const [accountId, setAccountId] = useState("");
+  const [checked, setChecked] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
   const detected = useMemo(() => (url.trim() ? detectPlatform(url) : null), [url]);
   const allowed = detected ? platforms.includes(detected) : false;
@@ -72,6 +77,10 @@ export function SubmitClipForm({
           return;
         }
         const socialAccountId = accountId || platformAccounts.find((account) => account.isDefault)?.id || platformAccounts[0]?.id;
+        if (requiredChecks.some((item) => !checked.includes(item))) {
+          setError("Tick every required tag before you submit.");
+          return;
+        }
         startTransition(async () => {
           const res = await submitClipAction({
             campaignId,
@@ -79,6 +88,7 @@ export function SubmitClipForm({
             platform: detected,
             viewsAtSubmit: views,
             socialAccountId,
+            confirmedChecks: checked,
           });
           if (!res.ok) setError(res.error);
           else {
@@ -149,6 +159,29 @@ export function SubmitClipForm({
           Leave blank for a new post. Only views above this number are paid.
         </p>
       </div>
+      {hashtags.length > 0 ? (
+        <p className="text-xs text-muted">Required tags: {hashtags.map((tag) => `#${tag}`).join(" ")}</p>
+      ) : null}
+      {requiredChecks.length > 0 ? (
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Confirm before you submit</legend>
+          {requiredChecks.map((item) => (
+            <label key={item} className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={checked.includes(item)}
+                onChange={(event) =>
+                  setChecked((prev) =>
+                    event.target.checked ? [...prev, item] : prev.filter((entry) => entry !== item),
+                  )
+                }
+              />
+              <span>{item}</span>
+            </label>
+          ))}
+        </fieldset>
+      ) : null}
       <FieldError>{error}</FieldError>
       <FieldSuccess>{success}</FieldSuccess>
       <Button type="submit" disabled={pending || (Boolean(detected) && !allowed)}>

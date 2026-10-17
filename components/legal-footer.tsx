@@ -4,6 +4,7 @@ const links = [
   { href: "/legal/terms", label: "Terms" },
   { href: "/legal/privacy", label: "Privacy" },
   { href: "/legal/creator-terms", label: "Creator terms" },
+  { href: "/legal/abuse", label: "Abuse rules" },
 ];
 
 export function LegalFooter({ className = "" }: { className?: string }) {

@@ -22,6 +22,7 @@ export function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preset = searchParams.get("role");
+  const ref = searchParams.get("ref") ?? "";
   const initialRoles = useMemo<UserRole[]>(() => {
     if (preset === "brand") return ["brand"];
     if (preset === "creator") return ["clipper", "influencer"];
@@ -96,6 +97,7 @@ export function SignupForm() {
                   email: String(fd.get("email") || ""),
                   password: String(fd.get("password") || ""),
                   roles,
+                  referralCode: String(fd.get("referralCode") || ""),
                 });
                 if (!res.ok) {
                   setError(res.error);
@@ -156,6 +158,17 @@ export function SignupForm() {
                   );
                 })}
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="referralCode">Referral code</Label>
+              <Input
+                id="referralCode"
+                name="referralCode"
+                defaultValue={ref}
+                placeholder="Optional"
+                autoComplete="off"
+              />
             </div>
 
             <FieldError>{error}</FieldError>

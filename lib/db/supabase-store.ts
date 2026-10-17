@@ -41,6 +41,12 @@ const emptyStore = (): DatabaseStore => ({
   socialAccounts: [],
   workspaces: [],
   workspaceMembers: [],
+  savedCampaigns: [],
+  supportTickets: [],
+  supportMessages: [],
+  auditLog: [],
+  prizeAwards: [],
+  platformSettings: [],
 });
 
 function supabaseUrl(): string | undefined {
@@ -281,6 +287,12 @@ export async function loadStoreFromSupabase(): Promise<DatabaseStore | null> {
         fill("socialAccounts");
         fill("workspaces");
         fill("workspaceMembers");
+        fill("savedCampaigns");
+        fill("supportTickets");
+        fill("supportMessages");
+        fill("auditLog");
+        fill("prizeAwards");
+        fill("platformSettings");
       }
       return relational;
     }

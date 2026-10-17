@@ -9,6 +9,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { readStore, updateStore, newId, nowIso } from "@/lib/db/store";
 import { getAuthSecretKey } from "@/lib/auth/secret";
 import { sessionGate } from "@/lib/auth/session-gate";
+import { referralCodeFor } from "@/lib/marketplace/growth";
 import { notifyWelcome } from "@/lib/notifications/events";
 import { triggerWelcomeEmail } from "@/lib/onboarding/welcome";
 import type { Profile, Wallet } from "@/lib/db/types";
@@ -112,6 +113,7 @@ export async function signup(input: {
   password: string;
   displayName?: string;
   roles: UserRole[];
+  referralCode?: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const email = input.email.trim().toLowerCase();
   if (!email || input.password.length < 8) {
@@ -158,6 +160,14 @@ export async function signup(input: {
       }
       s.profiles.push(profile);
       ensureWallet(s, profile.id);
+      profile.referralCode = referralCodeFor(profile.id);
+      const code = input.referralCode?.trim().toUpperCase();
+      if (code) {
+        const referrer = s.profiles.find(
+          (item) => item.id !== profile.id && (item.referralCode === code || referralCodeFor(item.id) === code),
+        );
+        if (referrer) profile.referredByUserId = referrer.id;
+      }
     });
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Signup failed." };

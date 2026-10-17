@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { SADC_COUNTRIES } from "@/lib/rewards/content-rewards";
 
 export function DiscoverFilters({
   q,
@@ -8,6 +9,8 @@ export function DiscoverFilters({
   sort,
   payModel,
   country,
+  minRate,
+  minBudget,
   categories,
 }: {
   q?: string;
@@ -17,6 +20,8 @@ export function DiscoverFilters({
   sort?: string;
   payModel?: string;
   country?: string;
+  minRate?: string;
+  minBudget?: string;
   categories: string[];
 }) {
   return (
@@ -34,10 +39,29 @@ export function DiscoverFilters({
       </select>
       <select name="country" defaultValue={country ?? "NA"} className="input-capsule h-11" aria-label="Country">
         <option value="NA">Namibia</option>
-        <option value="ZA">South Africa</option>
-        <option value="BW">Botswana</option>
         <option value="all">All countries</option>
+        {SADC_COUNTRIES.filter((item) => item.code !== "NA").map((item) => (
+          <option key={item.code} value={item.code}>
+            {item.name}
+          </option>
+        ))}
       </select>
+      <input
+        name="minRate"
+        defaultValue={minRate}
+        inputMode="decimal"
+        placeholder="Min rate (N$)"
+        aria-label="Minimum rate"
+        className="input-capsule h-11"
+      />
+      <input
+        name="minBudget"
+        defaultValue={minBudget}
+        inputMode="decimal"
+        placeholder="Budget left (N$)"
+        aria-label="Minimum budget left"
+        className="input-capsule h-11"
+      />
       <select name="type" defaultValue={type ?? ""} className="input-capsule h-11" aria-label="Type">
         <option value="">All types</option>
         <option value="clipping">Clipping</option>

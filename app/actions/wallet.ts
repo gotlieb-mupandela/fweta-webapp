@@ -20,6 +20,8 @@ import {
 } from "@/lib/notifications/events";
 import { adjustWallet, applyWalletDelta, getWallet } from "@/lib/wallet/ledger";
 import { payoutMethodSchema } from "@/lib/validations/payout-method";
+import { pushAudit } from "@/lib/marketplace/audit";
+import { payoutIdentityReady } from "@/lib/marketplace/growth";
 import { kycSchema, withdrawalSchema } from "@/lib/validations/withdrawal";
 import { maskAccountNumber } from "@/lib/utils";
 
@@ -48,6 +50,15 @@ export async function adminCreditWalletAction(userId: string, amountCents: numbe
     type: "credit",
     reason: reason || "Admin credit",
     referenceType: "admin_credit",
+  });
+  await updateStore((store) => {
+    pushAudit(store, {
+      actorId: session.id,
+      action: "wallet.credit",
+      summary: reason || "Admin credit",
+      targetType: "profile",
+      targetId: userId,
+    });
   });
   revalidatePath("/dashboard/admin");
   return { ok: true as const };
@@ -137,8 +148,13 @@ export async function requestWithdrawalAction(raw: unknown) {
 
   const store = await readStore();
   const profile = store.profiles.find((p) => p.id === session.id);
-  if (!profile?.kyc) {
-    return { ok: false as const, error: "Add your identity on this page before the first payout." };
+  if (!payoutIdentityReady(profile?.kyc)) {
+    return {
+      ok: false as const,
+      error: profile?.kyc
+        ? "Your ID is waiting for an admin review before the first payout."
+        : "Add your identity on this page before the first payout.",
+    };
   }
   const method = store.payoutMethods.find(
     (p) => p.id === parsed.data.payoutMethodId && p.userId === session.id,
@@ -162,7 +178,9 @@ export async function requestWithdrawalAction(raw: unknown) {
   try {
     await updateStore((s) => {
       const current = s.profiles.find((p) => p.id === session.id);
-      if (!current?.kyc) throw new Error("Add your identity on this page before the first payout.");
+      if (!payoutIdentityReady(current?.kyc)) {
+        throw new Error("Your ID needs an admin review before the first payout.");
+      }
       const { entry } = applyWalletDelta(s, {
         userId: session.id,
         availableDelta: -parsed.data.amountCents,
@@ -202,6 +220,10 @@ export async function saveKycAction(raw: unknown) {
       idNumberEnc,
       country: parsed.data.country.toUpperCase(),
       submittedAt: nowIso(),
+      documentPath: profile.kyc?.documentPath ?? null,
+      status: "pending",
+      reviewedAt: null,
+      reviewNote: null,
     };
     profile.updatedAt = profile.kyc.submittedAt;
   });
@@ -226,6 +248,9 @@ export async function getMyKyc() {
     country: profile.kyc.country,
     idMasked,
     submittedAt: profile.kyc.submittedAt,
+    status: profile.kyc.status ?? "pending",
+    reviewNote: profile.kyc.reviewNote ?? null,
+    documentOnFile: Boolean(profile.kyc.documentPath),
   };
 }
 
@@ -277,6 +302,13 @@ export async function markWithdrawalPaidAction(
       w.bankReference = bankReference || null;
       w.paidAt = nowIso();
       w.updatedAt = nowIso();
+      pushAudit(s, {
+        actorId: session.id,
+        action: "withdrawal.paid",
+        summary: `Marked payout paid${bankReference ? ` ${bankReference}` : ""}`,
+        targetType: "withdrawal",
+        targetId: id,
+      });
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };

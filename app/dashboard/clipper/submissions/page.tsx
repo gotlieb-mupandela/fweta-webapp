@@ -5,6 +5,7 @@ import { listClipperSubmissions } from "@/app/actions/submissions";
 import { AppealForm } from "@/components/forms/appeal-form";
 import { CreatorViewReportForm } from "@/components/forms/creator-view-report-form";
 import { ContextHelp } from "@/components/onboarding/context-help";
+import { ClipTimeline } from "@/components/rewards/clip-timeline";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
@@ -77,6 +78,10 @@ export default async function ClipperSubmissionsPage() {
                       <p className="mt-1 text-xs text-muted">Creator report waiting for confirmation.</p>
                     ) : null}
                     {clipStatus?.note ? <p className="mt-1 text-xs text-muted">{clipStatus.note}</p> : null}
+                    {s.status === "rejected" && s.reviewNote ? (
+                      <p className="mt-1 text-xs text-foreground">Brand note: {s.reviewNote}</p>
+                    ) : null}
+                    <ClipTimeline submission={s} />
                     {s.status !== "rejected" ? <CreatorViewReportForm submissionId={s.id} /> : null}
                     {s.fraudState === "review" && !s.appealUsed ? (
                       <div className="mt-3">

@@ -4,8 +4,16 @@ import { redirect } from "next/navigation";
 import { listActiveCampaignsPublic, listDiscoverCategories } from "@/app/actions/campaigns";
 import { CampaignCard } from "@/components/rewards/campaign-card";
 import { DiscoverFilters } from "@/components/rewards/discover-filters";
+import { InfluencerOffers } from "@/components/rewards/influencer-offers";
 import { EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
+
+function nadToCents(value?: string): number | undefined {
+  if (!value) return undefined;
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return undefined;
+  return Math.round(amount * 100);
+}
 
 export default async function ClipperCampaignsPage({
   searchParams,
@@ -18,6 +26,8 @@ export default async function ClipperCampaignsPage({
     sort?: string;
     payModel?: string;
     country?: string;
+    minRate?: string;
+    minBudget?: string;
   }>;
 }) {
   const session = await getSession();
@@ -35,6 +45,8 @@ export default async function ClipperCampaignsPage({
       sort: params.sort,
       payModel: params.payModel,
       country: params.country,
+      minRateCents: nadToCents(params.minRate),
+      minBudgetCents: nadToCents(params.minBudget),
     }),
     listDiscoverCategories(),
   ]);
@@ -53,8 +65,11 @@ export default async function ClipperCampaignsPage({
         sort={params.sort}
         payModel={params.payModel}
         country={params.country}
+        minRate={params.minRate}
+        minBudget={params.minBudget}
         categories={categories}
       />
+      <InfluencerOffers />
 
       {rows.length === 0 ? (
         <EmptyState

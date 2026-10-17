@@ -38,19 +38,25 @@ export default async function SettingsWithdrawPage() {
         hint="The minimum withdrawal is N$100. Bank details stay masked after you save them."
       />
 
-      {!kyc ? (
+      {!kyc || kyc.status === "rejected" || !kyc.documentOnFile ? (
         <Card>
           <h2 className="font-display text-xl tracking-tight">Identity for the first payout</h2>
           <p className="mt-1.5 text-sm text-muted">
-            This is collected when you withdraw, not when you sign up.
+            This is collected when you withdraw, not when you sign up. Upload an ID photo. An admin verifies it before the first EFT. The minimum is N$100.
           </p>
+          {kyc?.status === "rejected" && kyc.reviewNote ? (
+            <p className="mt-2 text-sm text-foreground">Needs another photo: {kyc.reviewNote}</p>
+          ) : null}
           <div className="mt-4">
             <KycForm />
           </div>
         </Card>
       ) : (
         <p className="text-sm text-muted">
-          Identity on file: {kyc.legalName}, {kyc.country}, ID {kyc.idMasked}
+          Identity on file: {kyc.legalName}, {kyc.country}, ID {kyc.idMasked}.{" "}
+          {kyc.status === "verified"
+            ? "Verified."
+            : "Waiting for a review before the first payout."}
         </p>
       )}
 
@@ -64,6 +70,10 @@ export default async function SettingsWithdrawPage() {
             </Link>
           }
         />
+      ) : kyc?.status !== "verified" ? (
+        <Card>
+          <p className="text-sm text-muted">Payout stays closed until an admin verifies the ID photo. Minimum N$100 after that.</p>
+        </Card>
       ) : (
         <Card className="panel-interactive">
           <p className="text-sm text-muted">

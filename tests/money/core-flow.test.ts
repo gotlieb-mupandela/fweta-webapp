@@ -100,6 +100,12 @@ function store(campaigns: Campaign[], submissions: Submission[], available = 200
     socialAccounts: [],
     workspaces: [],
     workspaceMembers: [],
+    savedCampaigns: [],
+    supportTickets: [],
+    supportMessages: [],
+    auditLog: [],
+    prizeAwards: [],
+    platformSettings: [],
   };
 }
 

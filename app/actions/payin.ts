@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/session";
 import { newId, nowIso, updateStore } from "@/lib/db/store";
 import { payInRequestSchema } from "@/lib/validations/accounts";
+import { pushAudit } from "@/lib/marketplace/audit";
 import { applyWalletDelta } from "@/lib/wallet/ledger";
 
 function revalidatePayins() {
@@ -58,6 +59,13 @@ export async function confirmPayInAction(depositId: string) {
       deposit.status = "credited";
       deposit.confirmedAt = now;
       deposit.confirmedBy = session.id;
+      pushAudit(store, {
+        actorId: session.id,
+        action: "payin.confirm",
+        summary: "Confirmed a brand pay-in",
+        targetType: "brand_deposit",
+        targetId: deposit.id,
+      });
     });
   } catch (err) {
     return { ok: false as const, error: err instanceof Error ? err.message : "Could not confirm the pay-in." };

@@ -9,12 +9,14 @@ export const submissionSchema = z.object({
   /** Views already on the post. Only views above this number are paid. Blank means 0. */
   viewsAtSubmit: z.number().int().min(0).max(2_000_000_000).optional(),
   socialAccountId: z.string().uuid().optional(),
+  confirmedChecks: z.array(z.string().trim().min(1).max(80)).max(12).optional(),
 });
 
 export const submissionReviewSchema = z
   .object({
     status: z.enum(["approved", "rejected", "flagged"]),
     reviewNote: z.string().max(2000).optional(),
+    fraudCategory: z.enum(["view_spike", "duplicate", "ownership", "paid_promotion", "other"]).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.status === "rejected" || value.status === "flagged") {

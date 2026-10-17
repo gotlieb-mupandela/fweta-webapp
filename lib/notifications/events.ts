@@ -33,6 +33,7 @@ import { sendEmails } from "@/lib/email/send";
 import { allowsEmail, isCreator, publicName } from "@/lib/notifications/audience";
 import { alreadyDispatched, claimDispatch, pushNotification } from "@/lib/notifications/inbox";
 import { runAfterResponse } from "@/lib/notifications/schedule";
+import { campaignMatchesCreator } from "@/lib/marketplace/growth";
 import { formatMoney } from "@/lib/utils";
 
 type Notice = {
@@ -180,7 +181,11 @@ export async function notifyCampaignLive(campaignId: string) {
       dedupeKey: `campaign.live:${campaign.id}:${user.id}`,
       kind: "campaign_live" as const,
       title: campaign.title,
-      body: `${brandName} posted a ${typeLabel(campaign.type).toLowerCase()} campaign. Budget ${formatMoney(campaign.budgetTotalCents)}, CPM ${formatMoney(campaign.cpmCents)}.`,
+      body: `${brandName} posted a ${typeLabel(campaign.type).toLowerCase()} campaign. Budget ${formatMoney(campaign.budgetTotalCents)}, CPM ${formatMoney(campaign.cpmCents)}.${
+        campaignMatchesCreator(user, campaign, store.savedCampaigns ?? [], store.campaigns)
+          ? " It matches a campaign you saved or a country you listed."
+          : ""
+      }`,
       href: `/campaigns/${campaign.id}`,
       email: {
         scope: "email" as const,

@@ -1,6 +1,6 @@
 import { updateStore } from "@/lib/db/store";
 import type { Campaign, DatabaseStore } from "@/lib/db/types";
-import { feeReserveForBudget, launchCostCents } from "@/lib/rewards/content-rewards";
+import { feeBpsFromStore, feeReserveForBudget } from "@/lib/rewards/content-rewards";
 import { applyWalletDelta } from "@/lib/wallet/ledger";
 import { formatMoney } from "@/lib/utils";
 
@@ -94,8 +94,10 @@ export async function fundCampaignFromWallet(params: {
 /** Lock the creator budget and the brand-side fee reserve. Must run inside updateStore. */
 export function allocateCampaignFunds(store: DatabaseStore, campaign: Campaign) {
   if (isCampaignFunded(store, campaign.id)) return;
-  const fee = feeReserveForBudget(campaign.budgetTotalCents);
-  const need = launchCostCents(campaign.budgetTotalCents);
+  const bps = feeBpsFromStore(store);
+  campaign.feeBps = bps;
+  const fee = feeReserveForBudget(campaign.budgetTotalCents, bps);
+  const need = campaign.budgetTotalCents + fee;
   const wallet = store.wallets.find((w) => w.userId === campaign.brandId);
   if (!wallet || wallet.availableCents < need) {
     throw new Error(

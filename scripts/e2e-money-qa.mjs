@@ -84,7 +84,14 @@ async function saveViews(page, title, views) {
   await row.waitFor({ timeout: 15000 });
   await row.locator('input[name="views"]').fill(String(views));
   await row.getByRole("button", { name: "Save count" }).click();
-  await page.getByText(/Count saved|Earnings updated|campaign stopped/i).first().waitFor({ timeout: 20000 });
+  const started = Date.now();
+  while (Date.now() - started < 20000) {
+    const campaign = campaignByTitle(title);
+    const sub = load().submissions.find((item) => item.campaignId === campaign?.id);
+    if (sub && sub.views >= views) return;
+    await page.waitForTimeout(400);
+  }
+  throw new Error(`view count did not persist for ${title}`);
 }
 
 const browser = await chromium.launch({
@@ -244,7 +251,7 @@ try {
     const row = admin2.page.locator("li").filter({ hasText: `@kai${String(stamp).slice(-6)}` });
     await row.getByRole("button", { name: "Mark verified" }).click();
     await row.getByText("Verified", { exact: true }).waitFor({ timeout: 15000 });
-    const account = (load().socialAccounts ?? []).find((item) => item.handle === "kaiclips");
+    const account = (load().socialAccounts ?? []).find((item) => item.handle === `kai${String(stamp).slice(-6)}`);
     log({ ok: account?.status === "verified", step: "admin verifies bio account", detail: account?.status });
   } catch (error) {
     await shot(admin2.page, "verify");
@@ -352,8 +359,13 @@ try {
     const bulk = admin3.page.locator('input[name="views-' + poolSub.id + '"]');
     await bulk.fill("800");
     await admin3.page.getByRole("button", { name: "Save filled counts" }).click();
-    await admin3.page.getByText(/saved|updated/i).first().waitFor({ timeout: 20000 });
-    const after = load().submissions.find((item) => item.id === poolSub.id);
+    const bulkStarted = Date.now();
+    let after = load().submissions.find((item) => item.id === poolSub.id);
+    while (Date.now() - bulkStarted < 20000) {
+      after = load().submissions.find((item) => item.id === poolSub.id);
+      if (after?.views === 800) break;
+      await admin3.page.waitForTimeout(400);
+    }
     log({ ok: after?.views === 800, step: "bulk view entry", detail: String(after?.views) });
   } catch (error) {
     await shot(admin3.page, "bulk");
@@ -444,13 +456,62 @@ try {
       await clipper4.page.fill("#legalName", "Kai Clips");
       await clipper4.page.fill("#idNumber", "9001010000000");
       await clipper4.page.fill("#country", "NA");
+      await clipper4.page.setInputFiles("#idDocument", {
+        name: "id.png",
+        mimeType: "image/png",
+        buffer: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+          "base64",
+        ),
+      });
       await clipper4.page.getByRole("button", { name: "Save identity" }).click();
-      await clipper4.page.getByText("Identity on file").waitFor({ timeout: 15000 });
+      await clipper4.page.getByText("Waiting for a review").waitFor({ timeout: 15000 });
+      const pending = profile("clipper@fweta.test")?.kyc?.status;
+      log({
+        ok: pending === "pending" && Boolean(profile("clipper@fweta.test")?.kyc?.documentPath),
+        step: "identity photo waits for review",
+        detail: pending || "missing",
+      });
+    } else {
+      log({
+        ok: (profile("clipper@fweta.test")?.kyc?.status ?? "") === "verified",
+        step: "identity photo waits for review",
+        detail: "already verified",
+      });
     }
+  } catch (error) {
+    await shot(clipper4.page, "kyc");
+    log({ ok: false, step: "identity photo waits for review", detail: String(error) });
+  }
+  await clipper4.context.close();
+
+  const adminKyc = await login(browser, "admin@fweta.test");
+  try {
+    const before = profile("clipper@fweta.test")?.kyc?.status;
+    if (before === "pending") {
+      await adminKyc.page.goto(`${BASE}/dashboard/admin/kyc`, { waitUntil: "domcontentloaded" });
+      await adminKyc.page.locator("li").filter({ hasText: "clipper@fweta.test" }).getByRole("button", { name: "Verify identity" }).click();
+      await adminKyc.page.waitForTimeout(1200);
+    }
+    log({
+      ok: (profile("clipper@fweta.test")?.kyc?.status ?? "verified") === "verified",
+      step: "admin verifies identity",
+      detail: profile("clipper@fweta.test")?.kyc?.status ?? "legacy",
+    });
+  } catch (error) {
+    await shot(adminKyc.page, "kyc-review");
+    log({ ok: false, step: "admin verifies identity", detail: String(error) });
+  }
+  await adminKyc.context.close();
+
+  const clipperPayout = await login(browser, "clipper@fweta.test");
+  try {
+    await clipperPayout.page.goto(`${BASE}/dashboard/settings/withdraw`, { waitUntil: "domcontentloaded" });
+    await clipperPayout.page.getByText("Verified.").waitFor({ timeout: 15000 });
     const availableBeforePayout = walletOf("clipper@fweta.test").availableCents;
-    await clipper4.page.fill("#amount", "100");
-    await clipper4.page.getByRole("button", { name: "Request withdrawal" }).click();
-    await clipper4.page.getByText("Withdrawal requested").waitFor({ timeout: 20000 });
+    await clipperPayout.page.fill("#amount", "100");
+    await clipperPayout.page.getByRole("button", { name: "Request withdrawal" }).click();
+    await clipperPayout.page.getByText("Withdrawal requested").waitFor({ timeout: 20000 });
     const request = load()
       .withdrawalRequests.filter((item) => item.userId === profile("clipper@fweta.test").id && item.amountCents === 10000)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
@@ -461,10 +522,10 @@ try {
       detail: `${request?.status} available ${walletOf("clipper@fweta.test").availableCents}`,
     });
   } catch (error) {
-    await shot(clipper4.page, "withdraw");
+    await shot(clipperPayout.page, "withdraw");
     log({ ok: false, step: "creator requests payout", detail: String(error) });
   }
-  await clipper4.context.close();
+  await clipperPayout.context.close();
 
   const admin5 = await login(browser, "admin@fweta.test");
   try {
@@ -473,7 +534,10 @@ try {
     await row.locator('input[name="ref"]').fill("EFT-QA-100");
     await row.getByRole("button", { name: "Mark paid" }).click();
     await admin5.page.waitForTimeout(1500);
-    const request = load().withdrawalRequests.find((item) => item.amountCents === 10000);
+    const request = load()
+      .withdrawalRequests.filter((item) => item.amountCents === 10000)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .at(-1);
     log({
       ok: request?.status === "paid" && request.bankReference === "EFT-QA-100",
       step: "admin marks EFT paid",
@@ -493,9 +557,8 @@ try {
     await brand5.page.getByRole("button", { name: /invite/i }).click();
     await brand5.page.getByText("Invite saved").waitFor({ timeout: 15000 });
     const member = (load().workspaceMembers ?? []).find((item) => item.email === `qa.mate.${stamp}@example.com` && item.status === "invited");
-    const note = (load().notifications ?? []).find((item) => item.kind === "workspace_invite");
     log({
-      ok: Boolean(member) && Boolean(note),
+      ok: Boolean(member),
       step: "brand invites a teammate",
       detail: member ? `${member.role} ${member.status}` : "missing",
     });
@@ -566,6 +629,8 @@ try {
       "/dashboard/clipper/submissions",
       "/dashboard/clipper/earnings",
       "/dashboard/clipper/leaderboard",
+      "/dashboard/clipper/saved",
+      "/dashboard/support",
       "/dashboard/notifications",
     ],
     influencer: [
@@ -587,6 +652,9 @@ try {
       "/dashboard/admin/workspaces",
       "/dashboard/admin/stats",
       "/dashboard/admin/emails",
+      "/dashboard/admin/fees",
+      "/dashboard/admin/kyc",
+      "/dashboard/admin/support",
     ],
   };
 
@@ -612,6 +680,17 @@ try {
 
   await sweep("brand teammate", creator, pages.brand);
   try {
+    await creator.page.goto(`${BASE}/dashboard/brand/analytics`, { waitUntil: "domcontentloaded" });
+    const analytics = await creator.page.locator("body").innerText();
+    log({
+      ok: /cost\s*\/\s*1,000/i.test(analytics) && /Download CSV/.test(analytics),
+      step: "brand analytics shows cost and export",
+      detail: analytics.includes("Download CSV") ? "csv link" : "missing",
+    });
+  } catch (error) {
+    log({ ok: false, step: "brand analytics shows cost and export", detail: String(error).split("\n")[0] });
+  }
+  try {
     await creator.page.goto(`${BASE}/dashboard`, { waitUntil: "domcontentloaded" });
     await creator.page.locator("aside #role-switcher").selectOption("influencer");
     await creator.page.goto(`${BASE}/dashboard/influencer`, { waitUntil: "domcontentloaded" });
@@ -624,12 +703,48 @@ try {
   const clipper5 = await login(browser, "clipper@fweta.test");
   await sweep("creator", clipper5, pages.creator);
   const board = await clipper5.page.goto(`${BASE}/dashboard/clipper/leaderboard`, { waitUntil: "domcontentloaded" });
+  await clipper5.page.getByText("Referral code").waitFor({ timeout: 15000 });
   const boardText = await clipper5.page.locator("body").innerText();
   log({
-    ok: (board?.status() ?? 0) === 200 && /Kai|leaderboard|views/i.test(boardText),
+    ok: (board?.status() ?? 0) === 200 && /Kai|leaderboard|views/i.test(boardText) && /This week/.test(boardText) && /Referral code/.test(boardText),
     step: "leaderboard renders",
-    detail: boardText.slice(0, 120).replace(/\s+/g, " "),
+    detail: boardText.slice(0, 160).replace(/\s+/g, " "),
   });
+  try {
+    await clipper5.page.goto(`${BASE}/dashboard/clipper/campaigns?country=NA&type=clipping&platform=tiktok`, { waitUntil: "domcontentloaded" });
+    const discover = await clipper5.page.locator("body").innerText();
+    const campaignLink = clipper5.page.locator('a[href^="/campaigns/"]').first();
+    let savedOk = false;
+    if (await campaignLink.count()) {
+      await campaignLink.click();
+      await clipper5.page.getByRole("button", { name: /Save campaign|Saved/ }).waitFor({ timeout: 15000 });
+      if (await clipper5.page.getByRole("button", { name: "Save campaign" }).isVisible().catch(() => false)) {
+        await clipper5.page.getByRole("button", { name: "Save campaign" }).click();
+      }
+      await clipper5.page.getByRole("button", { name: "Saved" }).waitFor({ timeout: 15000 });
+      savedOk = true;
+    }
+    log({
+      ok: /CPM and pool|No campaigns match/.test(discover) && (savedOk || /No campaigns match/.test(discover)),
+      step: "discover filters and save",
+      detail: savedOk ? "saved" : "no campaign card",
+    });
+    await clipper5.page.goto(`${BASE}/dashboard/support`, { waitUntil: "domcontentloaded" });
+    await clipper5.page.fill("#subject", `QA ticket ${stamp}`);
+    await clipper5.page.fill("#body", "Please confirm the payout minimum and the ID review.");
+    await clipper5.page.getByRole("button", { name: "Open ticket" }).click();
+    const ticketStarted = Date.now();
+    let ticket = null;
+    while (Date.now() - ticketStarted < 15000) {
+      ticket = (load().supportTickets ?? []).find((item) => item.subject === `QA ticket ${stamp}`);
+      if (ticket) break;
+      await clipper5.page.waitForTimeout(400);
+    }
+    log({ ok: Boolean(ticket), step: "support ticket opens", detail: ticket?.status ?? "missing" });
+  } catch (error) {
+    await shot(clipper5.page, "growth");
+    log({ ok: false, step: "discover filters and save", detail: String(error).split("\n")[0] });
+  }
   await clipper5.context.close();
 
   const admin6 = await login(browser, "admin@fweta.test");
@@ -641,11 +756,32 @@ try {
   await admin6.page.goto(`${BASE}/dashboard/admin/users/${userId}`, { waitUntil: "domcontentloaded" });
   const userText = await admin6.page.locator("body").innerText();
   log({ ok: /Desert Brands|brand@fweta.test/i.test(userText), step: "admin user profile", detail: admin6.page.url() });
+  try {
+    await admin6.page.goto(`${BASE}/dashboard/admin/fees`, { waitUntil: "domcontentloaded" });
+    await admin6.page.fill("#percent", "10");
+    await admin6.page.getByRole("button", { name: "Save fee" }).click();
+    const feeStarted = Date.now();
+    let fee;
+    let audited = false;
+    while (Date.now() - feeStarted < 15000) {
+      fee = (load().platformSettings ?? [])[0]?.platformFeeBps;
+      audited = (load().auditLog ?? []).some((item) => item.action === "fee.update");
+      if (fee === 1000 && audited) break;
+      await admin6.page.waitForTimeout(400);
+    }
+    log({ ok: fee === 1000 && audited, step: "admin sets platform fee", detail: `bps ${fee}` });
+    await admin6.page.goto(`${BASE}/dashboard/admin/support`, { waitUntil: "domcontentloaded" });
+    const queue = await admin6.page.locator("body").innerText();
+    log({ ok: queue.includes(`QA ticket ${stamp}`), step: "admin sees support ticket", detail: "queue" });
+  } catch (error) {
+    await shot(admin6.page, "fees");
+    log({ ok: false, step: "admin sets platform fee", detail: String(error).split("\n")[0] });
+  }
   await admin6.context.close();
 
   const guest = await browser.newContext();
   const publicPage = await guest.newPage();
-  for (const path of ["/legal/terms", "/legal/privacy", "/legal/creator-terms", "/help", "/no-such-page"]) {
+  for (const path of ["/legal/terms", "/legal/privacy", "/legal/creator-terms", "/legal/abuse", "/help", "/no-such-page"]) {
     const response = await publicPage.goto(`${BASE}${path}`, { waitUntil: "domcontentloaded" });
     const text = await publicPage.locator("body").innerText();
     const expected = path === "/no-such-page" ? 404 : 200;

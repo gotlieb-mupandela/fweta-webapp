@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/session";
 import { newId, nowIso, updateStore } from "@/lib/db/store";
 import type { DatabaseStore, Submission, ViewSnapshot } from "@/lib/db/types";
+import { pushAudit } from "@/lib/marketplace/audit";
 import { applyFraudScore } from "@/lib/rewards/fraud";
 import { applyConfirmedViews } from "@/lib/rewards/earnings";
 import { recordViewsSchema } from "@/lib/validations/accounts";
@@ -123,6 +124,13 @@ export async function saveAdminViewAction(formData: FormData) {
     await updateStore((store) => {
       const submission = assertApproved(store.submissions.find((item) => item.id === parsed.data.submissionId));
       saved = commitConfirmed(store, submission, parsed.data, "admin", session.id, screenshotPath, nowMs);
+      pushAudit(store, {
+        actorId: session.id,
+        action: "views.save",
+        summary: `Saved ${parsed.data.views} views`,
+        targetType: "submission",
+        targetId: parsed.data.submissionId,
+      });
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Could not save the count." };

@@ -38,6 +38,7 @@ export async function signupAction(input: {
   password: string;
   displayName?: string;
   roles: UserRole[];
+  referralCode?: string;
 }) {
   const parsed = signupSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: "Check your details and try again." };
@@ -46,7 +47,8 @@ export async function signupAction(input: {
   if (!limited.ok) {
     return { ok: false as const, error: `Too many signups from this network. Try again in ${limited.retryAfterSec}s.` };
   }
-  return signup(parsed.data);
+  const code = input.referralCode?.trim();
+  return signup({ ...parsed.data, referralCode: code || undefined });
 }
 
 export async function logoutAction() {

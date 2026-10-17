@@ -9,6 +9,7 @@ import {
   requireSession,
 } from "@/lib/auth/session";
 import { nowIso, readStore, updateStore } from "@/lib/db/store";
+import { pushAudit } from "@/lib/marketplace/audit";
 import { clawbackSubmission } from "@/lib/rewards/earnings";
 import { clientIp } from "@/lib/security/client-ip";
 import { rateLimit } from "@/lib/security/rate-limit";
@@ -202,6 +203,13 @@ export async function resolveFraudFlag(id: string, status: "resolved" | "dismiss
     if (!f || f.status !== "open") return;
     f.status = status;
     f.resolvedAt = nowIso();
+    pushAudit(s, {
+      actorId: session.id,
+      action: "fraud.resolve",
+      summary: `${status === "dismissed" ? "Dismissed" : "Upheld"} a fraud flag`,
+      targetType: "fraud_flag",
+      targetId: id,
+    });
     if (f.kind !== "score") return;
     const sub = s.submissions.find((item) => item.id === f.submissionId);
     if (!sub) return;

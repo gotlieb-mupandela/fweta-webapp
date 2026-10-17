@@ -44,6 +44,12 @@ const emptyStore = (): DatabaseStore => ({
   socialAccounts: [],
   workspaces: [],
   workspaceMembers: [],
+  savedCampaigns: [],
+  supportTickets: [],
+  supportMessages: [],
+  auditLog: [],
+  prizeAwards: [],
+  platformSettings: [],
 });
 
 declare global {

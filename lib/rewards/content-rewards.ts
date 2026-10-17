@@ -55,18 +55,26 @@ export function countryName(code: string): string {
   return SADC_COUNTRIES.find((c) => c.code === code)?.name ?? code;
 }
 
-export function feeReserveForBudget(budgetCents: number): number {
+export function feeBpsFromStore(store: { platformSettings?: { platformFeeBps: number }[] }): number {
+  const raw = store.platformSettings?.[0]?.platformFeeBps;
+  if (typeof raw !== "number" || !Number.isInteger(raw) || raw < 0 || raw > 2500) return PLATFORM_FEE_BPS;
+  return raw;
+}
+
+export function feeReserveForBudget(budgetCents: number, bps = PLATFORM_FEE_BPS): number {
   if (!Number.isInteger(budgetCents) || budgetCents <= 0) return 0;
-  return Math.floor((budgetCents * PLATFORM_FEE_BPS) / 10000);
+  const rate = Number.isInteger(bps) && bps >= 0 && bps <= 2500 ? bps : PLATFORM_FEE_BPS;
+  return Math.floor((budgetCents * rate) / 10000);
 }
 
-export function feeOnDelivered(deliveredCents: number): number {
+export function feeOnDelivered(deliveredCents: number, bps = PLATFORM_FEE_BPS): number {
   if (!Number.isInteger(deliveredCents) || deliveredCents <= 0) return 0;
-  return Math.floor((deliveredCents * PLATFORM_FEE_BPS) / 10000);
+  const rate = Number.isInteger(bps) && bps >= 0 && bps <= 2500 ? bps : PLATFORM_FEE_BPS;
+  return Math.floor((deliveredCents * rate) / 10000);
 }
 
-export function launchCostCents(budgetCents: number): number {
-  return budgetCents + feeReserveForBudget(budgetCents);
+export function launchCostCents(budgetCents: number, bps = PLATFORM_FEE_BPS): number {
+  return budgetCents + feeReserveForBudget(budgetCents, bps);
 }
 
 export function hydrateCampaign(raw: Campaign): Campaign {
@@ -78,6 +86,14 @@ export function hydrateCampaign(raw: Campaign): Campaign {
     requirements: raw.requirements ?? "",
     rules: raw.rules ?? "",
     assets: Array.isArray(raw.assets) ? raw.assets.filter((a) => a && a.url) : [],
+    captionGuide: raw.captionGuide ?? "",
+    hashtags: Array.isArray(raw.hashtags)
+      ? raw.hashtags.filter((tag) => typeof tag === "string" && tag.trim()).map((tag) => tag.trim().replace(/^#/, ""))
+      : [],
+    requiredChecks: Array.isArray(raw.requiredChecks)
+      ? raw.requiredChecks.filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim())
+      : [],
+    feeBps: Number.isInteger(raw.feeBps) ? raw.feeBps : undefined,
     minPayoutCents: Number.isInteger(raw.minPayoutCents) ? raw.minPayoutCents : 0,
     minViews: Number.isInteger(raw.minViews) ? raw.minViews : 0,
     payModel: raw.payModel === "pool" ? "pool" : "cpm",
@@ -137,6 +153,9 @@ export function hydrateSubmission(raw: Submission): Submission {
       ? raw.fraudReasons.filter((reason) => typeof reason === "string")
       : [],
     appealUsed: Boolean(raw.appealUsed),
+    confirmedChecks: Array.isArray(raw.confirmedChecks)
+      ? raw.confirmedChecks.filter((item) => typeof item === "string")
+      : [],
   };
 }
 
@@ -177,6 +196,12 @@ export function hydrateStore(store: DatabaseStore): DatabaseStore {
   store.fraudFlags = (store.fraudFlags ?? []).map((f) => hydrateFraudFlag(f));
   store.viewSnapshots = (store.viewSnapshots ?? []).map((snap) => hydrateViewSnapshot(snap));
   if (!Array.isArray(store.linkedAccounts)) store.linkedAccounts = [];
+  if (!Array.isArray(store.savedCampaigns)) store.savedCampaigns = [];
+  if (!Array.isArray(store.supportTickets)) store.supportTickets = [];
+  if (!Array.isArray(store.supportMessages)) store.supportMessages = [];
+  if (!Array.isArray(store.auditLog)) store.auditLog = [];
+  if (!Array.isArray(store.prizeAwards)) store.prizeAwards = [];
+  if (!Array.isArray(store.platformSettings)) store.platformSettings = [];
   return store;
 }
 

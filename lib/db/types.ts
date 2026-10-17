@@ -109,12 +109,23 @@ export type Profile = {
   createdAt: string;
   updatedAt: string;
   suspended: boolean;
+  /** Stable code other people can enter at signup. */
+  referralCode?: string;
+  /** Profile id of the person who referred this account. */
+  referredByUserId?: string | null;
+  /** True once the referrer has been paid for this account's first approved clip. */
+  referralRewarded?: boolean;
   /** Collected on the first payout, not at signup. */
   kyc?: {
     legalName: string;
     idNumberEnc: string;
     country: string;
     submittedAt: string;
+    /** Filename in data/kyc. Never a public URL. */
+    documentPath?: string | null;
+    status?: "pending" | "verified" | "rejected";
+    reviewedAt?: string | null;
+    reviewNote?: string | null;
   } | null;
   /** Bumped on password change so older session cookies stop working. */
   credentialVersion?: number;
@@ -163,8 +174,16 @@ export type Campaign = {
   requirements: string;
   /** Checkable rules the brand can reject against. */
   rules: string;
-  /** Reference links (footage, guides). Not Whop assets. */
+  /** Reference links (footage, guides). */
   assets: CampaignAsset[];
+  /** Suggested caption. Shown next to the required tags. */
+  captionGuide?: string;
+  /** Tags the clipper must include. Stored without a leading hash. */
+  hashtags?: string[];
+  /** Checklist the clipper confirms before submit. */
+  requiredChecks?: string[];
+  /** Fee rate locked when the budget was reserved. Missing means the default 10%. */
+  feeBps?: number;
   startDate: string | null;
   endDate: string | null;
   /** Set when the campaign belongs to a brand workspace. Missing on older rows. */
@@ -216,6 +235,8 @@ export type Submission = {
   appealUsed: boolean;
   /** Verified social account the clip was posted from. */
   socialAccountId?: string | null;
+  /** Required checks the clipper ticked at submit. */
+  confirmedChecks?: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -275,7 +296,9 @@ export type LedgerEntry = {
     | "booking_escrow"
     | "booking_release"
     | "booking_refund"
-    | "brand_deposit";
+    | "brand_deposit"
+    | "referral_bonus"
+    | "prize_award";
   referenceId: string | null;
   balanceAfterAvailableCents: number;
   balanceAfterPendingCents: number;
@@ -402,6 +425,8 @@ export type WorkspaceMember = {
   updatedAt: string;
 };
 
+export type FraudCategory = "view_spike" | "duplicate" | "ownership" | "paid_promotion" | "other";
+
 export type FraudFlag = {
   id: string;
   submissionId: string;
@@ -410,8 +435,60 @@ export type FraudFlag = {
   kind: "manual" | "score";
   score: number | null;
   appealNote: string | null;
+  /** Reason category shown in the review queue. */
+  category?: FraudCategory;
   createdAt: string;
   resolvedAt: string | null;
+};
+
+export type SavedCampaign = {
+  id: string;
+  userId: string;
+  campaignId: string;
+  createdAt: string;
+};
+
+export type SupportTicket = {
+  id: string;
+  userId: string;
+  subject: string;
+  status: "open" | "answered" | "closed";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SupportMessage = {
+  id: string;
+  ticketId: string;
+  authorId: string;
+  body: string;
+  createdAt: string;
+};
+
+export type AuditLogEntry = {
+  id: string;
+  actorId: string;
+  action: string;
+  summary: string;
+  targetType: string;
+  targetId: string | null;
+  createdAt: string;
+};
+
+export type PrizeAward = {
+  id: string;
+  weekKey: string;
+  userId: string;
+  place: number;
+  amountCents: number;
+  createdAt: string;
+};
+
+export type PlatformSetting = {
+  id: "default";
+  platformFeeBps: number;
+  updatedAt: string;
+  updatedBy: string | null;
 };
 
 export type NotificationKind =
@@ -428,7 +505,12 @@ export type NotificationKind =
   | "withdrawal_paid"
   | "withdrawal_rejected"
   | "deposit_confirmed"
-  | "workspace_invite";
+  | "workspace_invite"
+  | "campaign_match"
+  | "support_reply"
+  | "kyc_reviewed"
+  | "prize_awarded"
+  | "referral_bonus";
 
 export type AppNotification = {
   id: string;
@@ -468,4 +550,10 @@ export type DatabaseStore = {
   socialAccounts: SocialAccount[];
   workspaces: Workspace[];
   workspaceMembers: WorkspaceMember[];
+  savedCampaigns: SavedCampaign[];
+  supportTickets: SupportTicket[];
+  supportMessages: SupportMessage[];
+  auditLog: AuditLogEntry[];
+  prizeAwards: PrizeAward[];
+  platformSettings: PlatformSetting[];
 };

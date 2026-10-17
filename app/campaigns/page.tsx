@@ -4,10 +4,18 @@ import { listActiveCampaignsPublic, listDiscoverCategories } from "@/app/actions
 import { PublicChrome } from "@/components/public-chrome";
 import { CampaignCard } from "@/components/rewards/campaign-card";
 import { DiscoverFilters } from "@/components/rewards/discover-filters";
+import { InfluencerOffers } from "@/components/rewards/influencer-offers";
 import { EmptyState } from "@/components/ui/card";
 import { readStore } from "@/lib/db/store";
 import { buildPublicCatalog } from "@/lib/rewards/content-rewards";
 import { formatNumber } from "@/lib/utils";
+
+function nadToCents(value?: string): number | undefined {
+  if (!value) return undefined;
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return undefined;
+  return Math.round(amount * 100);
+}
 
 export default async function CampaignsPage({
   searchParams,
@@ -20,9 +28,13 @@ export default async function CampaignsPage({
     sort?: string;
     payModel?: string;
     country?: string;
+    minRate?: string;
+    minBudget?: string;
   }>;
 }) {
   const params = await searchParams;
+  const minRateCents = nadToCents(params.minRate);
+  const minBudgetCents = nadToCents(params.minBudget);
   const [rows, categories, store] = await Promise.all([
     listActiveCampaignsPublic({
       q: params.q,
@@ -32,6 +44,8 @@ export default async function CampaignsPage({
       sort: params.sort,
       payModel: params.payModel,
       country: params.country,
+      minRateCents,
+      minBudgetCents,
     }),
     listDiscoverCategories(),
     readStore(),
@@ -51,8 +65,13 @@ export default async function CampaignsPage({
         sort={params.sort}
         payModel={params.payModel}
         country={params.country}
+        minRate={params.minRate}
+        minBudget={params.minBudget}
         categories={categories}
       />
+      <div className="mt-8">
+        <InfluencerOffers />
+      </div>
 
       <section className="mt-8 space-y-3">
         <h2 className="font-display text-2xl tracking-tight">Featured</h2>

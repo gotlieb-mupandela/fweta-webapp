@@ -169,6 +169,18 @@ try {
   await login(BRAND_EMAIL);
   await page.goto(`${BASE}/dashboard/brand/campaigns`, { waitUntil: "domcontentloaded" });
   await pause(800);
+  const draft = load().campaigns.find((item) => item.title === CAMPAIGN);
+  await page.goto(`${BASE}/dashboard/brand/campaigns/${draft.id}/edit`, { waitUntil: "domcontentloaded" });
+  await pause(700);
+  await page.fill("#captionGuide", "Cold brew in Windhoek. Paid partnership with Shipanga Foods.");
+  await page.fill("#hashtags", "#rooibos\n#windhoek");
+  await page.fill("#requiredChecks", "Bottle stays in frame");
+  await pause(800);
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.waitForURL(new RegExp(`/dashboard/brand/campaigns/${draft.id}$`), { waitUntil: "domcontentloaded" });
+  await pause(900);
+  await page.goto(`${BASE}/dashboard/brand/campaigns`, { waitUntil: "domcontentloaded" });
+  await pause(500);
   await page.getByRole("link", { name: CAMPAIGN }).click();
   await page.waitForURL(/\/dashboard\/brand\/campaigns\//, { waitUntil: "domcontentloaded" });
   await pause(1000);
@@ -244,7 +256,18 @@ try {
   await page.waitForURL(/\/campaigns\//, { waitUntil: "domcontentloaded" });
   await pause(800);
   const campaignId = page.url().split("/").pop();
+  const save = page.getByRole("button", { name: "Save campaign" });
+  if (await save.isVisible().catch(() => false)) {
+    await save.click();
+    await page.getByRole("button", { name: "Saved" }).waitFor();
+    await pause(800);
+  }
   await page.locator(`#url-${campaignId}`).fill("https://www.tiktok.com/@tulinakale/video/7421836501122330011");
+  const check = page.getByRole("checkbox");
+  if (await check.first().isVisible().catch(() => false)) {
+    await check.first().check();
+    await pause(500);
+  }
   await pause(700);
   await page.getByRole("button", { name: "Submit clip" }).click();
   await page.getByText("Submitted for review").waitFor();
@@ -294,9 +317,31 @@ try {
   await page.fill("#legalName", "Tuli Nakale");
   await page.fill("#idNumber", "94051200123");
   await page.fill("#country", "NA");
+  await page.setInputFiles("#idDocument", {
+    name: "id.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64",
+    ),
+  });
   await pause(600);
   await page.getByRole("button", { name: "Save identity" }).click();
-  await page.getByText("Identity on file").waitFor();
+  await page.getByText("Waiting for a review").waitFor();
+  await pause(1200);
+
+  await logout();
+  await login(ADMIN_EMAIL);
+  await page.goto(`${BASE}/dashboard/admin/kyc`, { waitUntil: "domcontentloaded" });
+  await pause(800);
+  await page.locator("li").filter({ hasText: CREATOR_EMAIL }).getByRole("button", { name: "Verify identity" }).click();
+  await page.getByText("verified", { exact: true }).waitFor();
+  await pause(1200);
+
+  await logout();
+  await login(CREATOR_EMAIL);
+  await page.goto(`${BASE}/dashboard/settings/withdraw`, { waitUntil: "domcontentloaded" });
+  await page.getByText("Verified.").waitFor();
   await pause(600);
   await page.fill("#amount", "100");
   await pause(500);
@@ -320,11 +365,24 @@ try {
     await page.locator("aside #role-switcher").selectOption("clipper");
     await page.goto(`${BASE}/dashboard/clipper`, { waitUntil: "domcontentloaded" });
   }
+  await page.goto(`${BASE}/dashboard/support`, { waitUntil: "domcontentloaded" });
+  await pause(600);
+  await page.fill("#subject", "When does the hold end?");
+  await page.fill("#body", "My clip is approved. I want to know when the wallet release happens.");
+  await pause(700);
+  await page.getByRole("button", { name: "Open ticket" }).click();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByText("When does the hold end?").waitFor();
+  await pause(1400);
+
   await visit([
     "/dashboard/clipper",
     "/dashboard/clipper/campaigns",
     "/dashboard/clipper/submissions",
     "/dashboard/clipper/leaderboard",
+    "/dashboard/clipper/saved",
+    "/dashboard/support",
+    "/legal/abuse",
     "/dashboard/clipper/earnings",
     "/dashboard/settings/wallet",
     "/dashboard/settings/accounts",
@@ -374,8 +432,17 @@ try {
     "/dashboard/admin/accounts",
     "/dashboard/admin/workspaces",
     "/dashboard/admin/stats",
+    "/dashboard/admin/fees",
+    "/dashboard/admin/kyc",
+    "/dashboard/admin/support",
     "/dashboard/admin/emails",
   ]);
+  await page.goto(`${BASE}/dashboard/admin/fees`, { waitUntil: "domcontentloaded" });
+  await pause(600);
+  await page.fill("#percent", "10");
+  await page.getByRole("button", { name: "Save fee" }).click();
+  await page.getByText("Platform fee set to").waitFor();
+  await pause(1400);
 
   const paid = load().withdrawalRequests.find((item) => item.bankReference === "EFT-88421");
   const clip = load().submissions.find((item) => item.postUrl.includes("7421836501122330011"));

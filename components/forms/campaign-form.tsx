@@ -7,9 +7,11 @@ import { createCampaignAction, updateCampaignAction } from "@/app/actions/campai
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select, Textarea } from "@/components/ui/input";
 import type { Campaign } from "@/lib/db/types";
+import { linesToList } from "@/lib/marketplace/growth";
 import {
   DEFAULT_COUNTRY_CODES,
   DEFAULT_MIN_VIEWS,
+  PLATFORM_FEE_BPS,
   PLATFORM_LABEL,
   SADC_COUNTRIES,
   feeReserveForBudget,
@@ -32,9 +34,10 @@ type Props = {
   campaign?: Campaign;
   walletAvailableCents?: number;
   budgetLocked?: boolean;
+  feeBps?: number;
 };
 
-export function CampaignForm({ mode, campaign, walletAvailableCents, budgetLocked }: Props) {
+export function CampaignForm({ mode, campaign, walletAvailableCents, budgetLocked, feeBps = PLATFORM_FEE_BPS }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -78,6 +81,9 @@ export function CampaignForm({ mode, campaign, walletAvailableCents, budgetLocke
           platforms,
           requirements: String(fd.get("requirements") || ""),
           rules: String(fd.get("rules") || ""),
+          captionGuide: String(fd.get("captionGuide") || ""),
+          hashtags: linesToList(String(fd.get("hashtags") || "")),
+          requiredChecks: linesToList(String(fd.get("requiredChecks") || "")),
           assets: assets
             .map((row) => ({ label: row.label.trim(), url: row.url.trim() }))
             .filter((row) => row.label || row.url),
@@ -128,7 +134,7 @@ export function CampaignForm({ mode, campaign, walletAvailableCents, budgetLocke
           mode === "create" &&
           parsed.data.status === "active" &&
           walletAvailableCents !== undefined &&
-          payload.budgetTotalCents + feeReserveForBudget(payload.budgetTotalCents) > walletAvailableCents
+          payload.budgetTotalCents + feeReserveForBudget(payload.budgetTotalCents, feeBps) > walletAvailableCents
         ) {
           setError("Insufficient wallet balance for this budget plus the fee set-aside. Record a deposit first.");
           return;
@@ -190,7 +196,7 @@ export function CampaignForm({ mode, campaign, walletAvailableCents, budgetLocke
         <header>
           <h2 className="font-display text-2xl tracking-tight">Pay per 1,000 views</h2>
           <p className="mt-1 text-sm text-muted">
-            The rate on the card is what the clipper receives. Fweta sets aside 10% of the budget as a platform fee and charges it only on views that are paid. Unused fee comes back when the campaign ends.
+            The rate on the card is what the clipper receives. Fweta sets aside {(feeBps / 100).toFixed(feeBps % 100 === 0 ? 0 : 2)}% of the budget as a platform fee and charges it only on views that are paid. Unused fee comes back when the campaign ends.
           </p>
         </header>
         <div>
@@ -326,6 +332,34 @@ export function CampaignForm({ mode, campaign, walletAvailableCents, budgetLocke
           />
         </div>
         <div>
+          <Label htmlFor="captionGuide">Suggested caption</Label>
+          <Textarea
+            id="captionGuide"
+            name="captionGuide"
+            defaultValue={campaign?.captionGuide}
+            placeholder="Trying the new cold brew in Windhoek. Paid partnership."
+          />
+        </div>
+        <div>
+          <Label htmlFor="hashtags">Required hashtags</Label>
+          <Textarea
+            id="hashtags"
+            name="hashtags"
+            defaultValue={(campaign?.hashtags ?? []).map((tag) => `#${tag}`).join("\n")}
+            placeholder={"#fweta\n#namibia"}
+          />
+          <p className="mt-1 text-xs text-muted">One tag per line. Creators confirm these before they submit.</p>
+        </div>
+        <div>
+          <Label htmlFor="requiredChecks">Required checklist</Label>
+          <Textarea
+            id="requiredChecks"
+            name="requiredChecks"
+            defaultValue={(campaign?.requiredChecks ?? []).join("\n")}
+            placeholder={"Logo stays on screen\nCaption includes the partnership line"}
+          />
+        </div>
+        <div>
           <Label htmlFor="rules">Caption and disclosure rules</Label>
           <Textarea
             id="rules"
@@ -452,7 +486,7 @@ export function CampaignForm({ mode, campaign, walletAvailableCents, budgetLocke
               <option value="active">Fund and go live</option>
             </Select>
             <p className="mt-1 text-xs text-muted">
-              Going live reserves the full budget, plus a 10% fee set-aside, from your wallet. The campaign stays off Discover until that reservation succeeds. Payouts are manual Namibian EFT. No card checkout and no crypto.
+              Going live reserves the full budget, plus a {(feeBps / 100).toFixed(feeBps % 100 === 0 ? 0 : 2)}% fee set-aside, from your wallet. The campaign stays off Discover until that reservation succeeds. Payouts are manual Namibian EFT. No card checkout and no crypto.
             </p>
           </div>
         ) : null}

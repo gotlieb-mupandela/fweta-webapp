@@ -7,6 +7,7 @@ import { PublicChrome } from "@/components/public-chrome";
 import { SubmitClipForm } from "@/components/forms/submit-clip-form";
 import { BudgetBar } from "@/components/rewards/budget-bar";
 import { Leaderboard } from "@/components/rewards/leaderboard";
+import { SaveCampaignButton } from "@/components/rewards/save-campaign-button";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
@@ -71,7 +72,15 @@ export default async function PublicCampaignPage({
             </Badge>
           ))}
         </div>
-        <h1 className="mt-4 font-display text-4xl tracking-tight md:text-5xl">{campaign.title}</h1>
+        <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
+          <h1 className="font-display text-4xl tracking-tight md:text-5xl">{campaign.title}</h1>
+          {session ? (
+            <SaveCampaignButton
+              campaignId={campaign.id}
+              saved={store.savedCampaigns.some((item) => item.userId === session.id && item.campaignId === campaign.id)}
+            />
+          ) : null}
+        </div>
         <p className="mt-4 text-[15px] leading-relaxed text-muted">{campaign.description}</p>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -121,6 +130,16 @@ export default async function PublicCampaignPage({
             <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted">
               {campaign.requirements}
             </p>
+          </Card>
+        ) : null}
+
+        {campaign.captionGuide ? (
+          <Card className="mt-4">
+            <h2 className="font-display text-xl">Suggested caption</h2>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted">{campaign.captionGuide}</p>
+            {(campaign.hashtags ?? []).length > 0 ? (
+              <p className="mt-2 text-sm text-foreground">{campaign.hashtags!.map((tag) => `#${tag}`).join(" ")}</p>
+            ) : null}
           </Card>
         ) : null}
 
@@ -194,6 +213,8 @@ export default async function PublicCampaignPage({
                   platforms={campaign.platforms}
                   remainingBudgetCents={remaining}
                   accounts={accounts}
+                  requiredChecks={campaign.requiredChecks ?? []}
+                  hashtags={campaign.hashtags ?? []}
                 />
               </div>
             </Card>

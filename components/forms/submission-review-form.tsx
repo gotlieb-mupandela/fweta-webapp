@@ -5,7 +5,9 @@ import { useState, useTransition } from "react";
 
 import { reviewSubmissionAction } from "@/app/actions/submissions";
 import { Button } from "@/components/ui/button";
-import { FieldError, Label, Textarea } from "@/components/ui/input";
+import { FieldError, Label, Select, Textarea } from "@/components/ui/input";
+import { FRAUD_CATEGORIES, FRAUD_CATEGORY_LABEL } from "@/lib/marketplace/growth";
+import type { FraudCategory } from "@/lib/db/types";
 
 export function SubmissionReviewForm({
   submissionId,
@@ -19,6 +21,7 @@ export function SubmissionReviewForm({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const [fraudCategory, setFraudCategory] = useState("other");
   const [pending, startTransition] = useTransition();
 
   function review(status: "approved" | "rejected" | "flagged") {
@@ -27,6 +30,7 @@ export function SubmissionReviewForm({
       const res = await reviewSubmissionAction(submissionId, {
         status,
         reviewNote: reason.trim() || undefined,
+        fraudCategory: status === "flagged" ? (fraudCategory as FraudCategory) : undefined,
       });
       if (!res.ok) setError(res.error);
       else {
@@ -51,6 +55,20 @@ export function SubmissionReviewForm({
           }
           className="min-h-20"
         />
+      </div>
+      <div>
+        <Label htmlFor={`flag-reason-${submissionId}`}>Flag reason</Label>
+        <Select
+          id={`flag-reason-${submissionId}`}
+          value={fraudCategory}
+          onChange={(event) => setFraudCategory(event.target.value)}
+        >
+          {FRAUD_CATEGORIES.map((category) => (
+            <option key={category} value={category}>
+              {FRAUD_CATEGORY_LABEL[category]}
+            </option>
+          ))}
+        </Select>
       </div>
       <div className="flex flex-wrap gap-2">
         {cancelOnly ? null : (

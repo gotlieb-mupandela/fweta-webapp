@@ -9,6 +9,9 @@ import { notifySubmissionReviewed } from "@/lib/notifications/events";
 import type { Submission } from "@/lib/db/types";
 import { canEditCampaign, canViewCampaign } from "@/lib/onboarding/access";
 import { verifiedAccountsForPlatform } from "@/lib/onboarding/accounts";
+import { checksSatisfied } from "@/lib/marketplace/growth";
+import { REFERRAL_BONUS_CENTS } from "@/lib/marketplace/growth";
+import { applyWalletDelta } from "@/lib/wallet/ledger";
 import {
   DAILY_SUBMIT_CAP,
   PLATFORM_LABEL,
@@ -106,6 +109,9 @@ export async function submitClipAction(raw: unknown) {
   if (campaign.budgetSpentCents >= campaign.budgetTotalCents) {
     return { ok: false as const, error: "This campaign's budget is exhausted." };
   }
+  if (!checksSatisfied(campaign.requiredChecks, parsed.data.confirmedChecks)) {
+    return { ok: false as const, error: "Confirm every required tag before you submit." };
+  }
   const linked = store.linkedAccounts.find(
     (account) => account.userId === session.id && account.platform === detected && account.verifiedAt,
   );
@@ -188,6 +194,7 @@ export async function submitClipAction(raw: unknown) {
     fraudReasons: [],
     appealUsed: false,
     socialAccountId: accountId ?? null,
+    confirmedChecks: parsed.data.confirmedChecks ?? [],
     createdAt: now,
     updatedAt: now,
   };
@@ -307,6 +314,31 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
         const nowMs = Date.now();
         markApprovedForPayout(sub, camp, nowMs);
         settleSubmission(s, sub.id, nowMs, sub.postLive, sub.postLive != null);
+        const clipper = s.profiles.find((item) => item.id === sub.clipperId);
+        if (clipper?.referredByUserId && !clipper.referralRewarded) {
+          const referrer = s.profiles.find((item) => item.id === clipper.referredByUserId);
+          if (referrer && !referrer.suspended) {
+            applyWalletDelta(s, {
+              userId: referrer.id,
+              availableDelta: REFERRAL_BONUS_CENTS,
+              type: "credit",
+              reason: "Referral bonus",
+              referenceType: "referral_bonus",
+              referenceId: clipper.id,
+            });
+            clipper.referralRewarded = true;
+            s.notifications.push({
+              id: newId(),
+              userId: referrer.id,
+              kind: "referral_bonus",
+              title: "Referral bonus",
+              body: `${clipper.displayName} had a clip approved. N$50 is in your available balance.`,
+              href: "/dashboard/settings/wallet",
+              readAt: null,
+              createdAt: nowIso(),
+            });
+          }
+        }
       }
       if (parsed.data.status === "flagged") {
         s.fraudFlags.push({
@@ -317,6 +349,7 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
           kind: "manual",
           score: null,
           appealNote: null,
+          category: parsed.data.fraudCategory ?? "other",
           createdAt: nowIso(),
           resolvedAt: null,
         });

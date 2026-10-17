@@ -82,6 +82,9 @@ export async function createCampaignAction(raw: unknown) {
     platforms: parsed.data.platforms,
     requirements: parsed.data.requirements ?? "",
     rules: parsed.data.rules ?? "",
+    captionGuide: parsed.data.captionGuide ?? "",
+    hashtags: parsed.data.hashtags ?? [],
+    requiredChecks: parsed.data.requiredChecks ?? [],
     assets,
     startDate: parsed.data.startDate || null,
     endDate: parsed.data.endDate || null,
@@ -296,6 +299,8 @@ export async function listActiveCampaignsPublic(filters?: {
   sort?: string;
   payModel?: string;
   country?: string;
+  minRateCents?: number;
+  minBudgetCents?: number;
 }): Promise<DiscoverCampaign[]> {
   const store = await readStore();
   const counts = new Map<string, number>();
@@ -327,6 +332,16 @@ export async function listActiveCampaignsPublic(filters?: {
         ? `${c.title} ${c.category} ${c.description} ${c.requirements}`
             .toLowerCase()
             .includes(filters.q.toLowerCase())
+        : true,
+    )
+    .filter((c) =>
+      filters?.minRateCents && filters.minRateCents > 0 && c.payModel === "cpm"
+        ? c.cpmCents >= filters.minRateCents
+        : true,
+    )
+    .filter((c) =>
+      filters?.minBudgetCents && filters.minBudgetCents > 0
+        ? remainingBudgetCents(c) >= filters.minBudgetCents
         : true,
     )
     .map((campaign) => ({

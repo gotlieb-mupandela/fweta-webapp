@@ -41,16 +41,20 @@ function creditBrand(
   });
 }
 
+function lockedFeeBps(campaign: Campaign): number | undefined {
+  return Number.isInteger(campaign.feeBps) ? campaign.feeBps : undefined;
+}
+
 function rememberFeeCharge(campaign: Campaign, deliveredCents: number) {
   const fee = Math.min(
-    feeOnDelivered(deliveredCents),
+    feeOnDelivered(deliveredCents, lockedFeeBps(campaign)),
     Math.max(0, campaign.feeReservedCents - campaign.feeChargedCents),
   );
   campaign.feeChargedCents += fee;
 }
 
 function reverseFee(store: DatabaseStore, campaign: Campaign, deliveredCents: number, toBrand: boolean) {
-  const fee = Math.min(feeOnDelivered(deliveredCents), campaign.feeChargedCents);
+  const fee = Math.min(feeOnDelivered(deliveredCents, lockedFeeBps(campaign)), campaign.feeChargedCents);
   if (fee <= 0) return;
   campaign.feeChargedCents -= fee;
   if (toBrand || campaign.closedAt) {
