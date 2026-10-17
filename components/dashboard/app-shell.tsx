@@ -3,6 +3,7 @@
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { MobileTabBar } from "@/components/dashboard/mobile-tab-bar";
 import { MobileTopBar } from "@/components/dashboard/mobile-top-bar";
+import type { WorkspaceOption } from "@/components/onboarding/workspace-switcher";
 import type { UserRole } from "@/types/enums";
 
 export function AppShell({
@@ -10,12 +11,16 @@ export function AppShell({
   roles,
   displayName,
   unreadCount,
+  workspaces = [],
+  activeWorkspaceId = null,
   children,
 }: {
   role: UserRole;
   roles: UserRole[];
   displayName: string;
   unreadCount: number;
+  workspaces?: WorkspaceOption[];
+  activeWorkspaceId?: string | null;
   children: React.ReactNode;
 }) {
   return (
@@ -25,6 +30,8 @@ export function AppShell({
         roles={roles}
         displayName={displayName}
         unreadCount={unreadCount}
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspaceId}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">

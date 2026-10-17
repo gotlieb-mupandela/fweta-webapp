@@ -42,6 +42,9 @@ const emptyStore = (): DatabaseStore => ({
   notifications: [],
   notificationDispatches: [],
   linkedAccounts: [],
+  socialAccounts: [],
+  workspaces: [],
+  workspaceMembers: [],
 });
 
 declare global {

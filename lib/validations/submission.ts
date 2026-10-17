@@ -8,6 +8,7 @@ export const submissionSchema = z.object({
   platform: socialPlatformSchema,
   /** Views already on the post. Only views above this number are paid. Blank means 0. */
   viewsAtSubmit: z.number().int().min(0).max(2_000_000_000).optional(),
+  socialAccountId: z.string().uuid().optional(),
 });
 
 export const submissionReviewSchema = z

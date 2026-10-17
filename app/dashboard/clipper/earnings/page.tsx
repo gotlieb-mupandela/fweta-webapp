@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { listClipperSubmissions } from "@/app/actions/submissions";
 import { getMyLedger, getMyWallet } from "@/app/actions/wallet";
+import { ContextHelp } from "@/components/onboarding/context-help";
 import { EmptyState, PageHeader, SectionHeader, Stat, StatGrid } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
@@ -42,7 +43,12 @@ export default async function ClipperEarningsPage() {
     <div className="dash-stack">
       <PageHeader
         title="Earnings"
-        description="Set aside is reserved when a clip is approved. After the fraud hold it moves to available if the post is still live. Bank transfer is a manual Namibian EFT from N$100. No crypto."
+        description="Set aside is reserved when a clip is approved. After the fraud hold it moves to available if the post is still live. Bank transfer is a manual Namibian EFT from N$100."
+      />
+      <ContextHelp
+        title="Earnings follow a view check"
+        body="Approved clips earn after an admin records qualified views. The amount is the rate per 1,000 views, capped by the per-clip maximum and the budget still left."
+        hint="A rejection does not earn. The note on the submission explains why."
       />
 
       <StatGrid>
@@ -77,8 +83,8 @@ export default async function ClipperEarningsPage() {
         <SectionHeader title="Ledger" />
         {ledger.length === 0 ? (
           <EmptyState
-            title="No transactions yet"
-            description="Approved clip earnings will show up here."
+            title="No earnings yet"
+            description="Earnings appear after a clip is approved and an admin records its views."
           />
         ) : (
           <ul className="space-y-2.5">

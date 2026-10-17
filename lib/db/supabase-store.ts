@@ -23,6 +23,9 @@ const emptyStore = (): DatabaseStore => ({
   notifications: [],
   notificationDispatches: [],
   linkedAccounts: [],
+  socialAccounts: [],
+  workspaces: [],
+  workspaceMembers: [],
 });
 
 function supabaseUrl(): string | undefined {

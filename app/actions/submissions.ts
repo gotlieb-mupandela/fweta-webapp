@@ -7,6 +7,8 @@ import { requireSession } from "@/lib/auth/session";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import { notifySubmissionReviewed } from "@/lib/notifications/events";
 import type { Submission } from "@/lib/db/types";
+import { canEditCampaign, canViewCampaign } from "@/lib/onboarding/access";
+import { verifiedAccountsForPlatform } from "@/lib/onboarding/accounts";
 import {
   DAILY_SUBMIT_CAP,
   PLATFORM_LABEL,
@@ -101,10 +103,27 @@ export async function submitClipAction(raw: unknown) {
   if (!campaign.platforms.includes(detected)) {
     return { ok: false as const, error: "That platform is not paid by this campaign." };
   }
+  if (campaign.budgetSpentCents >= campaign.budgetTotalCents) {
+    return { ok: false as const, error: "This campaign's budget is exhausted." };
+  }
   const linked = store.linkedAccounts.find(
     (account) => account.userId === session.id && account.platform === detected && account.verifiedAt,
   );
-  if (!linked) {
+  const accountId = parsed.data.socialAccountId;
+  const verifiedSocial = verifiedAccountsForPlatform(store.socialAccounts ?? [], session.id, detected);
+  let chosenSocial = verifiedSocial.find((item) => item.id === accountId);
+  if (accountId) {
+    const account = (store.socialAccounts ?? []).find(
+      (item) => item.id === accountId && item.userId === session.id,
+    );
+    if (!account || account.status !== "verified" || account.platform !== detected) {
+      return { ok: false as const, error: "Choose a verified account on that platform." };
+    }
+    chosenSocial = account;
+  } else if (verifiedSocial.length > 0) {
+    return { ok: false as const, error: "Choose which connected account this clip came from." };
+  }
+  if (!linked && !chosenSocial) {
     return {
       ok: false as const,
       error: `Verify a ${PLATFORM_LABEL[detected]} account with your Fweta bio code before submitting.`,
@@ -126,7 +145,8 @@ export async function submitClipAction(raw: unknown) {
   if (realViewProvidersConfigured()) {
     try {
       const observation = await observePost(detected, postUrl);
-      if (observation && !handlesMatch(linked.handle, observation.authorHandle)) {
+      const expectedHandle = linked?.handle ?? chosenSocial?.handle ?? "";
+      if (observation && expectedHandle && !handlesMatch(expectedHandle, observation.authorHandle)) {
         return { ok: false as const, error: "This post is not from the account you verified." };
       }
       if (observation?.live === false) {
@@ -167,6 +187,7 @@ export async function submitClipAction(raw: unknown) {
     fraudState: "clear",
     fraudReasons: [],
     appealUsed: false,
+    socialAccountId: accountId ?? null,
     createdAt: now,
     updatedAt: now,
   };
@@ -176,10 +197,19 @@ export async function submitClipAction(raw: unknown) {
       const camp = s.campaigns.find((c) => c.id === parsed.data.campaignId);
       if (!camp || !campaignIsDiscoverable(camp)) throw new Error("Campaign is not accepting submissions.");
       if (!camp.platforms.includes(detected)) throw new Error("That platform is not paid by this campaign.");
-      const verified = s.linkedAccounts.some(
+      const verifiedLinked = s.linkedAccounts.some(
         (account) => account.userId === session.id && account.platform === detected && account.verifiedAt,
       );
-      if (!verified) throw new Error(`Verify a ${PLATFORM_LABEL[detected]} account before submitting.`);
+      const verifiedSocialNow = verifiedAccountsForPlatform(s.socialAccounts ?? [], session.id, detected);
+      if (accountId && !verifiedSocialNow.some((account) => account.id === accountId)) {
+        throw new Error("Choose a verified account on that platform.");
+      }
+      if (!accountId && verifiedSocialNow.length > 0) {
+        throw new Error("Choose which connected account this clip came from.");
+      }
+      if (!verifiedLinked && !accountId) {
+        throw new Error(`Verify a ${PLATFORM_LABEL[detected]} account before submitting.`);
+      }
       const duplicate = s.submissions.some(
         (item) => item.campaignId === camp.id && normalizePostUrl(item.postUrl) === postUrl,
       );
@@ -215,7 +245,7 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
   if (!submission) return { ok: false as const, error: "Not found." };
   const campaign = store.campaigns.find((c) => c.id === submission.campaignId);
   if (!campaign) return { ok: false as const, error: "Campaign missing." };
-  if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
+  if (!canEditCampaign(store, session, campaign)) {
     return { ok: false as const, error: "Not allowed." };
   }
   const cancelApproved = submission.status === "approved" && parsed.data.status === "rejected";
@@ -341,7 +371,7 @@ export async function listCampaignSubmissions(campaignId: string) {
   const store = await readStore();
   const campaign = store.campaigns.find((c) => c.id === campaignId);
   if (!campaign) return [];
-  if (campaign.brandId !== session.id && !session.roles.includes("admin")) return [];
+  if (!canViewCampaign(store, session, campaign)) return [];
   return store.submissions
     .filter((s) => s.campaignId === campaignId)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));

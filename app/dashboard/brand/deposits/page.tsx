@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 
-import { BrandDepositForm } from "@/components/forms/brand-deposit-form";
-import { Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui/card";
+import { ContextHelp } from "@/components/onboarding/context-help";
+import { PayInRequestForm } from "@/components/onboarding/payin-form";
+import { Badge, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
@@ -21,16 +22,22 @@ export default async function BrandDepositsPage() {
     <div className="dash-stack">
       <PageHeader
         title="Deposits"
-        description="Record a manual EFT. There is no card checkout and no crypto. An admin credits the wallet after the transfer."
+        description="Request confirmation after you transfer the campaign budget by EFT. There is no card checkout."
+      />
+
+      <ContextHelp
+        title="An admin confirms the transfer"
+        body="Send the EFT with your payment reference, then request confirmation for that amount. The wallet is credited only after an admin matches it."
+        hint="Use the reference from setup. Activating a campaign spends the credited balance into the campaign budget."
       />
 
       <Card className="panel-interactive">
-        <h2 className="font-display text-xl tracking-tight">Record deposit</h2>
+        <h2 className="font-display text-xl tracking-tight">Request confirmation</h2>
         <p className="mt-1.5 text-sm text-muted">
-          After your EFT clears, record the amount here to credit your wallet.
+          This does not credit the wallet by itself. It asks an admin to confirm the transfer.
         </p>
         <div className="mt-5">
-          <BrandDepositForm />
+          <PayInRequestForm />
         </div>
       </Card>
 
@@ -49,7 +56,9 @@ export default async function BrandDepositsPage() {
                   <p className="font-medium">{formatMoney(d.amountCents)}</p>
                   <p className="text-sm text-muted">{d.note}</p>
                 </div>
-                <p className="text-xs text-muted">{new Date(d.createdAt).toLocaleDateString()}</p>
+                <Badge tone={d.status === "credited" ? "success" : "gold"}>
+                  {d.status === "credited" ? "Confirmed" : "Waiting"}
+                </Badge>
               </li>
             ))}
           </ul>

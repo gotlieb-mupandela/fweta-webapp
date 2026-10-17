@@ -7,6 +7,8 @@ import { allocateCampaignFunds, isCampaignFunded } from "@/lib/campaigns/fund";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import { notifyCampaignLive } from "@/lib/notifications/events";
 import type { Campaign, CampaignAsset } from "@/lib/db/types";
+import { campaignsVisibleToBrand, canEditCampaign } from "@/lib/onboarding/access";
+import { ensureOwnedWorkspace } from "@/lib/onboarding/workspaces";
 import { finalizeCampaign, refundUnspentCampaign } from "@/lib/rewards/earnings";
 import {
   DEFAULT_COUNTRY_CODES,
@@ -35,9 +37,7 @@ export async function listBrandCampaigns() {
   const session = await getSession();
   if (!session || !assertBrand(session.roles)) return [];
   const store = await readStore();
-  return store.campaigns
-    .filter((c) => (session.roles.includes("admin") ? true : c.brandId === session.id))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return campaignsVisibleToBrand(store, session).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function getCampaign(id: string) {
@@ -93,6 +93,11 @@ export async function createCampaignAction(raw: unknown) {
   // unfunded "active" campaign or orphan a wallet debit.
   try {
     await updateStore((s) => {
+      const profile = s.profiles.find((item) => item.id === session.id);
+      if (profile?.roles.includes("brand")) {
+        const workspaceId = ensureOwnedWorkspace(s, profile, now, newId);
+        if (workspaceId) campaign.workspaceId = workspaceId;
+      }
       s.campaigns.push(campaign);
       if (campaign.status === "active") allocateCampaignFunds(s, campaign);
     });
@@ -123,7 +128,7 @@ export async function updateCampaignAction(id: string, raw: unknown) {
     await updateStore((s) => {
       const c = s.campaigns.find((x) => x.id === id);
       if (!c) return;
-      if (c.brandId !== session.id && !session.roles.includes("admin")) return;
+      if (!canEditCampaign(s, session, c)) return;
       const nextBudget = parsed.data.budgetTotalCents;
       if (nextBudget !== undefined && nextBudget < c.budgetSpentCents) {
         throw new Error("Budget can't be lower than the amount already paid to creators.");
@@ -181,7 +186,7 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
     await updateStore((s) => {
       const c = s.campaigns.find((x) => x.id === id);
       if (!c) throw new Error("Campaign not found.");
-      if (c.brandId !== session.id && !session.roles.includes("admin")) {
+      if (!canEditCampaign(s, session, c)) {
         throw new Error("Not allowed.");
       }
       if (status === "active" && c.status !== "active") {
@@ -246,7 +251,7 @@ export async function deleteCampaignAction(id: string) {
       const idx = s.campaigns.findIndex((x) => x.id === id);
       if (idx === -1) throw new Error("Campaign not found.");
       const campaign = s.campaigns[idx];
-      if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
+      if (!canEditCampaign(s, session, campaign)) {
         throw new Error("Not allowed.");
       }
       const related = s.submissions.filter((sub) => sub.campaignId === id);

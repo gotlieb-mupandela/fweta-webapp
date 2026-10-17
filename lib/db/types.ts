@@ -16,6 +16,67 @@ export type ProfileSocials = {
   x?: string;
 };
 
+export type OnboardingStepId =
+  | "name"
+  | "interests"
+  | "socials"
+  | "payout"
+  | "company"
+  | "promote"
+  | "campaign"
+  | "deposit"
+  | "tour"
+  | "discover";
+
+export type OnboardingSocialCheck = {
+  platform: SocialPlatform;
+  handle: string;
+  code: string;
+  status: "pending" | "verified";
+  verifiedAt?: string | null;
+};
+
+/** Resume state for signup setup. Lives on the profile so it ports with the store. */
+export type JourneyMomentId =
+  | "first_campaign"
+  | "campaign_funded"
+  | "campaign_live"
+  | "first_submission"
+  | "first_review"
+  | "first_earning"
+  | "first_withdrawal"
+  | "admin_payin"
+  | "admin_view_check";
+
+export type JourneyState = {
+  dismissed: JourneyMomentId[];
+};
+
+export type OnboardingDraft = {
+  version: 1;
+  stepId: OnboardingStepId;
+  completed: OnboardingStepId[];
+  skipped: OnboardingStepId[];
+  firstName: string;
+  lastName: string;
+  phone: string;
+  interests: string[];
+  location: string;
+  companyName: string;
+  website: string;
+  promote: string;
+  socials: ProfileSocials;
+  brandSocials: ProfileSocials;
+  checks: OnboardingSocialCheck[];
+  payoutSaved: boolean;
+  campaignId: string | null;
+  minViews: number | null;
+  depositSeen: boolean;
+  productTourSeen: boolean;
+  checklistDismissed: boolean;
+  updatedAt: string;
+};
+
 export type Profile = {
   id: string;
   email: string;
@@ -32,6 +93,12 @@ export type Profile = {
   socials?: ProfileSocials;
   /** `null` = must finish onboarding. Missing/undefined = legacy (skip). */
   onboardingCompletedAt?: string | null;
+  /** Step progress. Missing on legacy accounts. */
+  onboarding?: OnboardingDraft;
+  /** Brand workspace currently open in the switcher. */
+  activeWorkspaceId?: string | null;
+  /** First-run moments the user has dismissed. */
+  journey?: JourneyState;
   bio: string;
   avatarUrl: string | null;
   roles: UserRole[];
@@ -98,6 +165,8 @@ export type Campaign = {
   assets: CampaignAsset[];
   startDate: string | null;
   endDate: string | null;
+  /** Set when the campaign belongs to a brand workspace. Missing on older rows. */
+  workspaceId?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -141,6 +210,8 @@ export type Submission = {
   /** Plain reasons shown to the clipper. No weights. */
   fraudReasons: string[];
   appealUsed: boolean;
+  /** Verified social account the clip was posted from. */
+  socialAccountId?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -169,7 +240,8 @@ export type ViewSnapshot = {
   recordedAt: string;
   /** Admin who confirmed the count. Null while a creator report is waiting. */
   checkedBy: string | null;
-  source: "admin" | "bulk" | "creator";
+  /** `job` is a background poll. Older rows may omit this and still mean a poll. */
+  source: "admin" | "bulk" | "creator" | "job";
   status: "confirmed" | "pending" | "replaced";
 };
 
@@ -287,6 +359,42 @@ export type BrandDeposit = {
   note: string;
   status: "pending" | "credited";
   createdAt: string;
+  confirmedAt?: string | null;
+  confirmedBy?: string | null;
+};
+
+export type SocialAccount = {
+  id: string;
+  userId: string;
+  platform: SocialPlatform;
+  handle: string;
+  code: string;
+  status: "pending" | "verified";
+  isDefault: boolean;
+  verifiedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorkspaceRole = "owner" | "manager" | "viewer";
+
+export type Workspace = {
+  id: string;
+  name: string;
+  ownerUserId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorkspaceMember = {
+  id: string;
+  workspaceId: string;
+  userId: string | null;
+  email: string;
+  role: WorkspaceRole;
+  status: "invited" | "active";
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type FraudFlag = {
@@ -351,4 +459,7 @@ export type DatabaseStore = {
   notifications: AppNotification[];
   notificationDispatches: NotificationDispatch[];
   linkedAccounts: LinkedSocialAccount[];
+  socialAccounts: SocialAccount[];
+  workspaces: Workspace[];
+  workspaceMembers: WorkspaceMember[];
 };

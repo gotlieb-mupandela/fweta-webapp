@@ -7,6 +7,7 @@ import { newId, nowIso, updateStore } from "@/lib/db/store";
 import type { DatabaseStore, Submission, ViewSnapshot } from "@/lib/db/types";
 import { applyFraudScore } from "@/lib/rewards/fraud";
 import { applyConfirmedViews } from "@/lib/rewards/earnings";
+import { recordViewsSchema } from "@/lib/validations/accounts";
 import { bulkViewsSchema, confirmViewSchema, viewCountSchema, type ViewCountInput } from "@/lib/validations/views";
 import { saveViewScreenshot } from "@/lib/views/screenshots";
 
@@ -309,4 +310,60 @@ export async function confirmCreatorViewAction(formData: FormData) {
       ? "Count confirmed. Earnings updated, and the campaign stopped because the budget ran out."
       : "Count confirmed. Earnings, wallet, budget, and leaderboard are updated.",
   };
+}
+
+/** Simple admin view entry used by the onboarding view form. */
+export async function recordSubmissionViewsAction(raw: unknown) {
+  const session = await requireSession();
+  if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
+  const parsed = recordViewsSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false as const, error: "Enter a whole number of views." };
+
+  let campaignId = "";
+  try {
+    await updateStore((store) => {
+      const submission = store.submissions.find((item) => item.id === parsed.data.submissionId);
+      if (!submission) throw new Error("Submission not found.");
+      if (submission.status !== "approved") {
+        throw new Error("Approve the clip before recording views.");
+      }
+      if (parsed.data.views < submission.views) {
+        throw new Error("Views cannot go backwards.");
+      }
+      campaignId = submission.campaignId;
+      const nowMs = Date.now();
+      const at = new Date(nowMs).toISOString();
+      for (const snap of store.viewSnapshots) {
+        if (snap.submissionId === submission.id && snap.status === "pending") snap.status = "replaced";
+      }
+      store.viewSnapshots.push({
+        id: newId(),
+        submissionId: submission.id,
+        views: parsed.data.views,
+        likes: submission.likes,
+        comments: submission.comments,
+        note: null,
+        screenshotPath: null,
+        recordedAt: at,
+        checkedBy: session.id,
+        source: "admin",
+        status: "confirmed",
+      });
+      applyConfirmedViews(
+        store,
+        submission.id,
+        parsed.data.views,
+        submission.likes,
+        submission.comments,
+        nowMs,
+      );
+      const fresh = store.submissions.find((item) => item.id === submission.id);
+      if (fresh) applyFraudScore(store, fresh, nowMs);
+    });
+  } catch (err) {
+    return { ok: false as const, error: err instanceof Error ? err.message : "Could not record views." };
+  }
+
+  revalidateViewSurfaces(campaignId ? [campaignId] : []);
+  return { ok: true as const, creditedCents: 0 };
 }

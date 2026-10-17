@@ -145,7 +145,10 @@ export function hydrateViewSnapshot(raw: ViewSnapshot): ViewSnapshot {
     raw.status === "pending" || raw.status === "replaced" || raw.status === "confirmed"
       ? raw.status
       : "confirmed";
-  const source = raw.source === "bulk" || raw.source === "creator" || raw.source === "admin" ? raw.source : "admin";
+  const source =
+    raw.source === "bulk" || raw.source === "creator" || raw.source === "admin" || raw.source === "job"
+      ? raw.source
+      : "admin";
   return {
     ...raw,
     likes: Number.isInteger(raw.likes) ? raw.likes : null,

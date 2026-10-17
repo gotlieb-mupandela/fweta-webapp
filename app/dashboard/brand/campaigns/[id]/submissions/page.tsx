@@ -4,10 +4,12 @@ import { notFound, redirect } from "next/navigation";
 import { getCampaign } from "@/app/actions/campaigns";
 import { listCampaignSubmissions } from "@/app/actions/submissions";
 import { SubmissionReviewForm } from "@/components/forms/submission-review-form";
+import { ContextHelp } from "@/components/onboarding/context-help";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+import { canEditCampaign, canViewCampaign } from "@/lib/onboarding/access";
 import {
   PLATFORM_LABEL,
   lastCheckedLabel,
@@ -36,9 +38,11 @@ export default async function CampaignSubmissionsPage({
 
   const campaign = await getCampaign(id);
   if (!campaign) notFound();
-  if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
+  const accessStore = await readStore();
+  if (!canViewCampaign(accessStore, session, campaign)) {
     redirect("/dashboard/brand/campaigns");
   }
+  const canEdit = canEditCampaign(accessStore, session, campaign);
 
   const [submissions, store] = await Promise.all([
     listCampaignSubmissions(id),
@@ -72,6 +76,12 @@ export default async function CampaignSubmissionsPage({
             </Button>
           </Link>
         }
+      />
+
+      <ContextHelp
+        title="First review"
+        body="Approve a clip that matches the brief, or reject it with a short note. Approved clips can earn after an admin records views."
+        hint="A viewer can read the queue. Owners and managers decide."
       />
 
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -140,7 +150,7 @@ export default async function CampaignSubmissionsPage({
                       {submission.status}
                     </Badge>
                   </div>
-                  {submission.status === "pending" || submission.status === "flagged" ? (
+                  {(submission.status === "pending" || submission.status === "flagged") && canEdit ? (
                     <div className="border-t border-border/80 pt-3">
                       <SubmissionReviewForm submissionId={submission.id} canApprove={canApprove} />
                     </div>

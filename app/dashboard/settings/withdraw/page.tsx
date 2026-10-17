@@ -8,6 +8,7 @@ import {
   listMyWithdrawals,
 } from "@/app/actions/wallet";
 import { KycForm } from "@/components/forms/kyc-form";
+import { ContextHelp } from "@/components/onboarding/context-help";
 import { WithdrawalForm } from "@/components/forms/withdrawal-form";
 import { Badge, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,12 @@ export default async function SettingsWithdrawPage() {
     <div className="dash-stack">
       <PageHeader
         title="Withdraw"
-        description="Namibian EFT only, from N$100. An admin sends the transfer and marks it paid. No crypto."
+        description="Namibian EFT only, from N$100. An admin sends the transfer and marks it paid."
+      />
+      <ContextHelp
+        title="Payouts are sent by hand"
+        body="Request a withdrawal from the available balance. An admin pays it by EFT to the bank details you saved and then marks it paid."
+        hint="The minimum withdrawal is N$100. Bank details stay masked after you save them."
       />
 
       {!kyc ? (

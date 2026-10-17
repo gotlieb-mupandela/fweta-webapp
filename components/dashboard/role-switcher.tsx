@@ -86,7 +86,7 @@ export function RoleSwitcher({
       ) : (
         <p className="mt-1.5 flex items-center gap-1 text-[11px] text-muted">
           <Check className="size-3 text-gold" aria-hidden />
-          Active workspace
+          Active role
         </p>
       )}
     </div>

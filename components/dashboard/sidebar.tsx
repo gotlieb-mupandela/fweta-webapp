@@ -8,6 +8,7 @@ import { logoutAction } from "@/app/actions/auth";
 import { Logo } from "@/components/brand/logo";
 import { NotificationBell } from "@/components/dashboard/notification-bell";
 import { RoleSwitcher } from "@/components/dashboard/role-switcher";
+import { WorkspaceSwitcher, type WorkspaceOption } from "@/components/onboarding/workspace-switcher";
 import { Button } from "@/components/ui/button";
 import {
   ROLE_NAV,
@@ -55,11 +56,15 @@ export function DashboardSidebar({
   roles,
   displayName,
   unreadCount,
+  workspaces = [],
+  activeWorkspaceId = null,
 }: {
   role: UserRole;
   roles: UserRole[];
   displayName: string;
   unreadCount: number;
+  workspaces?: WorkspaceOption[];
+  activeWorkspaceId?: string | null;
 }) {
   const pathname = usePathname();
   const config = ROLE_NAV[role] ?? ROLE_NAV.clipper;
@@ -73,8 +78,11 @@ export function DashboardSidebar({
         <NotificationBell count={unreadCount} />
       </div>
 
-      <div className="px-4 pb-5">
+      <div className="space-y-3 px-4 pb-5">
         <RoleSwitcher roles={roles} current={role} />
+        {role === "brand" ? (
+          <WorkspaceSwitcher workspaces={workspaces} activeId={activeWorkspaceId} />
+        ) : null}
       </div>
 
       <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 pb-4">
