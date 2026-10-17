@@ -51,12 +51,9 @@ This file splits what the repo already does from what Gotlieb has to provide. No
 - `FWETA_SEED_DEMO` on production.
 - `TRIGGER_SECRET_KEY` until a job runner is actually wired. Housekeeping uses the Vercel cron route.
 
-## Conflicts with other work
+## Already merged here
 
-Do not merge this blindly on top of in-flight branches.
-
-- **Resend notifications, PR 16** (`cursor/resend-notifications-4d3a`) also edits `lib/auth/session.ts`, `lib/db/store.ts`, `lib/db/supabase-store.ts`, `lib/db/types.ts`, `app/actions/wallet.ts`, `app/dashboard/layout.tsx`, `.env.example`, `SETUP.md`, `PHASE.md`, and `AGENTS.md`. Keep their notification calls and `notifications` arrays. This branch does not implement email.
-- **Content rewards rebuild** (Whop-style agent) owns campaign, submission, and earnings behavior. This branch does not change CPM math, submission review, or `lib/jobs/poll-submission-views.ts`. It stops the poll route from running, adds `/dashboard/admin/views`, and makes `recalculateEarningsJob` skip a campaign that already has `settledAt`. Keep that guard: settlement returns unused budget, and a later earnings pass must not spend it again.
+Notifications, content-reward settlement, onboarding, workspaces, and this production checklist are on the same branch. Settlement still returns unused budget and fee, and a later earnings pass must not spend a campaign that already has `settledAt`.
 
 ## After deploy
 
