@@ -80,7 +80,7 @@ export function SignupForm() {
             Join fweta
           </h1>
           <p className="mt-3 text-sm text-muted">
-            Pick your roles — then a quick setup quest unlocks your dashboard.
+            Pick your roles. A short setup then takes you to your first campaign or your first clips.
           </p>
           <div className="hairline-gold my-7" />
 

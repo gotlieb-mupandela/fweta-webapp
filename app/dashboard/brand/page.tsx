@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { listBrandCampaigns } from "@/app/actions/campaigns";
 import { listBrandBookings } from "@/app/actions/bookings";
 import { getMyWallet } from "@/app/actions/wallet";
+import { GuidedEmpty } from "@/components/onboarding/guided-empty";
 import { Button } from "@/components/ui/button";
 import {
-  EmptyState,
   PageHeader,
   SectionHeader,
   Stat,
@@ -29,6 +29,8 @@ export default async function BrandDashboardPage() {
     readStore(),
   ]);
 
+  const profile = store.profiles.find((item) => item.id === session.id) ?? null;
+  const hasPayout = store.payoutMethods.some((method) => method.userId === session.id);
   const active = campaigns.filter((c) => c.status === "active").length;
   const spent = campaigns.reduce((s, c) => s + c.budgetSpentCents, 0);
   const pendingSubs = store.submissions.filter((s) =>
@@ -63,14 +65,16 @@ export default async function BrandDashboardPage() {
         <section>
           <SectionHeader title="Recent campaigns" href="/dashboard/brand/campaigns" />
           {campaigns.length === 0 ? (
-            <EmptyState
-              title="No campaigns yet"
-              description="Launch a clipping or UGC campaign and invite creators to distribute for you."
-              action={
-                <Link href="/dashboard/brand/campaigns/new">
-                  <Button size="sm">Create campaign</Button>
-                </Link>
-              }
+            <GuidedEmpty
+              kind="brand-campaigns"
+              profile={profile}
+              hasPayout={hasPayout}
+              fallback={{
+                title: "No campaigns yet",
+                description: "Launch a clipping or UGC campaign and invite creators to distribute for you.",
+                href: "/dashboard/brand/campaigns/new",
+                cta: "Create campaign",
+              }}
             />
           ) : (
             <ul className="space-y-2.5">
@@ -94,16 +98,16 @@ export default async function BrandDashboardPage() {
         <section>
           <SectionHeader title="Bookings" href="/influencers" linkLabel="Browse influencers →" />
           {bookings.length === 0 ? (
-            <EmptyState
-              title="No bookings yet"
-              description="Hire influencers at their listed rates for trusted sponsored posts."
-              action={
-                <Link href="/influencers">
-                  <Button size="sm" variant="secondary">
-                    Browse influencers
-                  </Button>
-                </Link>
-              }
+            <GuidedEmpty
+              kind="brand-bookings"
+              profile={profile}
+              hasPayout={hasPayout}
+              fallback={{
+                title: "No bookings yet",
+                description: "Hire influencers at their listed rates for trusted sponsored posts.",
+                href: "/influencers",
+                cta: "Browse influencers",
+              }}
             />
           ) : (
             <ul className="space-y-2.5">

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/dashboard/app-shell";
+import { DashboardOnboarding } from "@/components/onboarding/dashboard-chrome";
 import { getProfileById, getSession } from "@/lib/auth/session";
 import { needsOnboarding } from "@/lib/onboarding/steps";
 
@@ -26,6 +27,7 @@ export default async function DashboardLayout({
       roles={session.roles.length ? session.roles : [role]}
       displayName={session.displayName}
     >
+      <DashboardOnboarding userId={session.id} role={role} />
       {children}
     </AppShell>
   );

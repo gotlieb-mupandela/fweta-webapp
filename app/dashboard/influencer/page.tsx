@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { getMyInfluencerProfile, listMyRateCards } from "@/app/actions/influencer";
 import { listInfluencerBookings } from "@/app/actions/bookings";
 import { getMyWallet } from "@/app/actions/wallet";
+import { GuidedEmpty } from "@/components/onboarding/guided-empty";
 import {
-  EmptyState,
   PageHeader,
   SectionHeader,
   Stat,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
+import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
 
 export default async function InfluencerDashboardPage() {
@@ -21,12 +22,15 @@ export default async function InfluencerDashboardPage() {
     redirect("/dashboard");
   }
 
-  const [profile, rates, bookings, wallet] = await Promise.all([
+  const [profile, rates, bookings, wallet, store] = await Promise.all([
     getMyInfluencerProfile(),
     listMyRateCards(),
     listInfluencerBookings(),
     getMyWallet(),
+    readStore(),
   ]);
+  const account = store.profiles.find((item) => item.id === session.id) ?? null;
+  const hasPayout = store.payoutMethods.some((method) => method.userId === session.id);
 
   const pendingBookings = bookings.filter((b) => b.status === "requested").length;
   const activeRates = rates.filter((r) => r.active).length;
@@ -62,21 +66,16 @@ export default async function InfluencerDashboardPage() {
       <section>
         <SectionHeader title="Recent bookings" href="/dashboard/influencer/bookings" />
         {bookings.length === 0 ? (
-          <EmptyState
-            title="Waiting on bookings"
-            description="Publish your profile and rate card so brands can book you directly."
-            action={
-              <div className="flex flex-wrap gap-2">
-                <Link href="/dashboard/influencer/rate-cards">
-                  <Button size="sm">Set rates</Button>
-                </Link>
-                <Link href="/dashboard/influencer/profile">
-                  <Button size="sm" variant="secondary">
-                    Finish profile
-                  </Button>
-                </Link>
-              </div>
-            }
+          <GuidedEmpty
+            kind="influencer-bookings"
+            profile={account}
+            hasPayout={hasPayout}
+            fallback={{
+              title: "Waiting on bookings",
+              description: "Publish your profile and rate card so brands can book you directly.",
+              href: "/dashboard/influencer/rate-cards",
+              cta: "Set rates",
+            }}
           />
         ) : (
           <ul className="space-y-2.5">

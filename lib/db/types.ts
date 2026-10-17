@@ -16,6 +16,52 @@ export type ProfileSocials = {
   x?: string;
 };
 
+export type OnboardingStepId =
+  | "name"
+  | "interests"
+  | "socials"
+  | "payout"
+  | "company"
+  | "promote"
+  | "campaign"
+  | "deposit"
+  | "tour"
+  | "discover";
+
+export type OnboardingSocialCheck = {
+  platform: SocialPlatform;
+  handle: string;
+  code: string;
+  status: "pending" | "verified";
+  verifiedAt?: string | null;
+};
+
+/** Resume state for signup setup. Lives on the profile so it ports with the store. */
+export type OnboardingDraft = {
+  version: 1;
+  stepId: OnboardingStepId;
+  completed: OnboardingStepId[];
+  skipped: OnboardingStepId[];
+  firstName: string;
+  lastName: string;
+  phone: string;
+  interests: string[];
+  location: string;
+  companyName: string;
+  website: string;
+  promote: string;
+  socials: ProfileSocials;
+  brandSocials: ProfileSocials;
+  checks: OnboardingSocialCheck[];
+  payoutSaved: boolean;
+  campaignId: string | null;
+  minViews: number | null;
+  depositSeen: boolean;
+  productTourSeen: boolean;
+  checklistDismissed: boolean;
+  updatedAt: string;
+};
+
 export type Profile = {
   id: string;
   email: string;
@@ -32,6 +78,8 @@ export type Profile = {
   socials?: ProfileSocials;
   /** `null` = must finish onboarding. Missing/undefined = legacy (skip). */
   onboardingCompletedAt?: string | null;
+  /** Step progress. Missing on legacy accounts. */
+  onboarding?: OnboardingDraft;
   bio: string;
   avatarUrl: string | null;
   roles: UserRole[];

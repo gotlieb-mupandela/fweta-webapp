@@ -239,6 +239,13 @@ export const ROLE_NAV: Record<UserRole, RoleNavConfig> = {
     ],
     sidebarExtra: [
       {
+        href: "/dashboard/admin/onboarding",
+        label: "Onboarding",
+        shortLabel: "Setup",
+        icon: ClipboardList,
+        match: "prefix",
+      },
+      {
         href: "/dashboard/admin/stats",
         label: "Stats",
         shortLabel: "Stats",
@@ -297,6 +304,7 @@ const TITLE_OVERRIDES: Record<string, string> = {
   "/dashboard/admin/withdrawals": "Withdrawals",
   "/dashboard/admin/users": "Users",
   "/dashboard/admin/fraud": "Fraud",
+  "/dashboard/admin/onboarding": "Onboarding",
   "/dashboard/admin/stats": "Stats",
   "/dashboard/settings": "Settings",
   "/dashboard/settings/profile": "Profile",

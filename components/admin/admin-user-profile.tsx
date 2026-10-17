@@ -11,6 +11,7 @@ import type {
   AdminUserDossier,
   SocialLink,
 } from "@/lib/admin/user-profile";
+import { summarizeOnboarding } from "@/lib/onboarding/model";
 import { formatMoney, formatNumber } from "@/lib/utils";
 import type { SocialPlatform } from "@/types/enums";
 
@@ -30,7 +31,7 @@ function formatWhen(iso: string | null | undefined): string {
 }
 
 function onboardingLabel(value: string | null | undefined): string {
-  if (value === undefined) return "Legacy account — onboarding was not required";
+  if (value === undefined) return "Legacy account. Onboarding was not required.";
   if (value === null) return "Not completed";
   if (value === "seeded") return "Completed at seed";
   return `Completed ${formatWhen(value)}`;
@@ -136,6 +137,7 @@ export function AdminUserProfile({ dossier }: { dossier: AdminUserDossier }) {
     });
   }
 
+  const setup = summarizeOnboarding(profile, { hasPayout: Boolean(dossier.payout) });
   const isBrand = profile.roles.includes("brand");
   const sections = [
     { id: "account", label: "Account" },
@@ -260,7 +262,11 @@ export function AdminUserProfile({ dossier }: { dossier: AdminUserDossier }) {
           <Field label="Primary role">{profile.primaryRole}</Field>
           <Field label="Roles">{profile.roles.join(", ")}</Field>
           <Field label="Status">{profile.suspended ? "Suspended" : "Active"}</Field>
-          <Field label="Onboarding">{onboardingLabel(profile.onboardingCompletedAt)}</Field>
+          <Field label="Onboarding">
+            {setup.gate === "legacy"
+              ? onboardingLabel(profile.onboardingCompletedAt)
+              : `${setup.label}, ${setup.completedCount} of ${setup.totalCount}`}
+          </Field>
           <Field label="Created">{formatWhen(profile.createdAt)}</Field>
           <Field label="Updated">{formatWhen(profile.updatedAt)}</Field>
           {optionalFacts.map((fact) => (
@@ -279,6 +285,17 @@ export function AdminUserProfile({ dossier }: { dossier: AdminUserDossier }) {
           <p className="mt-4 text-sm text-muted">
             No phone, company, website, niche, location, or primary platform is stored.
           </p>
+        ) : null}
+        {setup.gate !== "legacy" ? (
+          <div className="mt-4 space-y-1 text-sm text-muted">
+            {setup.currentStep ? <p>Next open step: {setup.currentStep}</p> : null}
+            {setup.skipped.length > 0 ? <p>Skipped: {setup.skipped.join(", ")}</p> : null}
+            {setup.verifiedPlatforms.length > 0 ? (
+              <p>Verified accounts: {setup.verifiedPlatforms.map((platform) => PLATFORM_LABEL[platform]).join(", ")}</p>
+            ) : (
+              <p>No social account has been verified yet.</p>
+            )}
+          </div>
         ) : null}
       </Section>
 
