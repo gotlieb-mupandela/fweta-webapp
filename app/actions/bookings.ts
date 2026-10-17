@@ -18,7 +18,12 @@ export async function requestBookingAction(raw: unknown) {
     return { ok: false as const, error: "Brand role required." };
   }
   const parsed = bookingSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Invalid booking." };
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Invalid booking.",
+    };
+  }
 
   const store = await readStore();
   const profile = store.influencerProfiles.find(
