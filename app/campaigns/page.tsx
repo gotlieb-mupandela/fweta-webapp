@@ -131,8 +131,16 @@ export default async function CampaignsPage({
       <div className="mt-4">
         {rows.length === 0 ? (
           <EmptyState
-            title="No campaigns match"
-            description="Try another platform, category, or search."
+            title={
+              params.q || params.type || params.platform || params.category || params.payModel || params.country || params.minRate || params.minBudget
+                ? "No campaigns match"
+                : "No open campaigns yet"
+            }
+            description={
+              params.q || params.type || params.platform || params.category || params.payModel || params.country || params.minRate || params.minBudget
+                ? "Try another platform, category, or search."
+                : "A brand funds a campaign and sets it live. It will show up here."
+            }
           />
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2">
