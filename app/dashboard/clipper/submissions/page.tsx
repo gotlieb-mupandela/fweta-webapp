@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { listClipperSubmissions } from "@/app/actions/submissions";
+import { PlatformChip } from "@/components/platforms/platform-chip";
 import { AppealForm } from "@/components/forms/appeal-form";
 import { CreatorViewReportForm } from "@/components/forms/creator-view-report-form";
 import { ContextHelp } from "@/components/onboarding/context-help";
@@ -11,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import {
-  PLATFORM_LABEL,
   clipperClipStatus,
   lastCheckedLabel,
   latestConfirmedSnapshot,
@@ -70,9 +70,12 @@ export default async function ClipperSubmissionsPage() {
                     >
                       {s.postUrl}
                     </a>
+                    <div className="mt-2">
+                      <PlatformChip platform={s.platform} />
+                    </div>
                     <p className="mt-1 text-xs text-muted">
-                      {PLATFORM_LABEL[s.platform]} · {formatNumber(qualifiedViewCount(s))} qualified views ·{" "}
-                      {formatMoney(s.earningsCents)} · {lastCheckedLabel(checked?.recordedAt ?? null)}
+                      {formatNumber(qualifiedViewCount(s))} qualified views · {formatMoney(s.earningsCents)} ·{" "}
+                      {lastCheckedLabel(checked?.recordedAt ?? null)}
                     </p>
                     {waiting ? (
                       <p className="mt-1 text-xs text-muted">Creator report waiting for confirmation.</p>

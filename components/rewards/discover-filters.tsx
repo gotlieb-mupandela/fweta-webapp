@@ -62,22 +62,11 @@ export function DiscoverFilters({
         aria-label="Minimum budget left"
         className="input-capsule h-11"
       />
+      {platform ? <input type="hidden" name="platform" value={platform} /> : null}
       <select name="type" defaultValue={type ?? ""} className="input-capsule h-11" aria-label="Type">
         <option value="">All types</option>
         <option value="clipping">Clipping</option>
         <option value="ugc">UGC</option>
-      </select>
-      <select
-        name="platform"
-        defaultValue={platform ?? ""}
-        className="input-capsule h-11"
-        aria-label="Platform"
-      >
-        <option value="">All platforms</option>
-        <option value="tiktok">TikTok</option>
-        <option value="instagram">Instagram</option>
-        <option value="youtube">YouTube</option>
-        <option value="x">X</option>
       </select>
       <select
         name="category"

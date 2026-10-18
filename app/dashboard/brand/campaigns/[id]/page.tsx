@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { getCampaign } from "@/app/actions/campaigns";
+import { PlatformChip } from "@/components/platforms/platform-chip";
+import { PostingGuide } from "@/components/platforms/posting-guide";
 import { CampaignStatusButtons } from "@/components/forms/campaign-status-buttons";
 import { ContextHelp } from "@/components/onboarding/context-help";
 import { BudgetBar } from "@/components/rewards/budget-bar";
@@ -12,7 +14,6 @@ import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { canEditCampaign, canViewCampaign } from "@/lib/onboarding/access";
 import {
-  PLATFORM_LABEL,
   campaignIsDiscoverable,
   campaignLeaderboard,
   readyForReview,
@@ -114,9 +115,14 @@ export default async function CampaignDetailPage({
 
       <Card>
         <h2 className="font-display text-xl tracking-tight">Platforms</h2>
-        <p className="mt-2 text-sm">
-          {campaign.platforms.map((platform) => PLATFORM_LABEL[platform]).join(" · ")}
-        </p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {campaign.platforms.map((platform) => (
+            <PlatformChip key={platform} platform={platform} />
+          ))}
+        </div>
+        <div className="mt-4">
+          <PostingGuide platforms={campaign.platforms} />
+        </div>
         <p className="mt-2 text-xs text-muted">
           {campaign.startDate ? `Starts ${campaign.startDate.slice(0, 10)}. ` : ""}
           {campaign.endDate ? `Ends ${campaign.endDate.slice(0, 10)}.` : "No end date."}

@@ -29,6 +29,7 @@ export default async function AdminDashboardPage() {
     return !latestConfirmedSnapshot(store.viewSnapshots, submission.id);
   }).length;
   const viewChecks = pendingReports + unchecked;
+  const accountsToVerify = (store.socialAccounts ?? []).filter((account) => account.status === "review").length;
 
   return (
     <div className="dash-stack">
@@ -42,6 +43,12 @@ export default async function AdminDashboardPage() {
         <Stat href="/dashboard/admin/views" label="View checks due" value={String(viewChecks)} hint="Reports and clips with no count" />
         <Stat href="/dashboard/admin/withdrawals" label="Payouts due" value={String(payouts)} hint="Creator withdrawals" />
         <Stat href="/dashboard/admin/fraud" label="Flags" value={String(flags)} hint="Open fraud reviews" />
+        <Stat
+          href="/dashboard/admin/accounts"
+          label="Accounts to verify"
+          value={String(accountsToVerify)}
+          hint="Bio codes waiting on you"
+        />
       </StatGrid>
 
       <section>

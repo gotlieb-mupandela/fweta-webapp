@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { createCampaignAction, updateCampaignAction } from "@/app/actions/campaigns";
+import { PlatformIcon } from "@/components/admin/platform-icon";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select, Textarea } from "@/components/ui/input";
 import type { Campaign } from "@/lib/db/types";
@@ -16,6 +17,7 @@ import {
   SADC_COUNTRIES,
   feeReserveForBudget,
 } from "@/lib/rewards/content-rewards";
+import { PLATFORM_GUIDES } from "@/lib/platforms/guides";
 import { campaignCreateSchema, campaignUpdateSchema } from "@/lib/validations/campaign";
 import type { SocialPlatform } from "@/types/enums";
 
@@ -303,12 +305,14 @@ export function CampaignForm({ mode, campaign, walletAvailableCents, budgetLocke
                 onClick={() => togglePlatform(platform)}
                 className={
                   on
-                    ? "rounded-full bg-foreground px-3.5 py-2 text-sm text-white"
-                    : "rounded-full border border-border bg-white px-3.5 py-2 text-sm text-muted"
+                    ? "inline-flex items-center gap-2 rounded-full bg-foreground px-3.5 py-2 text-sm text-white"
+                    : "inline-flex items-center gap-2 rounded-full border border-border bg-white px-3.5 py-2 text-sm text-muted"
                 }
                 aria-pressed={on}
               >
-                {PLATFORM_LABEL[platform]}
+                <PlatformIcon platform={platform} />
+                <span>{PLATFORM_LABEL[platform]}</span>
+                <span className={on ? "text-white/70" : "text-muted"}>{PLATFORM_GUIDES[platform].mark}</span>
               </button>
             );
           })}

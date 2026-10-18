@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 
 import { listClipperSubmissions } from "@/app/actions/submissions";
 import { getMyWallet } from "@/app/actions/wallet";
+import { PlatformPicker } from "@/components/platforms/platform-picker";
+import { PlatformChip } from "@/components/platforms/platform-chip";
 import { GuidedEmpty } from "@/components/onboarding/guided-empty";
 import { Button } from "@/components/ui/button";
 import { Badge, PageHeader, SectionHeader, Stat, StatGrid } from "@/components/ui/card";
@@ -79,13 +81,18 @@ export default async function ClipperDashboardPage() {
     <div className="dash-stack">
       <PageHeader
         title="Overview"
-        description="Earnings, clips in review, and the next thing to do."
+        description="The rate on a campaign card is what you receive. Pick the network you already post on."
         action={
           <Link href="/dashboard/clipper/campaigns">
             <Button>Discover campaigns</Button>
           </Link>
         }
       />
+
+      <section>
+        <SectionHeader title="Where to post" href="/dashboard/clipper/campaigns" linkLabel="All campaigns" />
+        <PlatformPicker basePath="/dashboard/clipper/campaigns" params={{ platform: "none" }} />
+      </section>
 
       <StatGrid>
         <Stat label="Available" value={formatMoney(wallet.availableCents)} hint="Ready to pay out" />
@@ -149,7 +156,10 @@ export default async function ClipperDashboardPage() {
                   <li key={submission.id} className="list-row">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{campaign?.title ?? "Campaign"}</p>
-                      <p className="text-xs text-muted">{formatMoney(submission.earningsCents)}</p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                        <PlatformChip platform={submission.platform} />
+                        <p className="text-xs text-muted">{formatMoney(submission.earningsCents)}</p>
+                      </div>
                     </div>
                     <Badge tone={submission.status === "approved" ? "success" : submission.status === "rejected" ? "danger" : "muted"}>
                       {STATUS_LABEL[submission.status] ?? submission.status}

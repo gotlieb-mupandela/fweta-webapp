@@ -2,11 +2,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { listActiveCampaignsPublic, listDiscoverCategories } from "@/app/actions/campaigns";
+import { PlatformPicker } from "@/components/platforms/platform-picker";
+import { PostingGuide } from "@/components/platforms/posting-guide";
 import { CampaignCard } from "@/components/rewards/campaign-card";
 import { DiscoverFilters } from "@/components/rewards/discover-filters";
 import { InfluencerOffers } from "@/components/rewards/influencer-offers";
 import { EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
+import { PLATFORM_GUIDES, isSocialPlatform } from "@/lib/platforms/guides";
 
 function nadToCents(value?: string): number | undefined {
   if (!value) return undefined;
@@ -57,6 +60,8 @@ export default async function ClipperCampaignsPage({
         title="Discover"
         description="CPM and pool campaigns. The rate on the card is what you receive."
       />
+      <PlatformPicker basePath="/dashboard/clipper/campaigns" params={params} />
+      {isSocialPlatform(params.platform) ? <PostingGuide platforms={[params.platform]} /> : null}
       <DiscoverFilters
         q={params.q}
         type={params.type}
@@ -73,8 +78,12 @@ export default async function ClipperCampaignsPage({
 
       {rows.length === 0 ? (
         <EmptyState
-          title="No campaigns match"
-          description="Try another filter, or check the public marketplace."
+          title={
+            isSocialPlatform(params.platform)
+              ? `No ${PLATFORM_GUIDES[params.platform].label} campaigns match`
+              : "No campaigns match"
+          }
+          description="Try another network or filter, or check the public marketplace."
           action={
             <Link href="/campaigns" className="section-link">
               Open marketplace

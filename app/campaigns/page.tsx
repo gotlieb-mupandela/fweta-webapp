@@ -1,12 +1,15 @@
 import Link from "next/link";
 
 import { listActiveCampaignsPublic, listDiscoverCategories } from "@/app/actions/campaigns";
+import { PlatformPicker } from "@/components/platforms/platform-picker";
+import { PostingGuide } from "@/components/platforms/posting-guide";
 import { PublicChrome } from "@/components/public-chrome";
 import { CampaignCard } from "@/components/rewards/campaign-card";
 import { DiscoverFilters } from "@/components/rewards/discover-filters";
 import { InfluencerOffers } from "@/components/rewards/influencer-offers";
 import { EmptyState } from "@/components/ui/card";
 import { readStore } from "@/lib/db/store";
+import { PLATFORM_GUIDES, isSocialPlatform } from "@/lib/platforms/guides";
 import { buildPublicCatalog } from "@/lib/rewards/content-rewards";
 import { formatNumber } from "@/lib/utils";
 
@@ -57,18 +60,26 @@ export default async function CampaignsPage({
       title="Discover campaigns"
       description="Brands reserve a budget first. You earn the rate on the card, in NAD."
     >
-      <DiscoverFilters
-        q={params.q}
-        type={params.type}
-        platform={params.platform}
-        category={params.category}
-        sort={params.sort}
-        payModel={params.payModel}
-        country={params.country}
-        minRate={params.minRate}
-        minBudget={params.minBudget}
-        categories={categories}
-      />
+      <PlatformPicker basePath="/campaigns" params={params} />
+      {isSocialPlatform(params.platform) ? (
+        <div className="mt-4">
+          <PostingGuide platforms={[params.platform]} />
+        </div>
+      ) : null}
+      <div className="mt-4">
+        <DiscoverFilters
+          q={params.q}
+          type={params.type}
+          platform={params.platform}
+          category={params.category}
+          sort={params.sort}
+          payModel={params.payModel}
+          country={params.country}
+          minRate={params.minRate}
+          minBudget={params.minBudget}
+          categories={categories}
+        />
+      </div>
       <div className="mt-8">
         <InfluencerOffers />
       </div>
@@ -133,12 +144,14 @@ export default async function CampaignsPage({
           <EmptyState
             title={
               params.q || params.type || params.platform || params.category || params.payModel || params.country || params.minRate || params.minBudget
-                ? "No campaigns match"
+                ? isSocialPlatform(params.platform)
+                  ? `No ${PLATFORM_GUIDES[params.platform].label} campaigns match`
+                  : "No campaigns match"
                 : "No open campaigns yet"
             }
             description={
               params.q || params.type || params.platform || params.category || params.payModel || params.country || params.minRate || params.minBudget
-                ? "Try another platform, category, or search."
+                ? "Try another network, category, or search."
                 : "A brand funds a campaign and sets it live. It will show up here."
             }
           />

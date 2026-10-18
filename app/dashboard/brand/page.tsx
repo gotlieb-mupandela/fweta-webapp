@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { listBrandBookings } from "@/app/actions/bookings";
 import { listBrandCampaigns } from "@/app/actions/campaigns";
 import { getMyWallet } from "@/app/actions/wallet";
+import { PlatformChip } from "@/components/platforms/platform-chip";
 import { GuidedEmpty } from "@/components/onboarding/guided-empty";
+import { BudgetBar } from "@/components/rewards/budget-bar";
 import { Button } from "@/components/ui/button";
 import { Badge, PageHeader, SectionHeader, Stat, StatGrid } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
@@ -120,14 +122,22 @@ export default async function BrandDashboardPage() {
             <ul className="space-y-2.5">
               {campaigns.slice(0, 5).map((campaign) => (
                 <li key={campaign.id}>
-                  <Link href={`/dashboard/brand/campaigns/${campaign.id}`} className="list-row">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{campaign.title}</p>
-                      <p className="text-xs text-muted">
-                        {formatMoney(remainingBudgetCents(campaign))} left of {formatMoney(campaign.budgetTotalCents)}
+                  <Link href={`/dashboard/brand/campaigns/${campaign.id}`} className="list-row items-start">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="truncate text-sm font-medium">{campaign.title}</p>
+                        <Badge tone={campaign.status === "active" ? "success" : "muted"}>{campaign.status}</Badge>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {campaign.platforms.map((platform) => (
+                          <PlatformChip key={platform} platform={platform} />
+                        ))}
+                      </div>
+                      <BudgetBar campaign={campaign} className="mt-3" />
+                      <p className="mt-2 text-xs text-muted">
+                        {formatMoney(remainingBudgetCents(campaign))} left for creators
                       </p>
                     </div>
-                    <Badge tone={campaign.status === "active" ? "success" : "muted"}>{campaign.status}</Badge>
                   </Link>
                 </li>
               ))}
