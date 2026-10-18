@@ -20,7 +20,20 @@ export async function PublicChrome({
     <div className="bg-atmosphere min-h-dvh">
       <header className="public-header sticky top-0 z-40">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4 md:px-8">
-          <Logo href={session ? "/dashboard" : "/login"} />
+          <div className="flex items-center gap-6">
+            <Logo href={session ? "/dashboard" : "/login"} />
+            <nav aria-label="Public" className="hidden items-center gap-4 text-sm text-muted sm:flex">
+              <Link href="/campaigns" className="hover:text-foreground">
+                Campaigns
+              </Link>
+              <Link href="/directory" className="hover:text-foreground">
+                Directory
+              </Link>
+              <Link href="/influencers" className="hover:text-foreground">
+                Influencers
+              </Link>
+            </nav>
+          </div>
           {session ? (
             <Link href="/dashboard">
               <Button size="sm" variant="secondary">

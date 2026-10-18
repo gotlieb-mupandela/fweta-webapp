@@ -106,6 +106,14 @@ function store(campaigns: Campaign[], submissions: Submission[], available = 200
     auditLog: [],
     prizeAwards: [],
     platformSettings: [],
+    ugcBriefs: [],
+    ugcApplications: [],
+    ugcDeliveries: [],
+    contentLicenses: [],
+    licenseDisputes: [],
+    creatorPortfolios: [],
+    businessListings: [],
+    creatorReviews: [],
   };
 }
 

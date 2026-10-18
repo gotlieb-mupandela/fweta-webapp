@@ -298,7 +298,10 @@ export type LedgerEntry = {
     | "booking_refund"
     | "brand_deposit"
     | "referral_bonus"
-    | "prize_award";
+    | "prize_award"
+    | "ugc_reserve"
+    | "ugc_fee"
+    | "ugc_release";
   referenceId: string | null;
   balanceAfterAvailableCents: number;
   balanceAfterPendingCents: number;
@@ -517,7 +520,9 @@ export type NotificationKind =
   | "kyc_reviewed"
   | "prize_awarded"
   | "referral_bonus"
-  | "account_reviewed";
+  | "account_reviewed"
+  | "ugc_update"
+  | "directory_update";
 
 export type AppNotification = {
   id: string;
@@ -535,6 +540,146 @@ export type NotificationDispatch = {
   id: string;
   dedupeKey: string;
   createdAt: string;
+};
+
+export type UgcFormat = "vertical" | "square" | "horizontal";
+export type UgcUsage = "organic" | "paid" | "organic_and_paid";
+export type UgcTermMonths = 3 | 6 | 12;
+export type UgcBriefStatus = "draft" | "open" | "paused" | "closed";
+export type UgcApplicationStatus = "invited" | "applied" | "accepted" | "declined" | "withdrawn";
+export type UgcDeliveryStatus = "submitted" | "revision" | "approved" | "declined";
+export type LicenseDisputeStatus = "open" | "resolved" | "dismissed";
+export type BusinessListingStatus = "draft" | "published" | "taken_down";
+export type CreatorReviewStatus = "pending" | "published" | "rejected" | "taken_down";
+
+export type UgcBrief = {
+  id: string;
+  brandId: string;
+  workspaceId: string | null;
+  title: string;
+  summary: string;
+  format: UgcFormat;
+  lengthSeconds: number;
+  videoCount: number;
+  rawFiles: boolean;
+  usage: UgcUsage;
+  termMonths: UgcTermMonths;
+  platforms: SocialPlatform[];
+  territory: string;
+  feePerAssetCents: number;
+  /** feePerAssetCents * videoCount. Set when the brief is created. */
+  budgetCents: number;
+  /** Still held from the brand wallet. Drops by one fee on each approval. */
+  budgetReservedCents: number;
+  revisionLimit: number;
+  status: UgcBriefStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UgcApplication = {
+  id: string;
+  briefId: string;
+  creatorId: string;
+  status: UgcApplicationStatus;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UgcFile = {
+  id: string;
+  /** Stored filename under data/ugc. Never a public URL. */
+  name: string;
+  originalName: string;
+  kind: "video" | "raw";
+};
+
+export type UgcDelivery = {
+  id: string;
+  briefId: string;
+  applicationId: string;
+  creatorId: string;
+  files: UgcFile[];
+  status: UgcDeliveryStatus;
+  revisionCount: number;
+  revisionNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ContentLicense = {
+  id: string;
+  briefId: string;
+  deliveryId: string;
+  brandId: string;
+  creatorId: string;
+  title: string;
+  feeCents: number;
+  usage: UgcUsage;
+  termMonths: UgcTermMonths;
+  platforms: SocialPlatform[];
+  territory: string;
+  format: UgcFormat;
+  lengthSeconds: number;
+  rawFiles: boolean;
+  brandName: string;
+  creatorName: string;
+  summary: string;
+  startsAt: string;
+  endsAt: string;
+  createdAt: string;
+};
+
+export type LicenseDispute = {
+  id: string;
+  licenseId: string;
+  openedBy: string;
+  reason: string;
+  status: LicenseDisputeStatus;
+  resolution: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreatorPortfolio = {
+  userId: string;
+  headline: string;
+  about: string;
+  sampleUrls: string[];
+  ugcFeeCents: number;
+  published: boolean;
+  updatedAt: string;
+};
+
+export type BusinessListing = {
+  id: string;
+  brandId: string;
+  slug: string;
+  name: string;
+  city: string;
+  category: string;
+  summary: string;
+  website: string | null;
+  address: string | null;
+  optInReviews: boolean;
+  status: BusinessListingStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreatorReview = {
+  id: string;
+  businessId: string;
+  creatorId: string;
+  rating: number;
+  body: string;
+  postUrl: string | null;
+  creatorOptIn: boolean;
+  brandOptIn: boolean;
+  status: CreatorReviewStatus;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type DatabaseStore = {
@@ -563,4 +708,12 @@ export type DatabaseStore = {
   auditLog: AuditLogEntry[];
   prizeAwards: PrizeAward[];
   platformSettings: PlatformSetting[];
+  ugcBriefs: UgcBrief[];
+  ugcApplications: UgcApplication[];
+  ugcDeliveries: UgcDelivery[];
+  contentLicenses: ContentLicense[];
+  licenseDisputes: LicenseDispute[];
+  creatorPortfolios: CreatorPortfolio[];
+  businessListings: BusinessListing[];
+  creatorReviews: CreatorReview[];
 };

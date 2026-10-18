@@ -95,12 +95,40 @@ export const HELP_ARTICLES: HelpArticle[] = [
     group: "Admins",
     question: "What does an admin do on the first day?",
     answer:
-      "Confirm brand pay-ins, confirm social accounts in Account verification, record view checks on approved clips, and pay withdrawal requests by EFT. The onboarding page shows who has finished setup.",
+      "Confirm brand pay-ins, confirm social accounts in Account verification, record view checks on approved clips, and pay withdrawal requests by EFT. The onboarding page shows who has finished setup. Also publish directory listings and reviews, and read license disputes.",
+  },
+  {
+    id: "ugc-brief",
+    group: "UGC for ads",
+    question: "What is a UGC brief?",
+    answer:
+      "A brand posts a brief for videos it will use itself, in paid ads, on its website, or in promos. The creator does not have to post the video on their own feed. The brand sets the format, length, number of videos, whether raw files are required, the usage rights, the term, the platforms, the territory, and a fixed fee per video. Opening the brief reserves that fee times the number of videos from the brand wallet.",
+  },
+  {
+    id: "ugc-license",
+    group: "UGC for ads",
+    question: "When does a licensed video get paid?",
+    answer:
+      "Apply, or accept an invite, then upload the file. The brand can request revisions up to the limit on the brief, or approve the file. Approval pays the fixed fee into the creator wallet and stores a license with the terms. Download the license summary from the brief. Closing a brief returns any fee that was reserved but not paid. Payout from the wallet is still a manual EFT.",
+  },
+  {
+    id: "ugc-income",
+    group: "UGC for ads",
+    question: "How are view earnings different from UGC fees?",
+    answer:
+      "View earnings come from campaigns that pay per 1,000 qualified views. UGC fees are a fixed amount per approved file. Earnings shows the two amounts separately. Both sit in the same wallet.",
+  },
+  {
+    id: "directory",
+    group: "Trust directory",
+    question: "How does a business get a public review page?",
+    answer:
+      "The brand saves a business listing and opts in to creator reviews. A creator writes a recommendation and opts in too. An admin publishes the listing and the review before they appear on /directory and the business page. Either the creator or an admin can take a review down. Public pages include the business name, city, creator, rating, and date so they can be cited.",
   },
 ];
 
 export function collectHelpCopy(): string[] {
-  const lines: string[] = ["Help center", "Answers for the first campaign, the first clip, and the first payout."];
+  const lines: string[] = ["Help center", "Answers for the first campaign, the first clip, UGC licenses, the trust directory, and the first payout."];
   for (const article of HELP_ARTICLES) {
     lines.push(article.group, article.question, article.answer);
   }

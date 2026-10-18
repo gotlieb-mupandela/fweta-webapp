@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getMyLedger, getMyWallet } from "@/app/actions/wallet";
 import { EmptyState, PageHeader, SectionHeader, Stat, StatGrid } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
+import { splitCreatorIncome } from "@/lib/licensing/hub";
 import { formatMoney } from "@/lib/utils";
 
 export default async function InfluencerEarningsPage() {
@@ -13,10 +14,14 @@ export default async function InfluencerEarningsPage() {
 
   const [wallet, ledger] = await Promise.all([getMyWallet(), getMyLedger()]);
   const bookingEarnings = ledger.filter((e) => e.referenceType === "booking_release");
+  const income = splitCreatorIncome(ledger);
 
   return (
     <div className="dash-stack">
-      <PageHeader title="Earnings" description="Booking payments and ledger history." />
+      <PageHeader
+        title="Earnings"
+        description="Booking payments, view earnings, and UGC license fees. Payout is a manual EFT."
+      />
 
       <StatGrid>
         <Stat label="Available" value={formatMoney(wallet.availableCents)} />
@@ -25,6 +30,8 @@ export default async function InfluencerEarningsPage() {
           label="Booking earnings"
           value={formatMoney(bookingEarnings.reduce((s, e) => s + e.amountCents, 0))}
         />
+        <Stat label="View earnings" value={formatMoney(income.viewCents)} />
+        <Stat label="UGC fees" value={formatMoney(income.ugcCents)} />
       </StatGrid>
 
       <section>

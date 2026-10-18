@@ -23,6 +23,9 @@ import {
   Ticket,
   ScrollText,
   BadgeCheck,
+  Clapperboard,
+  Store,
+  Scale,
 } from "lucide-react";
 
 import type { UserRole } from "@/types/enums";
@@ -170,6 +173,25 @@ export const ROLE_NAV: Record<UserRole, RoleNavConfig> = {
         ],
       },
       {
+        label: "UGC",
+        items: [
+          {
+            href: "/dashboard/ugc",
+            label: "UGC work",
+            shortLabel: "UGC",
+            icon: Clapperboard,
+            match: "prefix",
+          },
+          {
+            href: "/dashboard/ugc/portfolio",
+            label: "UGC portfolio",
+            shortLabel: "Portfolio",
+            icon: FileText,
+            match: "exact",
+          },
+        ],
+      },
+      {
         label: "Account",
         items: [
           {
@@ -262,6 +284,25 @@ export const ROLE_NAV: Record<UserRole, RoleNavConfig> = {
         ],
       },
       {
+        label: "UGC",
+        items: [
+          {
+            href: "/dashboard/ugc",
+            label: "UGC work",
+            shortLabel: "UGC",
+            icon: Clapperboard,
+            match: "prefix",
+          },
+          {
+            href: "/dashboard/ugc/portfolio",
+            label: "UGC portfolio",
+            shortLabel: "Portfolio",
+            icon: FileText,
+            match: "exact",
+          },
+        ],
+      },
+      {
         label: "Account",
         items: [
           notificationsItem,
@@ -333,6 +374,20 @@ export const ROLE_NAV: Record<UserRole, RoleNavConfig> = {
             label: "Bookings",
             shortLabel: "Bookings",
             icon: CalendarDays,
+            match: "prefix",
+          },
+          {
+            href: "/dashboard/brand/ugc",
+            label: "UGC briefs",
+            shortLabel: "UGC",
+            icon: Clapperboard,
+            match: "prefix",
+          },
+          {
+            href: "/dashboard/brand/directory",
+            label: "Business page",
+            shortLabel: "Page",
+            icon: Store,
             match: "prefix",
           },
         ],
@@ -443,6 +498,27 @@ export const ROLE_NAV: Record<UserRole, RoleNavConfig> = {
             icon: ShieldAlert,
             match: "prefix",
           },
+          {
+            href: "/dashboard/admin/licenses",
+            label: "Licenses",
+            shortLabel: "Licenses",
+            icon: ScrollText,
+            match: "prefix",
+          },
+          {
+            href: "/dashboard/admin/disputes",
+            label: "Disputes",
+            shortLabel: "Disputes",
+            icon: Scale,
+            match: "prefix",
+          },
+          {
+            href: "/dashboard/admin/directory",
+            label: "Directory",
+            shortLabel: "Directory",
+            icon: BadgeCheck,
+            match: "prefix",
+          },
         ],
       },
       {
@@ -550,6 +626,9 @@ const TITLE_OVERRIDES: Record<string, string> = {
   "/dashboard/brand/campaigns": "Campaigns",
   "/dashboard/brand/campaigns/new": "New campaign",
   "/dashboard/brand/bookings": "Bookings",
+  "/dashboard/brand/ugc": "UGC briefs",
+  "/dashboard/brand/ugc/new": "New UGC brief",
+  "/dashboard/brand/directory": "Business page",
   "/dashboard/brand/analytics": "Analytics",
   "/dashboard/brand/deposits": "Pay-ins",
   "/dashboard/brand/team": "Team",
@@ -557,6 +636,8 @@ const TITLE_OVERRIDES: Record<string, string> = {
   "/dashboard/clipper/campaigns": "Discover",
   "/dashboard/clipper/submissions": "My clips",
   "/dashboard/clipper/earnings": "Earnings",
+  "/dashboard/ugc": "UGC work",
+  "/dashboard/ugc/portfolio": "UGC portfolio",
   "/dashboard/clipper/leaderboard": "Leaderboard",
   "/dashboard/clipper/saved": "Saved",
   "/dashboard/support": "Support",
@@ -579,6 +660,9 @@ const TITLE_OVERRIDES: Record<string, string> = {
   "/dashboard/admin/fees": "Fee and audit",
   "/dashboard/admin/kyc": "Identity",
   "/dashboard/admin/support": "Support queue",
+  "/dashboard/admin/licenses": "Licenses",
+  "/dashboard/admin/disputes": "Disputes",
+  "/dashboard/admin/directory": "Directory",
   "/dashboard/notifications": "Notifications",
   "/dashboard/settings": "Settings",
   "/dashboard/settings/profile": "Profile",
@@ -595,6 +679,8 @@ const TITLE_OVERRIDES: Record<string, string> = {
 export function getScreenTitle(pathname: string): string {
   if (TITLE_OVERRIDES[pathname]) return TITLE_OVERRIDES[pathname];
   if (/^\/dashboard\/admin\/users\/[^/]+$/.test(pathname)) return "User";
+  if (/^\/dashboard\/brand\/ugc\/[^/]+$/.test(pathname)) return "UGC brief";
+  if (/^\/dashboard\/ugc\/[^/]+$/.test(pathname)) return "UGC brief";
   if (/\/campaigns\/[^/]+\/edit$/.test(pathname)) return "Edit campaign";
   if (/\/campaigns\/[^/]+\/submissions$/.test(pathname)) return "Review queue";
   if (/\/campaigns\/[^/]+$/.test(pathname)) return "Campaign";

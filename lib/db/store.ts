@@ -50,6 +50,14 @@ const emptyStore = (): DatabaseStore => ({
   auditLog: [],
   prizeAwards: [],
   platformSettings: [],
+  ugcBriefs: [],
+  ugcApplications: [],
+  ugcDeliveries: [],
+  contentLicenses: [],
+  licenseDisputes: [],
+  creatorPortfolios: [],
+  businessListings: [],
+  creatorReviews: [],
 });
 
 declare global {

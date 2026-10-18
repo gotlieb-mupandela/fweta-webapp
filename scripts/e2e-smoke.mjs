@@ -4,10 +4,10 @@ const BASE = "http://localhost:3000";
 const PASSWORD = "password123";
 
 const accounts = [
-  { email: "brand@fweta.test", role: "brand", paths: ["/dashboard/brand", "/dashboard/brand/campaigns", "/dashboard/brand/campaigns/new", "/dashboard/brand/analytics", "/dashboard/brand/deposits", "/dashboard/brand/bookings"] },
-  { email: "clipper@fweta.test", role: "clipper", paths: ["/dashboard/clipper", "/dashboard/clipper/campaigns", "/dashboard/clipper/submissions", "/dashboard/clipper/earnings"] },
-  { email: "creator@fweta.test", role: "influencer", paths: ["/dashboard/influencer", "/dashboard/influencer/profile", "/dashboard/influencer/rate-cards", "/dashboard/influencer/bookings", "/dashboard/influencer/earnings"] },
-  { email: "admin@fweta.test", role: "admin", paths: ["/dashboard/admin", "/dashboard/admin/withdrawals", "/dashboard/admin/fraud", "/dashboard/admin/users", "/dashboard/admin/stats"] },
+  { email: "brand@fweta.test", role: "brand", paths: ["/dashboard/brand", "/dashboard/brand/campaigns", "/dashboard/brand/campaigns/new", "/dashboard/brand/analytics", "/dashboard/brand/deposits", "/dashboard/brand/bookings", "/dashboard/brand/ugc", "/dashboard/brand/ugc/new", "/dashboard/brand/directory"] },
+  { email: "clipper@fweta.test", role: "clipper", paths: ["/dashboard/clipper", "/dashboard/clipper/campaigns", "/dashboard/clipper/submissions", "/dashboard/clipper/earnings", "/dashboard/ugc", "/dashboard/ugc/portfolio"] },
+  { email: "creator@fweta.test", role: "influencer", paths: ["/dashboard/influencer", "/dashboard/influencer/profile", "/dashboard/influencer/rate-cards", "/dashboard/influencer/bookings", "/dashboard/influencer/earnings", "/dashboard/ugc", "/dashboard/ugc/portfolio"] },
+  { email: "admin@fweta.test", role: "admin", paths: ["/dashboard/admin", "/dashboard/admin/withdrawals", "/dashboard/admin/fraud", "/dashboard/admin/users", "/dashboard/admin/stats", "/dashboard/admin/licenses", "/dashboard/admin/disputes", "/dashboard/admin/directory"] },
 ];
 
 const results = [];
@@ -74,7 +74,7 @@ const context = await browser.newContext();
 const page = await context.newPage();
 
 try {
-  for (const path of ["/campaigns", "/influencers"]) {
+  for (const path of ["/campaigns", "/influencers", "/directory", "/llms.txt", "/robots.txt", "/sitemap.xml"]) {
     const r = await checkPath(page, path);
     results.push({ role: "public", ...r });
   }

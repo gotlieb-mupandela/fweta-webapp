@@ -871,7 +871,7 @@ export function tourBeats(role: UserRole, creator: boolean, brand: boolean): Tou
       {
         id: "funding",
         title: "Money moves by transfer",
-        body: "You fund a campaign with a bank transfer. An admin confirms it. Creator withdrawals are manual EFT too.",
+        body: "You fund a campaign with a bank transfer. An admin confirms it. The same wallet reserves a UGC brief. Creator withdrawals are manual EFT too.",
       },
       {
         id: "checklist",
@@ -884,7 +884,7 @@ export function tourBeats(role: UserRole, creator: boolean, brand: boolean): Tou
     {
       id: "home",
       title: "This is your workspace",
-      body: "Overview tracks submissions, views, and what you can withdraw.",
+        body: "Overview tracks submissions, views, and what you can withdraw. UGC work is a fixed fee, separate from pay per 1,000 views.",
     },
     {
       id: "campaigns",
