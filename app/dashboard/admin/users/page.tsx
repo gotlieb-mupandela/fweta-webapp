@@ -1,77 +1,166 @@
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { redirect } from "next/navigation";
 
-import { adminListUsers } from "@/app/actions/settings";
 import { UserSuspendButton } from "@/components/forms/user-suspend-button";
-import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
-import { summarizeOnboarding } from "@/lib/onboarding/model";
+import {
+  USER_TABS,
+  buildDirectory,
+  filterDirectory,
+  isUserTab,
+  type UserTab,
+} from "@/lib/admin/directory";
+import { formatMoney, formatNumber } from "@/lib/utils";
 
-export default async function AdminUsersPage() {
+function joinedLabel(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso || "Unknown";
+  return date.toLocaleDateString("en-NA", { day: "numeric", month: "short", year: "numeric" });
+}
+
+export default async function AdminUsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; q?: string }>;
+}) {
   const session = await getSession();
-  if (!session?.roles.includes("admin")) {
-    redirect("/dashboard");
-  }
+  if (!session?.roles.includes("admin")) redirect("/dashboard");
 
-  const [users, store] = await Promise.all([adminListUsers(), readStore()]);
-  const setupById = new Map(
-    store.profiles.map((profile) => [
-      profile.id,
-      summarizeOnboarding(profile, {
-        hasPayout: store.payoutMethods.some((method) => method.userId === profile.id),
-      }),
-    ]),
-  );
+  const params = await searchParams;
+  const tab: UserTab = isUserTab(params.tab) ? params.tab : "all";
+  const query = params.q?.trim() ?? "";
+  const store = await readStore();
+  const all = buildDirectory(store);
+  const rows = filterDirectory(all, tab, query);
+  const exportHref = `/dashboard/admin/users/export?tab=${tab}${query ? `&q=${encodeURIComponent(query)}` : ""}`;
 
   return (
     <div className="dash-stack">
       <PageHeader
         title="Users"
-        description="Open an account to review profile, money, and activity. Suspension stays on the row."
+        description={`${all.length} accounts in the live store. Open a row for social links, clips, money, and payout details.`}
+        action={
+          <a href={exportHref}>
+            <Button type="button" variant="secondary" size="sm">
+              Export CSV
+            </Button>
+          </a>
+        }
       />
 
-      {users.length === 0 ? (
-        <EmptyState title="No users" description="Accounts will appear here after signup." />
-      ) : (
-        <ul className="space-y-2.5">
-          {users.map((u) => (
-            <li key={u.id} className="list-row relative flex-wrap sm:flex-nowrap">
+      <div className="flex flex-col gap-3">
+        <nav aria-label="User groups" className="flex flex-wrap gap-2">
+          {USER_TABS.map((item) => {
+            const count = filterDirectory(all, item.id, "").length;
+            const href = item.id === "all" ? "/dashboard/admin/users" : `/dashboard/admin/users?tab=${item.id}`;
+            return (
               <Link
-                href={`/dashboard/admin/users/${u.id}`}
-                className="absolute inset-0 rounded-[1.15rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-                aria-label={`Open profile for ${u.displayName}`}
-              />
-              <div className="pointer-events-none flex min-w-0 flex-1 items-center gap-3">
-                <AvatarCircle src={u.avatarUrl} name={u.displayName} size="sm" />
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{u.displayName}</p>
-                  <p className="truncate text-sm text-muted">{u.email}</p>
-                  <p className="text-xs text-muted">{setupById.get(u.id)?.label ?? "Not started"}</p>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    <Badge tone="gold">{u.primaryRole}</Badge>
-                    {u.roles
-                      .filter((role) => role !== u.primaryRole)
-                      .map((role) => (
-                        <Badge key={role} tone="neutral">
+                key={item.id}
+                href={query ? `${href}${href.includes("?") ? "&" : "?"}q=${encodeURIComponent(query)}` : href}
+                aria-current={tab === item.id ? "page" : undefined}
+                className={
+                  tab === item.id
+                    ? "rounded-full bg-foreground px-3.5 py-1.5 text-sm text-white"
+                    : "rounded-full border border-border bg-white px-3.5 py-1.5 text-sm text-foreground"
+                }
+              >
+                {item.label}
+                <span className={tab === item.id ? "text-white/70" : "text-muted"}> {count}</span>
+              </Link>
+            );
+          })}
+        </nav>
+        <form className="flex flex-wrap gap-2" action="/dashboard/admin/users">
+          {tab !== "all" ? <input type="hidden" name="tab" value={tab} /> : null}
+          <label className="sr-only" htmlFor="user-q">
+            Search users
+          </label>
+          <input
+            id="user-q"
+            name="q"
+            defaultValue={query}
+            placeholder="Search name, email, or phone"
+            className="input-capsule h-11 min-w-[220px] flex-1"
+          />
+          <Button type="submit" size="sm">
+            Search
+          </Button>
+        </form>
+      </div>
+
+      <p className="text-sm text-muted">
+        Showing {rows.length} of {all.length}.
+        {query ? ` Search: ${query}.` : ""}
+      </p>
+
+      {rows.length === 0 ? (
+        <EmptyState
+          title={all.length === 0 ? "No users" : "No users match"}
+          description={
+            all.length === 0
+              ? "Accounts will appear here after signup."
+              : "Try another group or clear the search."
+          }
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-[1.35rem] border border-border bg-white">
+          <table className="min-w-[980px] w-full text-left text-sm">
+            <thead className="border-b border-border text-[11px] uppercase tracking-[0.12em] text-muted">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Name</th>
+                <th className="px-3 py-3 font-semibold">Phone</th>
+                <th className="px-3 py-3 font-semibold">Roles</th>
+                <th className="px-3 py-3 font-semibold">Joined</th>
+                <th className="px-3 py-3 font-semibold">Verification</th>
+                <th className="px-3 py-3 font-semibold">Socials</th>
+                <th className="px-3 py-3 font-semibold">Clips</th>
+                <th className="px-3 py-3 font-semibold">Views</th>
+                <th className="px-3 py-3 font-semibold">Wallet</th>
+                <th className="px-3 py-3 font-semibold"> </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-3">
+                    <Link href={`/dashboard/admin/users/${row.id}`} className="font-medium hover:underline">
+                      {row.displayName}
+                    </Link>
+                    <p className="text-xs text-muted">{row.email}</p>
+                    {row.suspended ? <Badge tone="danger">Suspended</Badge> : null}
+                  </td>
+                  <td className="px-3 py-3 text-muted">{row.phone || "None"}</td>
+                  <td className="px-3 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {row.roles.map((role) => (
+                        <Badge key={role} tone={role === row.primaryRole ? "gold" : "muted"}>
                           {role}
                         </Badge>
                       ))}
-                    {u.suspended ? <Badge tone="danger">Suspended</Badge> : null}
-                  </div>
-                </div>
-              </div>
-              <div className="pointer-events-none hidden text-muted-light sm:block" aria-hidden>
-                <ChevronRight className="size-4" />
-              </div>
-              <div className="relative z-10">
-                <UserSuspendButton userId={u.id} suspended={u.suspended} />
-              </div>
-            </li>
-          ))}
-        </ul>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 whitespace-nowrap">{joinedLabel(row.joinedAt)}</td>
+                  <td className="px-3 py-3 text-xs text-muted">{row.verification}</td>
+                  <td className="px-3 py-3">{row.socialCount}</td>
+                  <td className="px-3 py-3">{row.clips}</td>
+                  <td className="px-3 py-3">{formatNumber(row.views)}</td>
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <p>{formatMoney(row.availableCents)}</p>
+                    <p className="text-xs text-muted">
+                      {formatMoney(row.pendingCents)} pending · {formatMoney(row.earningsCents)} earned
+                    </p>
+                  </td>
+                  <td className="px-3 py-3">
+                    <UserSuspendButton userId={row.id} suspended={row.suspended} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
