@@ -54,7 +54,7 @@ export function DashboardSidebar({
   const active = findActiveNav(pathname, navItemsFor(role));
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-border bg-white md:flex">
+    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col overflow-hidden border-r border-border bg-white md:flex">
       <div className="flex h-16 items-center px-5">
         <Logo href="/dashboard" size="sm" />
       </div>
@@ -67,7 +67,7 @@ export function DashboardSidebar({
         ) : null}
       </div>
 
-      <nav aria-label="Dashboard" className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 pb-4">
+      <nav aria-label="Dashboard" className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 pb-4">
         {config.groups.map((group) => (
           <div key={group.label} className="space-y-0.5">
             <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
