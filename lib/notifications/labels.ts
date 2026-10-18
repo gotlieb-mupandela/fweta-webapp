@@ -20,4 +20,5 @@ export const NOTIFICATION_LABEL: Record<NotificationKind, string> = {
   kyc_reviewed: "Identity",
   prize_awarded: "Prize",
   referral_bonus: "Referral",
+  account_reviewed: "Account",
 };

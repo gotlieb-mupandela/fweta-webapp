@@ -237,15 +237,21 @@ try {
   await pause(600);
   await page.getByRole("button", { name: "Add account" }).click();
   await page.getByText("Code ready for @tulinakale").waitFor();
-  await pause(1800);
+  await pause(1200);
+  const creatorAccount = page.locator("li").filter({ hasText: "@tulinakale" });
+  await creatorAccount.getByRole("button", { name: "I've added it" }).click();
+  await page.getByText("Sent for verification.").waitFor({ timeout: 20000 });
+  await pause(1200);
 
   await logout();
   await login(ADMIN_EMAIL);
   await page.goto(`${BASE}/dashboard/admin/accounts`, { waitUntil: "domcontentloaded" });
   await pause(700);
   const account = page.locator("li").filter({ hasText: "@tulinakale" });
-  await account.getByRole("button", { name: "Mark verified" }).click();
-  await account.getByText("Verified", { exact: true }).waitFor();
+  await account.getByRole("link", { name: "Open profile" }).waitFor();
+  await pause(800);
+  await account.getByRole("button", { name: "Approve" }).click();
+  await page.locator("li").filter({ hasText: "@tulinakale" }).getByText("Verified", { exact: true }).waitFor();
   await pause(1200);
 
   await logout();

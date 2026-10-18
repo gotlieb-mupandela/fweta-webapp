@@ -233,12 +233,26 @@ try {
     await clipper.page.getByRole("button", { name: "Add account" }).click();
     const handle = `kai${String(stamp).slice(-6)}`;
     await clipper.page.getByText(`Code ready for @${handle}`).waitFor({ timeout: 15000 });
-    const account = (load().socialAccounts ?? []).find((item) => item.handle === handle);
-    log({
-      ok: Boolean(account) && account.status !== "verified",
-      step: "creator adds social account",
-      detail: account ? `${account.platform} ${account.status} ${account.code}` : "missing",
-    });
+    const card = clipper.page.locator("li").filter({ hasText: `@${handle}` });
+    await card.getByRole("button", { name: "Copy code" }).waitFor();
+    await card.getByText("Add it to the public bio on TikTok.").waitFor();
+    const added = (load().socialAccounts ?? []).find((item) => item.handle === handle);
+    if (!added || added.status !== "pending") {
+      log({
+        ok: false,
+        step: "creator adds social account",
+        detail: added ? `${added.status} ${added.code}` : "missing",
+      });
+    } else {
+      await card.getByRole("button", { name: "I've added it" }).click();
+      await clipper.page.getByText("Sent for verification.").waitFor({ timeout: 20000 });
+      const queued = (load().socialAccounts ?? []).find((item) => item.handle === handle);
+      log({
+        ok: queued?.status === "review" && /^FWETA-[A-Z0-9]{6}$/.test(queued.code ?? ""),
+        step: "creator adds social account",
+        detail: queued ? `${queued.platform} ${queued.status} ${queued.code}` : "missing",
+      });
+    }
   } catch (error) {
     await shot(clipper.page, "social");
     log({ ok: false, step: "creator adds social account", detail: String(error) });
@@ -248,11 +262,28 @@ try {
   const admin2 = await login(browser, "admin@fweta.test");
   try {
     await admin2.page.goto(`${BASE}/dashboard/admin/accounts`, { waitUntil: "domcontentloaded" });
-    const row = admin2.page.locator("li").filter({ hasText: `@kai${String(stamp).slice(-6)}` });
-    await row.getByRole("button", { name: "Mark verified" }).click();
-    await row.getByText("Verified", { exact: true }).waitFor({ timeout: 15000 });
-    const account = (load().socialAccounts ?? []).find((item) => item.handle === `kai${String(stamp).slice(-6)}`);
-    log({ ok: account?.status === "verified", step: "admin verifies bio account", detail: account?.status });
+    const handle = `kai${String(stamp).slice(-6)}`;
+    const row = admin2.page.locator("li").filter({ hasText: `@${handle}` });
+    await row.getByRole("link", { name: "Open profile" }).waitFor({ timeout: 15000 });
+    await row.getByRole("button", { name: "Approve" }).click();
+    let account = null;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      account = (load().socialAccounts ?? []).find((item) => item.handle === handle);
+      if (account?.status === "verified") break;
+      await admin2.page.waitForTimeout(500);
+    }
+    const creator = profile("clipper@fweta.test");
+    const audited = (load().auditLog ?? []).some(
+      (item) => item.action === "account.review" && String(item.summary).includes(`@${handle}`),
+    );
+    const notified = (load().notifications ?? []).some(
+      (item) => item.kind === "account_reviewed" && item.userId === creator?.id && item.title === "Account verified",
+    );
+    log({
+      ok: account?.status === "verified" && audited && notified,
+      step: "admin verifies bio account",
+      detail: `${account?.status} audit:${audited} note:${notified}`,
+    });
   } catch (error) {
     await shot(admin2.page, "verify");
     log({ ok: false, step: "admin verifies bio account", detail: String(error) });

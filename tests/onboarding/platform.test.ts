@@ -6,6 +6,10 @@ import { campaignsVisibleToBrand, canEditCampaign } from "@/lib/onboarding/acces
 import {
   assertCanAddAccount,
   bioCodeForAccount,
+  bioHintLabel,
+  generateBioCode,
+  reviewDecisionError,
+  verifiedAccountsForPlatform,
   statsByAccount,
   withDefault,
 } from "@/lib/onboarding/accounts";
@@ -149,6 +153,29 @@ test("each social account keeps its own stable bio code", () => {
   assert.match(first, /^FWETA-[A-Z0-9]{6}$/);
   assert.notEqual(first, second);
   assert.equal(first, bioCodeForAccount("user-1", "11111111-1111-4111-8111-111111111111"));
+});
+
+test("a new bio code is short, unique, and a rejection needs a reason", () => {
+  const first = generateBioCode();
+  const second = generateBioCode([first]);
+  assert.match(first, /^FWETA-[A-Z2-9]{6}$/);
+  assert.notEqual(first, second);
+  assert.equal(reviewDecisionError("verified", ""), null);
+  assert.equal(reviewDecisionError("rejected", "no"), "Add a short reason for the rejection.");
+  assert.equal(reviewDecisionError("rejected", "Code was not in the bio."), null);
+  assert.match(bioHintLabel("match"), /Still confirm it yourself/);
+  assert.match(bioHintLabel(null), /Open the profile/);
+});
+
+test("only a verified account can be selected for a clip", () => {
+  const accounts = [
+    account({ id: "a", platform: "tiktok", handle: "one", status: "pending" }),
+    account({ id: "b", platform: "tiktok", handle: "two", status: "review" }),
+    account({ id: "c", platform: "tiktok", handle: "three", status: "rejected" }),
+    account({ id: "d", platform: "tiktok", handle: "four", status: "verified" }),
+  ];
+  const usable = verifiedAccountsForPlatform(accounts, "user-1", "tiktok");
+  assert.deepEqual(usable.map((item) => item.id), ["d"]);
 });
 
 test("a creator can connect several accounts on one platform and pick a default", () => {

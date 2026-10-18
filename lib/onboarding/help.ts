@@ -60,14 +60,14 @@ export const HELP_ARTICLES: HelpArticle[] = [
     group: "Social accounts",
     question: "Can I connect more than one account per platform?",
     answer:
-      "Yes. Add each TikTok, Instagram, YouTube, or X account with its own bio code. Verify each one, choose a default, and pick the account a submission came from. Stats are kept per account.",
+      "Yes. Add each TikTok, Instagram, YouTube, or X account with its own bio code. It stays pending until an admin confirms it. Then choose a default and pick that account when you submit. Stats are kept per account.",
   },
   {
     id: "bio-code",
     group: "Social accounts",
     question: "How does bio verification work?",
     answer:
-      "Each account gets a code that starts with FWETA-. Paste it in that account's public bio, then check. We only look for the code on the public profile. Changing the handle asks you to verify again.",
+      "Each account gets a short code that starts with FWETA-. Copy it, add it to that account's public bio, then tap I've added it. The account stays Pending verification and cannot be used on a clip until an admin opens the profile and approves it. If they reject it, you get the reason and can generate a new code. After approval you may remove the code from your bio.",
   },
   {
     id: "team",
@@ -95,7 +95,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     group: "Admins",
     question: "What does an admin do on the first day?",
     answer:
-      "Confirm brand pay-ins, record view checks on approved clips, and pay withdrawal requests by EFT. The onboarding page shows who has finished setup. Accounts, teams, and workspaces can all be reviewed from the admin menu.",
+      "Confirm brand pay-ins, confirm social accounts in Account verification, record view checks on approved clips, and pay withdrawal requests by EFT. The onboarding page shows who has finished setup.",
   },
 ];
 

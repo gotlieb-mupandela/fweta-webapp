@@ -71,7 +71,7 @@ export default async function ClipperDashboardPage() {
     actions.push({
       href: "/dashboard/settings/accounts",
       label: "Connect an account",
-      detail: "Verify the profile you post from.",
+      detail: "Add a bio code. The account stays pending until an admin confirms it.",
     });
   }
 

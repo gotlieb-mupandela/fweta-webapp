@@ -197,7 +197,7 @@ export default async function PublicCampaignPage({
             <Card>
               <h2 className="font-display text-xl">Submit a clip</h2>
               <p className="mt-2 text-sm text-muted">
-                Verify the account in Settings, publish on an allowed platform, then paste the post link.
+                Only a verified account can be selected. Pending accounts stay locked until an admin confirms the bio code. Publish on an allowed platform, then paste the post link.
                 Only views after you submit are paid.{" "}
                 <Link href="/dashboard/settings/accounts" className="text-gold-deep hover:underline">
                   Connected accounts

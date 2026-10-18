@@ -397,9 +397,15 @@ export type SocialAccount = {
   platform: SocialPlatform;
   handle: string;
   code: string;
-  status: "pending" | "verified";
+  /** pending: code not sent for review. review: admin queue. rejected: admin said no. */
+  status: "pending" | "review" | "verified" | "rejected";
   isDefault: boolean;
   verifiedAt: string | null;
+  /** Set when the creator taps I've added it. */
+  reviewRequestedAt?: string | null;
+  rejectionReason?: string | null;
+  /** Optional public-page hint. Never a substitute for the admin decision. */
+  bioHint?: "match" | "missing" | "unread" | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -510,7 +516,8 @@ export type NotificationKind =
   | "support_reply"
   | "kyc_reviewed"
   | "prize_awarded"
-  | "referral_bonus";
+  | "referral_bonus"
+  | "account_reviewed";
 
 export type AppNotification = {
   id: string;

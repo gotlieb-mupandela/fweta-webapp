@@ -9,6 +9,12 @@ export const addSocialAccountSchema = z.object({
 
 export const socialAccountIdSchema = z.string().uuid();
 
+export const socialReviewSchema = z.object({
+  accountId: z.string().uuid(),
+  decision: z.enum(["verified", "rejected"]),
+  reason: z.string().trim().max(240).optional(),
+});
+
 export const recordViewsSchema = z.object({
   submissionId: z.string().uuid(),
   views: z.number().int().min(0).max(2_000_000_000),

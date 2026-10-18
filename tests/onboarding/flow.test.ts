@@ -118,7 +118,7 @@ test("social verification is required to finish that step", () => {
   const draft = createDraft("socials");
   assert.match(
     validateStepComplete("socials", draft, { hasPayout: false }) ?? "",
-    /Verify at least one/,
+    /admin to confirm one account/,
   );
   draft.checks = upsertSocialCheck([], "user-1", "tiktok", "https://www.tiktok.com/@amara");
   assert.equal(draft.checks[0]?.handle, "amara");

@@ -80,7 +80,7 @@ export const STEP_COPY: Record<OnboardingStepId, StepCopy> = {
   socials: {
     id: "socials",
     title: "Connect the accounts you post on",
-    subtitle: "Add a handle, put the code in that bio, and we check the account is yours.",
+    subtitle: "Add a handle, put the code in that bio, then tap I've added it. An admin confirms the code before you can use the account.",
     nextLabel: "Continue",
   },
   payout: {
@@ -397,7 +397,7 @@ export function validateStepComplete(
       return null;
     case "socials":
       if (!draft.checks.some((check) => check.status === "verified")) {
-        return "Verify at least one account, or skip this step and come back.";
+        return "Wait for an admin to confirm one account, or skip this step and come back.";
       }
       return null;
     case "payout":
@@ -792,7 +792,7 @@ const EMPTY_FOR_STEP: Partial<Record<OnboardingStepId, Partial<Record<EmptyGuide
   socials: {
     "clipper-submissions": {
       title: "Connect a social account before you submit",
-      description: "Add your handle and confirm it with the bio code so clips can be tied to you.",
+      description: "Add your handle and the bio code. The account stays pending until an admin confirms it.",
       href: "/onboarding?step=socials",
       cta: "Connect an account",
     },
@@ -909,7 +909,7 @@ export const FIELD_HINTS = {
   budget: "The most this campaign will pay out. It stops when the budget is used.",
   minViews: "Views under this number do not earn. Use it to ignore clips that never really landed.",
   cap: "The most one clip can earn, so the budget spreads across more creators.",
-  bio: "Paste this code in the public bio, save, then check. We only look for this code.",
+  bio: "Copy this code into the public bio, then tap I've added it. An admin confirms the code. The account stays pending until then.",
   payout: "Fweta does not store a card. An admin pays approved withdrawals by EFT.",
   deposit: "There is no checkout on this step. The transfer is confirmed by an admin before the wallet is credited.",
 } as const;

@@ -4,9 +4,10 @@ import { useMemo, useState, useTransition } from "react";
 
 import {
   addSocialAccountAction,
+  regenerateSocialCodeAction,
   removeSocialAccountAction,
+  requestSocialReviewAction,
   setDefaultSocialAccountAction,
-  verifySocialAccountAction,
 } from "@/app/actions/accounts";
 import { PlatformIcon } from "@/components/admin/platform-icon";
 import { Hint } from "@/components/onboarding/hint";
@@ -66,23 +67,39 @@ export function SocialAccountsManager({
       }
       apply(res.account, res.draft);
       setHandle("");
-      setNotice(`Code ready for @${res.account.handle}. Paste it in that bio, then check.`);
+      setNotice(`Code ready for @${res.account.handle}. Add it to your bio, then tap I've added it.`);
     });
   }
 
-  function verify(accountId: string) {
+  function requestReview(accountId: string) {
     setError(null);
     setNotice(null);
     setBusy(accountId);
     startTransition(async () => {
-      const res = await verifySocialAccountAction(accountId);
+      const res = await requestSocialReviewAction(accountId);
       setBusy(null);
       if (!res.ok) {
         setError(res.error);
         return;
       }
       apply(res.account, res.draft);
-      setNotice(`@${res.account.handle} is verified.`);
+      setNotice("Sent for verification. An admin will open the profile and confirm the code.");
+    });
+  }
+
+  function regenerate(accountId: string) {
+    setError(null);
+    setNotice(null);
+    setBusy(`code-${accountId}`);
+    startTransition(async () => {
+      const res = await regenerateSocialCodeAction(accountId);
+      setBusy(null);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      apply(res.account, null);
+      setNotice(`New code for @${res.account.handle}. Add it to your bio, then tap I've added it.`);
     });
   }
 
@@ -134,7 +151,9 @@ export function SocialAccountsManager({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted">Add several accounts on the same platform. Each one gets its own code.</p>
+        <p className="text-sm text-muted">
+          Add the accounts you post from. Each one stays Pending verification until an admin confirms the bio code.
+        </p>
         <Hint text={FIELD_HINTS.bio} label="How checking works" />
       </div>
 
@@ -179,7 +198,7 @@ export function SocialAccountsManager({
 
       {accounts.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted">
-          No accounts yet. Add the first one, put the code in its bio, and check it.
+          No accounts yet. Add one, copy the code into the bio, then tap I've added it.
         </p>
       ) : (
         <ul className="space-y-3">
@@ -200,13 +219,35 @@ export function SocialAccountsManager({
                     className={
                       account.status === "verified"
                         ? "ml-auto rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success"
-                        : "ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted"
+                        : account.status === "rejected"
+                          ? "ml-auto rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-medium text-danger"
+                          : "ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted"
                     }
                   >
-                    {account.status === "verified" ? "Verified" : "Needs bio code"}
+                    {account.status === "verified"
+                      ? "Verified"
+                      : account.status === "rejected"
+                        ? "Rejected"
+                        : "Pending verification"}
                   </span>
                 </div>
                 <p className="mt-3 font-mono text-sm tracking-wide">{account.code}</p>
+                {account.status === "verified" ? (
+                  <p className="mt-2 text-sm text-muted">Verified. You can remove the code from your bio.</p>
+                ) : account.status === "review" ? (
+                  <p className="mt-2 text-sm text-muted">
+                    Pending verification. Waiting for an admin to confirm this code on your profile.
+                  </p>
+                ) : (
+                  <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-muted">
+                    <li>Copy this code.</li>
+                    <li>Add it to the public bio on {PLATFORM_LABEL[account.platform]}.</li>
+                    <li>Tap I've added it.</li>
+                  </ol>
+                )}
+                {account.status === "rejected" && account.rejectionReason ? (
+                  <p className="mt-2 text-sm text-danger">{account.rejectionReason}</p>
+                ) : null}
                 {stat ? (
                   <p className="mt-2 text-xs text-muted">
                     {stat.submissions} clips · {formatNumber(stat.views)} views · {formatMoney(stat.earningsCents)} earned
@@ -216,9 +257,20 @@ export function SocialAccountsManager({
                   <Button type="button" size="sm" variant="secondary" onClick={() => copyCode(account.code)}>
                     Copy code
                   </Button>
-                  {account.status !== "verified" ? (
-                    <Button type="button" size="sm" disabled={busy !== null} onClick={() => verify(account.id)}>
-                      {busy === account.id ? "Checking..." : "Check bio"}
+                  {account.status === "pending" || account.status === "rejected" ? (
+                    <Button type="button" size="sm" disabled={busy !== null} onClick={() => requestReview(account.id)}>
+                      {busy === account.id ? "Sending..." : "I've added it"}
+                    </Button>
+                  ) : null}
+                  {account.status !== "review" ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy !== null}
+                      onClick={() => regenerate(account.id)}
+                    >
+                      {busy === `code-${account.id}` ? "Creating..." : "New code"}
                     </Button>
                   ) : null}
                   {!account.isDefault ? (
