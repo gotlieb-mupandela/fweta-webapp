@@ -102,9 +102,9 @@ export async function adminListUsers() {
     email: p.email,
     displayName: p.displayName,
     avatarUrl: p.avatarUrl,
-    roles: p.roles,
+    roles: Array.isArray(p.roles) ? p.roles : [],
     primaryRole: p.primaryRole,
-    suspended: p.suspended,
+    suspended: Boolean(p.suspended),
     createdAt: p.createdAt,
   }));
 }

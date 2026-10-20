@@ -161,10 +161,9 @@ export async function updateStore(
     globalThis.__fwetaStore = store;
 
     if (isSupabaseStoreEnabled()) {
-      try {
-        await saveStoreToSupabase(store);
-      } catch (err) {
-        console.warn("[fweta] supabase save failed:", err instanceof Error ? err.message : err);
+      const saved = await saveStoreToSupabase(store);
+      if (!saved) {
+        throw new Error("Could not save your changes. Try again in a moment.");
       }
       return;
     }

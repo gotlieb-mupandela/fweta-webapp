@@ -28,13 +28,11 @@ export default async function AdminUsersPage() {
       ) : (
         <ul className="space-y-2.5">
           {users.map((u) => (
-            <li key={u.id} className="list-row relative flex-wrap sm:flex-nowrap">
+            <li key={u.id} className="list-row flex-wrap sm:flex-nowrap">
               <Link
                 href={`/dashboard/admin/users/${u.id}`}
-                className="absolute inset-0 rounded-[1.15rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-                aria-label={`Open profile for ${u.displayName}`}
-              />
-              <div className="pointer-events-none flex min-w-0 flex-1 items-center gap-3">
+                className="flex min-w-0 flex-1 items-center gap-3 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+              >
                 <AvatarCircle src={u.avatarUrl} name={u.displayName} size="sm" />
                 <div className="min-w-0">
                   <p className="truncate font-medium">{u.displayName}</p>
@@ -51,13 +49,12 @@ export default async function AdminUsersPage() {
                     {u.suspended ? <Badge tone="danger">Suspended</Badge> : null}
                   </div>
                 </div>
-              </div>
-              <div className="pointer-events-none hidden text-muted-light sm:block" aria-hidden>
-                <ChevronRight className="size-4" />
-              </div>
-              <div className="relative z-10">
-                <UserSuspendButton userId={u.id} suspended={u.suspended} />
-              </div>
+                <span className="ml-auto hidden items-center gap-1 text-sm font-medium text-foreground sm:flex">
+                  View profile
+                  <ChevronRight className="size-4 text-muted-light" aria-hidden />
+                </span>
+              </Link>
+              <UserSuspendButton userId={u.id} suspended={u.suspended} />
             </li>
           ))}
         </ul>

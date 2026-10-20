@@ -147,15 +147,24 @@ async function saveRelationalStore(store: DatabaseStore): Promise<boolean> {
 
 export async function loadStoreFromSupabase(): Promise<DatabaseStore | null> {
   try {
+    const sync = process.env.FWETA_RELATIONAL_SYNC === "true";
     const relational = await loadRelationalStore();
-    if (relational && hasData(relational)) {
+    const jsonBlob = await loadJsonBlob();
+
+    // The JSON document is the source of truth. A relational snapshot can be
+    // stale or missing onboarding columns. Preferring it hid new business
+    // accounts on the next request, so signup looked successful and then
+    // onboarding could not find the profile.
+    if (!sync && jsonBlob && hasData(jsonBlob)) {
+      return jsonBlob;
+    }
+
+    if (sync && relational && hasData(relational)) {
       return relational;
     }
 
-    const jsonBlob = await loadJsonBlob();
     if (jsonBlob && hasData(jsonBlob)) {
-      // Only migrate JSON → relational when explicitly enabled
-      if (process.env.FWETA_RELATIONAL_SYNC === "true") {
+      if (sync) {
         await saveRelationalStore(jsonBlob).catch(() => undefined);
       }
       return jsonBlob;

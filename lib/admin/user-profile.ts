@@ -25,7 +25,14 @@ export type AdminProfile = Omit<Profile, "passwordHash">;
 export type SocialLink = {
   platform: SocialPlatform;
   value: string;
-  source: "account" | "public";
+  source: "account" | "public" | "linked";
+  status?: string;
+};
+
+export type VerificationRow = {
+  label: string;
+  status: string;
+  detail: string;
 };
 
 export type MediaItem = {
@@ -67,6 +74,9 @@ export type AdminUserDossier = {
   influencer: InfluencerProfile | null;
   rateCards: RateCardItem[];
   socials: SocialLink[];
+  verification: VerificationRow[];
+  totalViews: number;
+  totalEarningsCents: number;
   media: MediaItem[];
   wallet: Wallet | null;
   ledger: LedgerEntry[];
@@ -85,6 +95,132 @@ function withoutPassword(profile: Profile): AdminProfile {
   const { passwordHash, ...safe } = profile;
   void passwordHash;
   return safe;
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function asPlatform(value: unknown): SocialPlatform | null {
+  if (value === "tiktok" || value === "youtube" || value === "instagram" || value === "x") {
+    return value;
+  }
+  return null;
+}
+
+function cents(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+/** Linked accounts may live on the JSON document from a newer store shape. */
+function collectLinkedAccounts(store: unknown, userId: string): SocialLink[] {
+  const root = asRecord(store);
+  if (!root) return [];
+  const rows = [...asArray(root.socialAccounts), ...asArray(root.linkedAccounts)];
+  const links: SocialLink[] = [];
+  for (const row of rows) {
+    const record = asRecord(row);
+    if (!record || record.userId !== userId) continue;
+    const platform = asPlatform(record.platform);
+    if (!platform) continue;
+    const handle = typeof record.handle === "string" ? record.handle.trim() : "";
+    const url = typeof record.url === "string" ? record.url.trim() : "";
+    const value = url || handle;
+    if (!value) continue;
+    const status =
+      typeof record.status === "string"
+        ? record.status
+        : record.verifiedAt
+          ? "verified"
+          : "pending";
+    links.push({ platform, value, source: "linked", status });
+  }
+  return links;
+}
+
+function collectVerification(profile: Profile, socials: SocialLink[]): VerificationRow[] {
+  const rows: VerificationRow[] = [];
+  const loose = profile as Profile & {
+    kyc?: { status?: string; country?: string; submittedAt?: string } | null;
+    onboarding?: { checks?: unknown };
+  };
+
+  rows.push({
+    label: "Account",
+    status: profile.suspended ? "Suspended" : "Active",
+    detail: profile.email,
+  });
+
+  if (profile.onboardingCompletedAt === undefined) {
+    rows.push({
+      label: "Onboarding",
+      status: "Legacy",
+      detail: "Onboarding was not required for this account.",
+    });
+  } else if (profile.onboardingCompletedAt === null) {
+    rows.push({
+      label: "Onboarding",
+      status: "Not completed",
+      detail: "This account has not finished setup.",
+    });
+  } else {
+    rows.push({
+      label: "Onboarding",
+      status: "Completed",
+      detail: profile.onboardingCompletedAt === "seeded" ? "Completed at seed" : profile.onboardingCompletedAt,
+    });
+  }
+
+  const checks = asArray(loose.onboarding?.checks);
+  for (const check of checks) {
+    const record = asRecord(check);
+    if (!record) continue;
+    const platform = asPlatform(record.platform);
+    const handle = typeof record.handle === "string" ? record.handle : "";
+    const status = typeof record.status === "string" ? record.status : "pending";
+    rows.push({
+      label: platform ? `${platform} check` : "Social check",
+      status,
+      detail: handle || "No handle stored",
+    });
+  }
+
+  for (const link of socials.filter((item) => item.source === "linked")) {
+    rows.push({
+      label: link.platform,
+      status: link.status ?? "pending",
+      detail: link.value,
+    });
+  }
+
+  if (loose.kyc) {
+    rows.push({
+      label: "Payout identity",
+      status: loose.kyc.status ?? "submitted",
+      detail: loose.kyc.country ? `Country ${loose.kyc.country}` : "Identity record is stored. The ID number stays hidden.",
+    });
+  } else {
+    rows.push({
+      label: "Payout identity",
+      status: "Not submitted",
+      detail: "No identity record is stored yet. Payouts stay manual EFT.",
+    });
+  }
+
+  if (profile.website) {
+    rows.push({
+      label: "Website",
+      status: "Listed",
+      detail: profile.website,
+    });
+  }
+
+  return rows;
 }
 
 function collectSocials(
@@ -126,6 +262,7 @@ export async function loadAdminUserDossier(userId: string): Promise<AdminUserDos
   const store = await readStore();
   const profile = store.profiles.find((p) => p.id === userId);
   if (!profile) return null;
+  if (!Array.isArray(profile.roles)) profile.roles = [];
 
   const influencer =
     store.influencerProfiles.find((p) => p.userId === profile.id) ?? null;
@@ -138,7 +275,9 @@ export async function loadAdminUserDossier(userId: string): Promise<AdminUserDos
   const socials = [
     ...collectSocials(profile.socials, "account"),
     ...collectSocials(influencer?.socials, "public"),
+    ...collectLinkedAccounts(store, profile.id),
   ];
+  const verification = collectVerification(profile, socials);
 
   const media: MediaItem[] = [];
   pushMedia(media, profile.avatarUrl, "Account avatar", true);
@@ -187,6 +326,8 @@ export async function loadAdminUserDossier(userId: string): Promise<AdminUserDos
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .map((s) => ({
       ...s,
+      views: cents(s.views),
+      earningsCents: cents(s.earningsCents),
       campaignTitle: campaignTitle.get(s.campaignId) ?? null,
       snapshots: store.viewSnapshots
         .filter((v) => v.submissionId === s.id)
@@ -235,11 +376,17 @@ export async function loadAdminUserDossier(userId: string): Promise<AdminUserDos
       };
     });
 
+  const totalViews = submissions.reduce((sum, row) => sum + cents(row.views), 0);
+  const totalEarningsCents = submissions.reduce((sum, row) => sum + cents(row.earningsCents), 0);
+
   return {
     profile: withoutPassword(profile),
     influencer,
     rateCards,
     socials,
+    verification,
+    totalViews,
+    totalEarningsCents,
     media,
     wallet,
     ledger,

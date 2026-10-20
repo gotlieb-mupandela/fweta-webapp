@@ -94,8 +94,8 @@ export async function completeOnboardingAction(raw: unknown) {
     profile.phone = data.phone.replace(/\s+/g, " ").trim();
     profile.displayName = displayName;
     profile.socials = { ...(profile.socials ?? {}), ...socials };
-    profile.primaryPlatform =
-      data.primaryPlatform ?? firstFilledPlatform(socials) ?? profile.primaryPlatform;
+    const pickedPlatform = data.primaryPlatform ?? firstFilledPlatform(socials);
+    if (pickedPlatform) profile.primaryPlatform = pickedPlatform;
     profile.updatedAt = now;
     profile.onboardingCompletedAt = now;
 

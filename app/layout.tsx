@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     default: "fweta",
     template: "%s · fweta",
   },
-  description: "fweta workspace — campaigns, bookings, and payouts.",
+  description: "fweta workspace: campaigns, bookings, and payouts.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://app.fweta.com"),
   appleWebApp: {
     capable: true,

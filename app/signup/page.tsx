@@ -1,11 +1,15 @@
-import { Suspense } from "react";
-
 import { SignupForm } from "@/components/auth/signup-form";
 
-export default function SignupPage() {
-  return (
-    <Suspense fallback={<div className="p-10 text-center text-muted">Loading…</div>}>
-      <SignupForm />
-    </Suspense>
-  );
+// Read ?role= on the server. useSearchParams() in the client form made Next
+// prerender a client-only shell, which production showed as "Loading…" or
+// "Page unavailable" before a business could create an account.
+export const dynamic = "force-dynamic";
+
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ role?: string }>;
+}) {
+  const params = await searchParams;
+  return <SignupForm presetRole={params.role} />;
 }

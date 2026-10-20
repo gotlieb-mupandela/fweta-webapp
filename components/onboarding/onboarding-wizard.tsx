@@ -130,7 +130,9 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
       website: answers.website,
       niche: answers.niche,
       location: answers.location,
-      primaryPlatform: answers.primaryPlatform,
+      ...(steps.some((item) => item.id === "primaryPlatform")
+        ? { primaryPlatform: answers.primaryPlatform }
+        : {}),
     };
   }
 
@@ -168,7 +170,9 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
 
   function finish() {
     const isCreator = roles.includes("influencer") || roles.includes("clipper");
-    if (isCreator && !hasAnySocial(answers)) {
+    // A business can open an account without TikTok, Instagram, YouTube, or X.
+    // Socials stay required only for creator-only accounts.
+    if (isCreator && !roles.includes("brand") && !hasAnySocial(answers)) {
       setError("Add at least one social profile before finishing.");
       const socialIndex = steps.findIndex((s) =>
         SOCIAL_FIELDS.includes(s.id as SocialField),

@@ -32,7 +32,7 @@ export const onboardingCompleteSchema = z
       [d.socials.tiktok, d.socials.instagram, d.socials.youtube, d.socials.x].some(
         (v) => (v ?? "").trim().length >= 2,
       ),
-    { message: "Add at least one social profile", path: ["socials"] },
+    { message: "Add a business name or at least one social profile", path: ["socials"] },
   );
 
 export type OnboardingCompleteInput = z.infer<typeof onboardingCompleteSchema>;

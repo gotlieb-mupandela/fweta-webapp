@@ -23,14 +23,14 @@ const RATE_LABEL: Record<string, string> = {
 };
 
 function formatWhen(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return "Not set";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleString("en-NA", { dateStyle: "medium", timeStyle: "short" });
 }
 
 function onboardingLabel(value: string | null | undefined): string {
-  if (value === undefined) return "Legacy account — onboarding was not required";
+  if (value === undefined) return "Legacy account. Onboarding was not required";
   if (value === null) return "Not completed";
   if (value === "seeded") return "Completed at seed";
   return `Completed ${formatWhen(value)}`;
@@ -107,7 +107,15 @@ function Section({
 }
 
 function statusTone(status: string): "gold" | "success" | "danger" | "muted" | "neutral" {
-  if (status === "active" || status === "approved" || status === "paid" || status === "credited") {
+  if (
+    status === "active" ||
+    status === "approved" ||
+    status === "paid" ||
+    status === "credited" ||
+    status === "verified" ||
+    status === "completed" ||
+    status === "listed"
+  ) {
     return "success";
   }
   if (status === "suspended" || status === "rejected" || status === "flagged" || status === "open") {
@@ -139,6 +147,7 @@ export function AdminUserProfile({ dossier }: { dossier: AdminUserDossier }) {
   const isBrand = profile.roles.includes("brand");
   const sections = [
     { id: "account", label: "Account" },
+    { id: "verification", label: "Verification" },
     { id: "media", label: "Media" },
     { id: "social", label: "Social" },
     { id: "pricing", label: "Pricing" },
@@ -220,17 +229,19 @@ export function AdminUserProfile({ dossier }: { dossier: AdminUserDossier }) {
           </div>
         </div>
 
-        <dl className="mt-5 grid grid-cols-2 divide-x divide-y divide-border border-t border-border sm:grid-cols-4 sm:divide-y-0">
+        <dl className="mt-5 grid grid-cols-2 divide-x divide-y divide-border border-t border-border sm:grid-cols-3 lg:grid-cols-6">
           <Stat
             label="Available"
-            value={dossier.wallet ? formatMoney(dossier.wallet.availableCents) : "—"}
+            value={dossier.wallet ? formatMoney(dossier.wallet.availableCents) : "Not set"}
             hint={dossier.wallet ? undefined : "No wallet row"}
           />
           <Stat
             label="Pending"
-            value={dossier.wallet ? formatMoney(dossier.wallet.pendingCents) : "—"}
+            value={dossier.wallet ? formatMoney(dossier.wallet.pendingCents) : "Not set"}
           />
           <Stat label="Clips" value={formatNumber(dossier.submissions.length)} />
+          <Stat label="Views" value={formatNumber(dossier.totalViews)} />
+          <Stat label="Earnings" value={formatMoney(dossier.totalEarningsCents)} />
           <Stat label="Bookings" value={formatNumber(dossier.bookings.length)} />
         </dl>
       </article>
@@ -280,6 +291,20 @@ export function AdminUserProfile({ dossier }: { dossier: AdminUserDossier }) {
             No phone, company, website, niche, location, or primary platform is stored.
           </p>
         ) : null}
+      </Section>
+
+      <Section id="verification" kicker="Trust" title="Verification">
+        <ul className="space-y-2.5">
+          {dossier.verification.map((row) => (
+            <li key={`${row.label}-${row.detail}`} className="list-row items-start">
+              <div className="min-w-0">
+                <p className="font-medium">{row.label}</p>
+                <p className="break-all text-sm text-muted">{row.detail}</p>
+              </div>
+              <Badge tone={statusTone(row.status.toLowerCase())}>{row.status}</Badge>
+            </li>
+          ))}
+        </ul>
       </Section>
 
       <Section id="media" kicker="Pictures" title="Media">
@@ -629,6 +654,11 @@ function SocialGroup({ title, links }: { title: string; links: SocialLink[] }) {
                   {PLATFORM_LABEL[link.platform]}
                 </span>
                 <span className="block truncate text-sm">{socialCaption(link.value)}</span>
+                {link.status ? (
+                  <span className="block text-[10px] uppercase tracking-[0.12em] text-muted">
+                    {link.status}
+                  </span>
+                ) : null}
               </span>
             </>
           );

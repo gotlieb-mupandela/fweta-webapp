@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { Logo } from "@/components/brand/logo";
@@ -17,16 +17,19 @@ const ROLE_OPTIONS: { id: UserRole; label: string; hint: string }[] = [
   { id: "brand", label: "Business", hint: "Run campaigns & hire creators" },
 ];
 
-export function SignupForm() {
+function rolesFromPreset(preset?: string): UserRole[] {
+  if (preset === "brand" || preset === "business") return ["brand"];
+  if (preset === "creator") return ["clipper", "influencer"];
+  if (preset === "influencer") return ["influencer"];
+  if (preset === "clipper") return ["clipper"];
+  // No hidden default. A preselected Clipper made a business click look selected
+  // while Clipper stayed on, and onboarding then demanded a social profile.
+  return [];
+}
+
+export function SignupForm({ presetRole }: { presetRole?: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const preset = searchParams.get("role");
-  const initialRoles = useMemo<UserRole[]>(() => {
-    if (preset === "brand") return ["brand"];
-    if (preset === "creator") return ["clipper", "influencer"];
-    if (preset === "influencer") return ["influencer"];
-    return ["clipper"];
-  }, [preset]);
+  const initialRoles = useMemo(() => rolesFromPreset(presetRole), [presetRole]);
 
   const [roles, setRoles] = useState<UserRole[]>(initialRoles);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +51,7 @@ export function SignupForm() {
             One account. Multiple ways to earn and grow.
           </h2>
           <p className="text-sm leading-relaxed text-white/65">
-            Join as a creator, influencer, business — or all three. Switch roles anytime from
+            Join as a creator, influencer, business, or all three. Switch roles anytime from
             settings.
           </p>
         </div>
@@ -80,7 +83,7 @@ export function SignupForm() {
             Join fweta
           </h1>
           <p className="mt-3 text-sm text-muted">
-            Pick your roles — then a quick setup quest unlocks your dashboard.
+            Choose one or more roles. A business account does not need a social profile.
           </p>
           <div className="hairline-gold my-7" />
 
@@ -158,7 +161,7 @@ export function SignupForm() {
 
             <FieldError>{error}</FieldError>
             <Button type="submit" size="lg" className="mt-2" disabled={pending || roles.length === 0}>
-              {pending ? "Creating…" : "Create account"}
+              {pending ? "Creating…" : roles.length === 0 ? "Select a role" : "Create account"}
             </Button>
           </form>
         </div>
