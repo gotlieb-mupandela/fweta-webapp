@@ -14,10 +14,15 @@ export function SubmitClipForm({
   campaignId,
   platforms,
   remainingBudgetCents,
+  requiredChecks = [],
+  hashtags = [],
 }: {
   campaignId: string;
   platforms: SocialPlatform[];
   remainingBudgetCents?: number;
+  accounts?: { id: string; handle: string; platform: SocialPlatform; isDefault: boolean }[];
+  requiredChecks?: string[];
+  hashtags?: string[];
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +62,16 @@ export function SubmitClipForm({
         });
       }}
     >
+      {hashtags.length > 0 ? (
+        <p className="text-sm text-muted">Include {hashtags.map((tag) => `#${tag.replace(/^#/, "")}`).join(" ")}</p>
+      ) : null}
+      {requiredChecks.length > 0 ? (
+        <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
+          {requiredChecks.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : null}
       <div>
         <Label htmlFor={`url-${campaignId}`}>Post URL</Label>
         <Input

@@ -10,7 +10,7 @@ import type { LinkedSocialAccount } from "@/lib/db/types";
 import { PLATFORM_LABEL } from "@/lib/rewards/content-rewards";
 import type { SocialPlatform } from "@/types/enums";
 
-const PLATFORMS: SocialPlatform[] = ["tiktok", "instagram", "youtube", "x"];
+const PLATFORMS: SocialPlatform[] = ["tiktok", "instagram", "facebook", "youtube", "x"];
 
 export function LinkedAccountForm({ accounts }: { accounts: LinkedSocialAccount[] }) {
   const router = useRouter();

@@ -19,5 +19,19 @@ export const manualViewsSchema = z.object({
   views: z.number().int().min(0).max(2_000_000_000),
 });
 
+export const fraudAppealSchema = z.object({
+  note: z.string().trim().min(3, "Enter a short note.").max(2000),
+});
+
+export const linkAccountSchema = z.object({
+  platform: socialPlatformSchema,
+  handle: z.string().trim().min(2).max(80),
+});
+
+export const verifyAccountSchema = z.object({
+  id: z.string().uuid(),
+  pastedBio: z.string().max(5000).optional(),
+});
+
 export type SubmissionInput = z.infer<typeof submissionSchema>;
 export type SubmissionReviewInput = z.infer<typeof submissionReviewSchema>;

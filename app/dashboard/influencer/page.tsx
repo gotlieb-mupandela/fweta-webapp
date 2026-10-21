@@ -36,7 +36,7 @@ export default async function InfluencerDashboardPage() {
 
   const pendingBookings = bookings.filter((b) => b.status === "requested").length;
   const activeRates = rates.filter((r) => r.active).length;
-  const listedPlatforms = (["tiktok", "instagram", "youtube", "x"] as const).filter(
+  const listedPlatforms = (["tiktok", "instagram", "facebook", "youtube", "x"] as const).filter(
     (platform): platform is SocialPlatform => Boolean(profile?.socials?.[platform]),
   );
 

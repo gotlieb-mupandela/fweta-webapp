@@ -198,7 +198,7 @@ export function SocialAccountsManager({
 
       {accounts.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-sm text-muted">
-          No accounts yet. Add one, copy the code into the bio, then tap I've added it.
+          No accounts yet. Add one, copy the code into the bio, then tap I&apos;ve added it.
         </p>
       ) : (
         <ul className="space-y-3">
@@ -242,7 +242,7 @@ export function SocialAccountsManager({
                   <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-muted">
                     <li>Copy this code.</li>
                     <li>Add it to the public bio on {PLATFORM_LABEL[account.platform]}.</li>
-                    <li>Tap I've added it.</li>
+                    <li>Tap I&apos;ve added it.</li>
                   </ol>
                 )}
                 {account.status === "rejected" && account.rejectionReason ? (

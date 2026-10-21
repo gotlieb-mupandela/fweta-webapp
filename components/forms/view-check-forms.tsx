@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { confirmCreatorViewAction, saveAdminViewAction, saveBulkViewsAction } from "@/app/actions/views";
@@ -45,18 +45,17 @@ function rememberNotice(message: string) {
 }
 
 export function ViewCheckNotice() {
-  const [message, setMessage] = useState<string | null>(null);
-
-  useEffect(() => {
+  const [message] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
     try {
       const saved = sessionStorage.getItem(NOTICE_KEY);
-      if (!saved) return;
+      if (!saved) return null;
       sessionStorage.removeItem(NOTICE_KEY);
-      setMessage(saved);
+      return saved;
     } catch {
-      setMessage(null);
+      return null;
     }
-  }, []);
+  });
 
   if (!message) return null;
   return (

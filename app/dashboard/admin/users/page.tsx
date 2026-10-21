@@ -43,8 +43,6 @@ export default async function AdminUsersPage({
         title="Users"
         description={`${all.length} accounts in the live store. Open a row for social links, clips, money, and payout details.`}
         action={
-          // File download. A client Link would try to render the CSV as a page.
-          // eslint-disable-next-line @next/next/no-html-link-for-pages
           <a href={exportHref}>
             <Button type="button" variant="secondary" size="sm">
               Export CSV

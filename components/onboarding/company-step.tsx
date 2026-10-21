@@ -36,6 +36,7 @@ export function CompanyStep({
   const [handles, setHandles] = useState<Record<SocialPlatform, string>>(() => ({
     tiktok: handleFromUrl(draft.brandSocials.tiktok),
     instagram: handleFromUrl(draft.brandSocials.instagram),
+    facebook: handleFromUrl(draft.brandSocials.facebook),
     youtube: handleFromUrl(draft.brandSocials.youtube),
     x: handleFromUrl(draft.brandSocials.x),
   }));
@@ -47,6 +48,7 @@ export function CompanyStep({
       brandSocials: {
         tiktok: next.tiktok,
         instagram: next.instagram,
+        facebook: next.facebook,
         youtube: next.youtube,
         x: next.x,
       },

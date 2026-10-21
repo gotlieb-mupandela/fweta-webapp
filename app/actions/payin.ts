@@ -29,6 +29,7 @@ export async function requestPayInAction(amountCents: number, note?: string) {
       amountCents: parsed.data.amountCents,
       note: parsed.data.note || "Manual EFT pay-in",
       status: "pending",
+      bankReference: null,
       createdAt: nowIso(),
       confirmedAt: null,
       confirmedBy: null,

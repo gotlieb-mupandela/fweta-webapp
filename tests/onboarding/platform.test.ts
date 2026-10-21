@@ -310,6 +310,7 @@ test("first-run moments follow the brand and creator sequences", () => {
     amountCents: 100000,
     note: "EFT",
     status: "credited",
+    bankReference: null,
     createdAt: "2026-02-03T00:00:00.000Z",
     confirmedAt: "2026-02-03T00:00:00.000Z",
     confirmedBy: "admin-1",
@@ -371,7 +372,9 @@ test("admin moments start with the pay-in check", () => {
     amountCents: 100,
     note: "EFT",
     status: "credited",
+    bankReference: null,
     createdAt: "2026-02-05T00:00:00.000Z",
+    confirmedAt: "2026-02-05T00:00:00.000Z",
     confirmedBy: "admin-1",
   });
   assert.equal(openJourneyMoment(journeyFactsFromStore(store, admin, "admin")), null);

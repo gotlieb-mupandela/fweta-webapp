@@ -23,6 +23,8 @@ type Props = {
   mode: "create" | "edit";
   campaign?: Campaign;
   walletAvailableCents?: number;
+  budgetLocked?: boolean;
+  feeBps?: number;
 };
 
 export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {

@@ -6,6 +6,7 @@ import { getSession, requireSession } from "@/lib/auth/session";
 import { isCampaignFunded } from "@/lib/campaigns/fund";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { Campaign } from "@/lib/db/types";
+import { hydrateCampaign } from "@/lib/rewards/content-rewards";
 import {
   campaignCreateSchema,
   campaignUpdateSchema,
@@ -42,7 +43,7 @@ export async function createCampaignAction(raw: unknown) {
   if (!parsed.success) return { ok: false as const, error: "Invalid campaign details." };
 
   const now = nowIso();
-  const campaign: Campaign = {
+  const campaign = hydrateCampaign({
     id: newId(),
     brandId: session.id,
     title: parsed.data.title,
@@ -56,10 +57,23 @@ export async function createCampaignAction(raw: unknown) {
     maxPayoutPerSubmissionCents: parsed.data.maxPayoutPerSubmissionCents,
     platforms: parsed.data.platforms,
     requirements: parsed.data.requirements ?? "",
+    rules: "",
+    assets: [],
+    minPayoutCents: 0,
+    minViews: 0,
+    payModel: "cpm",
+    countries: ["NA"],
+    feeReservedCents: 0,
+    feeChargedCents: 0,
+    feeRefundedCents: 0,
+    unspentReturnedCents: 0,
+    poolSettledAt: null,
+    closedAt: null,
+    startDate: null,
     endDate: parsed.data.endDate ?? null,
     createdAt: now,
     updatedAt: now,
-  };
+  });
 
   // Atomic: create + fund in one write so a crash can't leave an
   // unfunded "active" campaign or orphan a wallet debit.

@@ -508,6 +508,9 @@ export function detectPlatform(url: string): SocialPlatform | null {
   ) {
     return "youtube";
   }
+  if (host === "facebook.com" || host.endsWith(".facebook.com") || host === "fb.watch") {
+    return "facebook";
+  }
   if (
     host === "x.com" ||
     host.endsWith(".x.com") ||
@@ -527,6 +530,7 @@ export const PLATFORM_LABEL: Record<SocialPlatform, string> = {
   tiktok: "TikTok",
   youtube: "YouTube",
   instagram: "Instagram",
+  facebook: "Facebook",
   x: "X",
 };
 

@@ -10,9 +10,9 @@ import {
   WEEKLY_PRIZES_CENTS,
   creatorBadges,
   creatorLevel,
+  thisWeekLeaderboard,
   verifiedViewsFor,
   weekKey,
-  weeklyLeaderboard,
 } from "@/lib/marketplace/growth";
 import { publicHandle } from "@/lib/rewards/content-rewards";
 import { formatMoney, formatNumber } from "@/lib/utils";
@@ -28,7 +28,7 @@ export default async function ClipperLeaderboardPage() {
   const level = creatorLevel(verifiedViewsFor(store.submissions, session.id));
   const badges = creatorBadges(store, session.id);
   const week = weekKey();
-  const weekly = weeklyLeaderboard(store, Date.now(), (userId) => publicHandle(store.linkedAccounts, userId));
+  const weekly = thisWeekLeaderboard(store, (userId) => publicHandle(store.linkedAccounts, userId));
   const awarded = store.prizeAwards.some((item) => item.weekKey === week);
   const rows = new Map<string, { name: string; handle: string | null; views: number; earningsCents: number; clips: number }>();
   for (const submission of store.submissions) {

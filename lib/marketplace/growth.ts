@@ -163,6 +163,13 @@ export function weeklyLeaderboard(
   return ranked;
 }
 
+export function thisWeekLeaderboard(
+  store: Pick<DatabaseStore, "submissions" | "viewSnapshots" | "profiles" | "linkedAccounts">,
+  handleFor?: (userId: string) => string | null,
+): WeeklyRow[] {
+  return weeklyLeaderboard(store, Date.now(), handleFor);
+}
+
 export function campaignMatchesCreator(
   profile: Profile,
   campaign: Campaign,

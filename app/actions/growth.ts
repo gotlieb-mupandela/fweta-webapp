@@ -8,7 +8,6 @@ import type { SupportMessage, SupportTicket } from "@/lib/db/types";
 import { saveKycDocument } from "@/lib/kyc/documents";
 import { pushAudit } from "@/lib/marketplace/audit";
 import {
-  REFERRAL_BONUS_CENTS,
   WEEKLY_PRIZES_CENTS,
   referralCodeFor,
   weeklyLeaderboard,

@@ -11,6 +11,7 @@ const PLATFORM_LABEL: Record<SocialPlatform, string> = {
   tiktok: "TikTok",
   youtube: "YouTube Shorts",
   instagram: "Instagram Reels",
+  facebook: "Facebook Reels",
   x: "X",
 };
 

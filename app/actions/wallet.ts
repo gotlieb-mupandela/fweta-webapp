@@ -14,7 +14,7 @@ import {
 import type { PayoutMethod, WithdrawalRequest } from "@/lib/db/types";
 import { adjustWallet, applyWalletDelta, getWallet } from "@/lib/wallet/ledger";
 import { payoutMethodSchema } from "@/lib/validations/payout-method";
-import { withdrawalSchema } from "@/lib/validations/withdrawal";
+import { kycSchema, withdrawalSchema } from "@/lib/validations/withdrawal";
 import { nadToCents } from "@/lib/money/cents";
 import { maskAccountNumber } from "@/lib/utils";
 
@@ -385,4 +385,53 @@ export async function rejectBrandDepositAction(id: string, note?: string) {
 export async function currentUserId() {
   const session = await getSession();
   return session?.id ?? null;
+}
+
+export async function saveKycAction(raw: unknown) {
+  const session = await requireSession();
+  const parsed = kycSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Check the identity details." };
+  }
+  const idNumberEnc = encryptSecret(parsed.data.idNumber.trim());
+  await updateStore((s) => {
+    const profile = s.profiles.find((p) => p.id === session.id);
+    if (!profile) return;
+    profile.kyc = {
+      legalName: parsed.data.legalName.trim(),
+      idNumberEnc,
+      country: parsed.data.country.toUpperCase(),
+      submittedAt: nowIso(),
+      documentPath: profile.kyc?.documentPath ?? null,
+      status: "pending",
+      reviewedAt: null,
+      reviewNote: null,
+    };
+    profile.updatedAt = profile.kyc.submittedAt;
+  });
+  revalidatePath("/dashboard/settings/withdraw");
+  revalidatePath("/dashboard/admin/withdrawals");
+  return { ok: true as const };
+}
+
+export async function getMyKyc() {
+  const session = await requireSession();
+  const store = await readStore();
+  const profile = store.profiles.find((p) => p.id === session.id);
+  if (!profile?.kyc) return null;
+  let idMasked = "****";
+  try {
+    idMasked = maskAccountNumber(decryptSecret(profile.kyc.idNumberEnc));
+  } catch {
+    idMasked = "****";
+  }
+  return {
+    legalName: profile.kyc.legalName,
+    country: profile.kyc.country,
+    idMasked,
+    submittedAt: profile.kyc.submittedAt,
+    status: profile.kyc.status ?? "pending",
+    reviewNote: profile.kyc.reviewNote ?? null,
+    documentOnFile: Boolean(profile.kyc.documentPath),
+  };
 }
