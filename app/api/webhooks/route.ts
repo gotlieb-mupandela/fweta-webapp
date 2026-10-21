@@ -7,8 +7,9 @@ import { NextResponse } from "next/server";
 export async function POST() {
   return NextResponse.json(
     {
-      error: "No payment webhook is configured. Deposits and payouts are manual.",
+      ok: true,
+      message: "No payment webhook is configured. Deposits and payouts are manual.",
     },
-    { status: 404 },
+    { status: 202 },
   );
 }

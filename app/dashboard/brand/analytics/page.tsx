@@ -79,7 +79,7 @@ export default async function BrandAnalyticsPage() {
         ) : (
           <ul className="space-y-2">
             {days.map(([day, views]) => (
-              <li key={day} className="grid grid-cols-[6.5rem_1fr_4rem] items-center gap-3 text-sm">
+              <li key={day} className="grid grid-cols-[6.5rem_minmax(0,1fr)_4.5rem] items-center gap-3 text-sm">
                 <span className="text-muted">{day}</span>
                 <span className="h-2 overflow-hidden rounded-full bg-surface-2">
                   <span
@@ -94,8 +94,8 @@ export default async function BrandAnalyticsPage() {
         )}
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <div>
+      <section className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="min-w-0">
           <SectionHeader title="Top clips" />
           {topClips.length === 0 ? (
             <EmptyState title="No approved clips" description="Approved clips with views rank here." />
@@ -110,7 +110,7 @@ export default async function BrandAnalyticsPage() {
             </ul>
           )}
         </div>
-        <div>
+        <div className="min-w-0">
           <SectionHeader title="Top creators" />
           {topCreators.length === 0 ? (
             <EmptyState title="No creators yet" description="Creators appear after a clip is approved." />
@@ -151,8 +151,8 @@ export default async function BrandAnalyticsPage() {
                 <li key={c.id}>
                   <Card className="panel-interactive">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="font-medium">{c.title}</p>
-                      <p className="text-sm text-muted">{pct}% used</p>
+                      <p className="min-w-0 truncate font-medium">{c.title}</p>
+                      <p className="shrink-0 text-sm text-muted">{pct}% used</p>
                     </div>
                     <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-2">
                       <div

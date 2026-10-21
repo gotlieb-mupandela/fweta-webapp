@@ -643,7 +643,7 @@ export function getBackHref(pathname: string): string | null {
 }
 
 const TITLE_OVERRIDES: Record<string, string> = {
-  "/dashboard/brand": "Overview",
+  "/dashboard/brand": "Brand overview",
   "/dashboard/brand/campaigns": "Campaigns",
   "/dashboard/brand/campaigns/new": "New campaign",
   "/dashboard/brand/bookings": "Bookings",
@@ -654,7 +654,7 @@ const TITLE_OVERRIDES: Record<string, string> = {
   "/dashboard/brand/deposits": "Pay-ins",
   "/dashboard/brand/creators": "Creators",
   "/dashboard/brand/team": "Team",
-  "/dashboard/clipper": "Overview",
+  "/dashboard/clipper": "Clipper overview",
   "/dashboard/clipper/campaigns": "Discover",
   "/dashboard/clipper/submissions": "My clips",
   "/dashboard/clipper/earnings": "Earnings",
@@ -663,7 +663,7 @@ const TITLE_OVERRIDES: Record<string, string> = {
   "/dashboard/clipper/leaderboard": "Leaderboard",
   "/dashboard/clipper/saved": "Saved",
   "/dashboard/support": "Support",
-  "/dashboard/influencer": "Overview",
+  "/dashboard/influencer": "Influencer overview",
   "/dashboard/influencer/bookings": "Bookings",
   "/dashboard/influencer/rate-cards": "Rate card",
   "/dashboard/influencer/profile": "Public profile",

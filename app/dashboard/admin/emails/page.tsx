@@ -4,7 +4,15 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { EMAIL_TEMPLATES, isEmailTemplateId, renderEmailPreview } from "@/lib/email/catalog";
+import { appUrl } from "@/lib/email/config";
 import { cn } from "@/lib/utils";
+
+function previewSrcDoc(html: string): string {
+  const base = appUrl();
+  return html
+    .replaceAll(base, "")
+    .replace(/<link\b[^>]*fonts\.(?:googleapis|gstatic)\.com[^>]*>/gi, "");
+}
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +97,8 @@ export default async function AdminEmailsPage({
           >
             <iframe
               title={`Preview of ${preview.label}`}
-              src={`/api/admin/email-preview?template=${template}`}
+              srcDoc={previewSrcDoc(preview.html)}
+              sandbox="allow-same-origin"
               className="h-[920px] w-full bg-[#f4f3ef]"
             />
           </div>
