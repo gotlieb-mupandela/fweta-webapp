@@ -1,5 +1,13 @@
 -- Lock down Data API access to wallet credits and the fweta store.
--- Not applied to production by this commit. Apply on a branch or local database first.
+-- Column lists match production as of 2026-10-21 (see the live column dump).
+-- public.fweta_profiles has id, email, password_hash, display_name, bio,
+-- avatar_url, roles, primary_role, notify_email, notify_withdrawals,
+-- notify_bookings, suspended, created_at, updated_at.
+-- It does not have first_name, last_name, phone, company_name, website,
+-- niche, location, primary_platform, socials, or onboarding_completed_at.
+-- Those columns exist only in 20261020120000_profile_onboarding_columns.sql,
+-- which is not applied on production. Do not add them here.
+-- Apply on a database that matches that live column list. This file is idempotent.
 --
 -- How the Next.js app calls Supabase:
 --   lib/db/supabase-store.ts loads and saves from server code only.
@@ -105,13 +113,7 @@ begin
         notify_bookings as "notifyBookings",
         to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "createdAt",
         to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "updatedAt",
-        suspended,
-        first_name as "firstName", last_name as "lastName", phone,
-        company_name as "companyName", website, niche, location,
-        primary_platform as "primaryPlatform", socials,
-        case when onboarding_completed_at is null then null
-             else to_char(onboarding_completed_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
-        end as "onboardingCompletedAt"
+        suspended
       from fweta_profiles
     ) p), '[]'::jsonb),
     'campaigns', coalesce((select jsonb_agg(to_jsonb(c) order by c."createdAt") from (
@@ -228,9 +230,7 @@ begin
 
   insert into fweta_profiles (
     id, email, password_hash, display_name, bio, avatar_url, roles, primary_role,
-    notify_email, notify_withdrawals, notify_bookings, suspended, created_at, updated_at,
-    first_name, last_name, phone, company_name, website, niche, location,
-    primary_platform, socials, onboarding_completed_at
+    notify_email, notify_withdrawals, notify_bookings, suspended, created_at, updated_at
   )
   select
     (p->>'id')::uuid, p->>'email', p->>'passwordHash', p->>'displayName', coalesce(p->>'bio', ''),
@@ -241,15 +241,7 @@ begin
     coalesce((p->>'notifyBookings')::boolean, true),
     coalesce((p->>'suspended')::boolean, false),
     coalesce((p->>'createdAt')::timestamptz, now()),
-    coalesce((p->>'updatedAt')::timestamptz, now()),
-    nullif(p->>'firstName', ''), nullif(p->>'lastName', ''), nullif(p->>'phone', ''),
-    nullif(p->>'companyName', ''), nullif(p->>'website', ''), nullif(p->>'niche', ''),
-    nullif(p->>'location', ''), nullif(p->>'primaryPlatform', ''),
-    coalesce(p->'socials', '{}'::jsonb),
-    case
-      when coalesce(p->>'onboardingCompletedAt', '') in ('', 'seeded') then null
-      else (p->>'onboardingCompletedAt')::timestamptz
-    end
+    coalesce((p->>'updatedAt')::timestamptz, now())
   from jsonb_array_elements(coalesce(payload->'profiles', '[]'::jsonb)) p;
 
   insert into fweta_campaigns
@@ -554,12 +546,11 @@ grant all privileges on table
   public.fweta_fraud_flags
 to service_role;
 
--- Table-level SELECT would include password_hash. Grant every other column instead.
+-- Table-level SELECT would include password_hash. Grant the other live columns.
 grant select (
   id, email, display_name, bio, avatar_url, roles, primary_role,
   notify_email, notify_withdrawals, notify_bookings, suspended,
-  created_at, updated_at, first_name, last_name, phone, company_name,
-  website, niche, location, primary_platform, socials, onboarding_completed_at
+  created_at, updated_at
 ) on public.fweta_profiles to authenticated;
 grant insert, update, delete on public.fweta_profiles to authenticated;
 revoke select (password_hash) on public.fweta_profiles from public, anon, authenticated;
