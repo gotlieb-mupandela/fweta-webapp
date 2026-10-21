@@ -413,7 +413,15 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
 
     await updateStore((s) => {
       if (needsDedupe) {
-        s.profiles = deduped;
+        // Dedupe the document just loaded for this attempt. Assigning the
+        // earlier read would drop signups and direct edits that landed since.
+        const seen = new Set<string>();
+        s.profiles = s.profiles.filter((p) => {
+          const email = p.email.trim().toLowerCase();
+          if (seen.has(email)) return false;
+          seen.add(email);
+          return true;
+        });
       }
 
       if (adminSeed && adminNeedsWrite && adminHash) {

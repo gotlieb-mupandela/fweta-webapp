@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test tests/onboarding/*.test.ts tests/money/*.test.ts"
+    "test": "tsx --test tests/onboarding/*.test.ts tests/money/*.test.ts tests/db/*.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",

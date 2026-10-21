@@ -2,6 +2,12 @@ import { createClient } from "@supabase/supabase-js";
 
 import { hydrateStoreCampaigns } from "@/lib/rewards/content-rewards";
 
+import {
+  commitLoadedMutation,
+  parseStoreRevision,
+  StoreConflictError,
+  type CasResult,
+} from "./store-commit";
 import type { DatabaseStore } from "./types";
 
 const STORE_ROW_ID = "default";
@@ -13,12 +19,8 @@ export class StorePersistError extends Error {
   }
 }
 
-declare global {
-  var __fwetaBlobRevision: number | undefined;
-}
-
 type LoadResult =
-  | { ok: true; store: DatabaseStore; revision: number | null }
+  | { ok: true; store: DatabaseStore; revision: number | null; versioned: boolean }
   | { ok: false; error: string };
 
 const emptyStore = (): DatabaseStore => ({
@@ -65,7 +67,7 @@ function supabaseUrl(): string | undefined {
   );
 }
 
-/** Prefer Vercel–Supabase integration secret, then explicit service role. */
+/** Prefer the Vercel Supabase integration secret, then the explicit service role key. */
 function supabaseServiceKey(): string | undefined {
   return (
     process.env.SUPABASE_SECRET_KEY?.trim() ||
@@ -92,7 +94,7 @@ export function normalizeStore(raw: unknown): DatabaseStore | null {
   const input = raw as Record<string, unknown>;
   const store = { ...base, ...input } as DatabaseStore;
 
-  // Supabase JSON may contain null arrays — coerce so .filter/.map never throw.
+  // Supabase JSON may contain null arrays. Coerce them so .filter/.map never throw.
   (Object.keys(base) as (keyof DatabaseStore)[]).forEach((key) => {
     if (!Array.isArray(store[key])) {
       (store as Record<string, unknown>)[key] = [];
@@ -110,8 +112,13 @@ function hasData(store: DatabaseStore): boolean {
   );
 }
 
-function revisionFromRow(row: { revision?: unknown } | null): number | null {
-  return typeof row?.revision === "number" ? row.revision : null;
+function isStoreConflict(error: { message?: string; code?: string }): boolean {
+  if (error.code === "40001") return true;
+  return (error.message ?? "").includes("fweta_store_conflict");
+}
+
+function cloneStore(store: DatabaseStore): DatabaseStore {
+  return hydrateStoreCampaigns(structuredClone(store));
 }
 
 async function loadJsonBlob(): Promise<LoadResult> {
@@ -123,110 +130,66 @@ async function loadJsonBlob(): Promise<LoadResult> {
       .eq("id", STORE_ROW_ID)
       .maybeSingle();
 
-    let data: { data?: unknown; revision?: unknown } | null = withRevision.data;
-    let error = withRevision.error;
-    if (error && /revision/i.test(error.message)) {
+    if (withRevision.error && /revision/i.test(withRevision.error.message)) {
+      // Column is not installed yet. Reads can still use the document.
+      // Writes must fail closed. A blind upsert is what dropped live accounts.
       const fallback = await supabase
         .from("fweta_app_store")
         .select("data")
         .eq("id", STORE_ROW_ID)
         .maybeSingle();
-      data = fallback.data;
-      error = fallback.error;
+      if (fallback.error) return { ok: false, error: fallback.error.message };
+      if (!fallback.data?.data) {
+        return { ok: true, store: emptyStore(), revision: null, versioned: false };
+      }
+      const store = normalizeStore(fallback.data.data);
+      if (!store) return { ok: false, error: "fweta_app_store row was not a store document" };
+      return { ok: true, store, revision: null, versioned: false };
     }
 
-    if (error) return { ok: false, error: error.message };
-    // No row yet: revision null so the first save inserts instead of conflicting.
-    if (!data) return { ok: true, store: emptyStore(), revision: null };
-    if (!data.data) return { ok: true, store: emptyStore(), revision: revisionFromRow(data) ?? 0 };
-    const store = normalizeStore(data.data);
+    if (withRevision.error) return { ok: false, error: withRevision.error.message };
+    // No row yet. revision null tells the compare-and-swap to insert.
+    if (!withRevision.data) {
+      return { ok: true, store: emptyStore(), revision: null, versioned: true };
+    }
+    const revision = parseStoreRevision(withRevision.data.revision);
+    if (revision === null) {
+      return { ok: false, error: "fweta_app_store.revision was not a safe integer" };
+    }
+    if (!withRevision.data.data) {
+      return { ok: true, store: emptyStore(), revision, versioned: true };
+    }
+    const store = normalizeStore(withRevision.data.data);
     if (!store) return { ok: false, error: "fweta_app_store row was not a store document" };
-    return { ok: true, store, revision: revisionFromRow(data) };
+    return { ok: true, store, revision, versioned: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "JSON blob load failed" };
   }
 }
 
-async function upsertJsonBlob(store: DatabaseStore, revision: number | null): Promise<boolean> {
+async function compareAndSwap(store: DatabaseStore, expectedRevision: number | null): Promise<CasResult> {
   const supabase = createServiceClient();
-  const row: { id: string; data: DatabaseStore; updated_at: string; revision?: number } = {
-    id: STORE_ROW_ID,
-    data: store,
-    updated_at: new Date().toISOString(),
-  };
-  if (revision !== null) row.revision = revision;
-  const { error } = await supabase.from("fweta_app_store").upsert(row, { onConflict: "id" });
-  if (error && revision !== null && /revision/i.test(error.message)) {
-    delete row.revision;
-    const retry = await supabase.from("fweta_app_store").upsert(row, { onConflict: "id" });
-    if (retry.error) {
-      console.warn("[fweta] JSON blob save failed:", retry.error.message);
-      return false;
-    }
-    globalThis.__fwetaBlobRevision = undefined;
-    return true;
-  }
+  const { data, error } = await supabase.rpc("fweta_cas_save_store", {
+    payload: store,
+    expected_revision: expectedRevision,
+  });
   if (error) {
-    console.warn("[fweta] JSON blob save failed:", error.message);
-    return false;
-  }
-  if (revision !== null) globalThis.__fwetaBlobRevision = revision;
-  return true;
-}
-
-async function saveJsonBlob(store: DatabaseStore): Promise<boolean> {
-  try {
-    const current = await loadJsonBlob();
-    if (!current.ok) {
-      console.warn("[fweta] JSON blob save skipped; could not read current row:", current.error);
-      return false;
-    }
-    if (store.profiles.length === 0 && current.store.profiles.length > 0) {
+    if (isStoreConflict(error)) return { ok: false, conflict: true };
+    if (
+      error.code === "PGRST202" ||
+      (error.message ?? "").includes("Could not find the function")
+    ) {
       throw new StorePersistError(
-        "Refusing to replace a populated store with an empty profile list.",
+        "Refusing to save the store without fweta_cas_save_store. Apply the store revision migration before writing.",
       );
     }
-
-    const expected = globalThis.__fwetaBlobRevision;
-    if (typeof expected === "number") {
-      const next = expected + 1;
-      const supabase = createServiceClient();
-      const { data, error } = await supabase
-        .from("fweta_app_store")
-        .update({
-          data: store,
-          updated_at: new Date().toISOString(),
-          revision: next,
-        })
-        .eq("id", STORE_ROW_ID)
-        .eq("revision", expected)
-        .select("revision");
-
-      if (error && /revision/i.test(error.message)) {
-        return upsertJsonBlob(store, null);
-      }
-      if (error) {
-        console.warn("[fweta] JSON blob save failed:", error.message);
-        return false;
-      }
-      if (!data || data.length === 0) {
-        if (current.revision === null && current.store.profiles.length === 0 && store.profiles.length > 0) {
-          return upsertJsonBlob(store, 1);
-        }
-        throw new StorePersistError(
-          "Store changed in another instance. Reload and try again.",
-        );
-      }
-      globalThis.__fwetaBlobRevision = next;
-      return true;
-    }
-
-    return upsertJsonBlob(store, current.revision === null ? null : (current.revision ?? 0) + 1);
-  } catch (err) {
-    if (err instanceof StorePersistError) throw err;
-    console.warn("[fweta] JSON blob save failed:", err instanceof Error ? err.message : err);
-    return false;
+    throw new StorePersistError(error.message);
   }
+  const revision = parseStoreRevision(data);
+  if (revision === null) {
+    throw new StorePersistError("fweta_cas_save_store did not return a revision.");
+  }
+  return { ok: true, revision };
 }
 
 async function loadRelationalStore(): Promise<DatabaseStore | null> {
@@ -273,9 +236,6 @@ export async function loadStoreFromSupabase(): Promise<DatabaseStore | null> {
     if (!jsonBlob.ok && !relational) {
       console.warn("[fweta] Supabase store load failed:", jsonBlob.error);
       return null;
-    }
-    if (jsonBlob.ok) {
-      globalThis.__fwetaBlobRevision = jsonBlob.revision === null ? undefined : jsonBlob.revision;
     }
 
     const sync = process.env.FWETA_RELATIONAL_SYNC === "true";
@@ -343,8 +303,8 @@ export type SupabaseStoreDiagnostics = {
 };
 
 /**
- * Production health check. Read-only unless `probe` is set — the probe writes
- * and deletes a throwaway row, so callers must authenticate it.
+ * Production health check. Read-only unless `probe` is set. The probe calls
+ * compare-and-swap with a revision the row cannot have, so it must not write.
  */
 export async function diagnoseSupabaseStore(options?: {
   probe?: boolean;
@@ -386,20 +346,17 @@ export async function diagnoseSupabaseStore(options?: {
   } else {
     try {
       const supabase = createServiceClient();
-      const probeId = "__health_probe__";
-      const { error } = await supabase.from("fweta_app_store").upsert(
-        {
-          id: probeId,
-          data: { probe: true },
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "id" },
-      );
-      if (error) {
-        result.jsonBlobSaveError = error.message;
-      } else {
+      // A revision the row cannot have. The RPC must reject it and must not write.
+      const { error } = await supabase.rpc("fweta_cas_save_store", {
+        payload: { profiles: [] },
+        expected_revision: -1,
+      });
+      if (!error) {
+        result.jsonBlobSaveError = "compare-and-swap accepted a revision the row does not have";
+      } else if (isStoreConflict(error)) {
         result.jsonBlobSaveOk = true;
-        await supabase.from("fweta_app_store").delete().eq("id", probeId);
+      } else {
+        result.jsonBlobSaveError = error.message;
       }
     } catch (e) {
       result.jsonBlobSaveError = e instanceof Error ? e.message : "save threw";
@@ -425,13 +382,50 @@ export async function diagnoseSupabaseStore(options?: {
   return result;
 }
 
-export async function saveStoreToSupabase(store: DatabaseStore): Promise<boolean> {
-  // JSON blob is the production document. Relational replace deletes every row
-  // first, so it stays opt-in and never runs unless the JSON write succeeded.
-  const jsonOk = await saveJsonBlob(store);
-  if (!jsonOk) return false;
-  if (process.env.FWETA_RELATIONAL_SYNC === "true") {
-    await saveRelationalStore(store);
+/**
+ * Reload the JSON document, run `mutator` on that copy, and compare-and-swap.
+ * On conflict, load again and run the mutator again. The in-memory read cache
+ * is not an input. A direct SQL edit bumps revision, so it is part of the next
+ * load and is not overwritten by a stale copy.
+ */
+export async function commitStoreToSupabase(
+  mutator: (store: DatabaseStore) => void | Promise<void>,
+): Promise<DatabaseStore> {
+  let saved: DatabaseStore;
+  try {
+    saved = await commitLoadedMutation({
+      load: async () => {
+        const loaded = await loadJsonBlob();
+        if (!loaded.ok) throw new StorePersistError(loaded.error);
+        if (!loaded.versioned) {
+          throw new StorePersistError(
+            "Refusing to save the store without a revision check. Apply the store revision migration before writing.",
+          );
+        }
+        return { store: loaded.store, revision: loaded.revision };
+      },
+      clone: cloneStore,
+      mutate: mutator,
+      beforeSave: (draft, base) => {
+        if (draft.profiles.length === 0 && base.profiles.length > 0) {
+          throw new StorePersistError(
+            "Refusing to replace a populated store with an empty profile list.",
+          );
+        }
+      },
+      save: compareAndSwap,
+    });
+  } catch (err) {
+    if (err instanceof StoreConflictError) {
+      throw new StorePersistError(err.message);
+    }
+    throw err;
   }
-  return true;
+
+  // JSON is the source of truth. The relational replace stays opt-in and only
+  // mirrors a document that compare-and-swap already accepted.
+  if (process.env.FWETA_RELATIONAL_SYNC === "true") {
+    await saveRelationalStore(saved);
+  }
+  return saved;
 }
