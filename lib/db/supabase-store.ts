@@ -110,6 +110,8 @@ async function saveJsonBlob(store: DatabaseStore): Promise<boolean> {
 
 async function loadRelationalStore(): Promise<DatabaseStore | null> {
   try {
+  // Service role only. These RPCs return every account, so the anon key and
+  // a user session must not call them. See the security lockdown migration.
   const supabase = createServiceClient();
   const { data, error } = await supabase.rpc("fweta_load_store");
 

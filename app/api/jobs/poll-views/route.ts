@@ -32,6 +32,8 @@ async function runPollViewsJob() {
 /**
  * GET /api/jobs/poll-views
  * Invoked by Vercel Cron (production). Requires Authorization: Bearer CRON_SECRET.
+ * vercel.json must keep this at most once per day. On the Hobby plan an
+ * expression such as "0 * * * *" is rejected before a deployment is created.
  */
 export async function GET(request: NextRequest) {
   if (!authorizeCron(request)) {
