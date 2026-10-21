@@ -5,11 +5,12 @@ import { useState, useTransition } from "react";
 
 import { brandDepositAction } from "@/app/actions/wallet";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
+import { FieldError, FieldSuccess, Input, Label, Textarea } from "@/components/ui/input";
 
 export function BrandDepositForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -25,6 +26,7 @@ export function BrandDepositForm() {
           return;
         }
         setError(null);
+        setSuccess(null);
         startTransition(async () => {
           const res = await brandDepositAction(
             Math.round(amount * 100),
@@ -33,6 +35,7 @@ export function BrandDepositForm() {
           if (!res.ok) setError(res.error);
           else {
             form.reset();
+            setSuccess("Deposit submitted. An admin confirms the EFT before your wallet is credited.");
             router.refresh();
           }
         });
@@ -47,8 +50,9 @@ export function BrandDepositForm() {
         <Textarea id="note" name="note" placeholder="EFT reference or memo" />
       </div>
       <FieldError>{error}</FieldError>
+      <FieldSuccess>{success}</FieldSuccess>
       <Button type="submit" disabled={pending}>
-        {pending ? "Processing…" : "Record deposit"}
+        {pending ? "Submitting…" : "Submit EFT deposit"}
       </Button>
     </form>
   );

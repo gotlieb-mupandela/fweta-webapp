@@ -15,6 +15,7 @@ import type { PayoutMethod, WithdrawalRequest } from "@/lib/db/types";
 import { adjustWallet, applyWalletDelta, getWallet } from "@/lib/wallet/ledger";
 import { payoutMethodSchema } from "@/lib/validations/payout-method";
 import { withdrawalSchema } from "@/lib/validations/withdrawal";
+import { nadToCents } from "@/lib/money/cents";
 import { maskAccountNumber } from "@/lib/utils";
 
 const MIN_WITHDRAWAL_CENTS = 10000; // N$100
@@ -35,16 +36,39 @@ export async function getMyLedger() {
 export async function adminCreditWalletAction(userId: string, amountCents: number, reason: string) {
   const session = await requireSession();
   if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
-  if (amountCents <= 0) return { ok: false as const, error: "Amount must be positive." };
-  await adjustWallet({
-    userId,
-    availableDelta: amountCents,
-    type: "credit",
-    reason: reason || "Admin credit",
-    referenceType: "admin_credit",
-  });
+  const cents = nadToCents(amountCents / 100);
+  if (cents == null || cents !== amountCents) {
+    return { ok: false as const, error: "Enter a valid amount in NAD." };
+  }
+
+  const store = await readStore();
+  const user = store.profiles.find((profile) => profile.id === userId);
+  if (!user) return { ok: false as const, error: "User not found." };
+
+  const note = reason.trim() || "Manual EFT credit";
+  let availableCents = 0;
+  let entryId = "";
+  try {
+    const result = await adjustWallet({
+      userId,
+      availableDelta: cents,
+      type: "credit",
+      reason: `${note} (confirmed by ${session.email})`,
+      referenceType: "admin_credit",
+    });
+    availableCents = result.wallet.availableCents;
+    entryId = result.entry.id;
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Could not credit wallet." };
+  }
+
   revalidatePath("/dashboard/admin");
-  return { ok: true as const };
+  revalidatePath("/dashboard/admin/users");
+  revalidatePath(`/dashboard/admin/users/${userId}`);
+  revalidatePath("/dashboard/brand");
+  revalidatePath("/dashboard/brand/deposits");
+  revalidatePath("/dashboard/settings/wallet");
+  return { ok: true as const, availableCents, entryId };
 }
 
 export async function savePayoutMethodAction(raw: unknown) {
@@ -243,7 +267,7 @@ export async function rejectWithdrawalAction(id: string, note?: string) {
         availableDelta: req.amountCents,
         pendingDelta: -req.amountCents,
         type: "credit",
-        reason: "Withdrawal rejected — funds restored",
+        reason: "Withdrawal rejected. Funds restored",
         referenceType: "withdrawal",
         referenceId: req.id,
       });
@@ -264,7 +288,10 @@ export async function rejectWithdrawalAction(id: string, note?: string) {
 export async function brandDepositAction(amountCents: number, note?: string) {
   const session = await requireSession();
   if (!session.roles.includes("brand")) return { ok: false as const, error: "Brand only." };
-  if (amountCents <= 0) return { ok: false as const, error: "Invalid amount." };
+  const cents = nadToCents(amountCents / 100);
+  if (cents == null || cents !== amountCents) {
+    return { ok: false as const, error: "Enter a valid amount in NAD." };
+  }
 
   const id = newId();
   try {
@@ -272,24 +299,84 @@ export async function brandDepositAction(amountCents: number, note?: string) {
       s.brandDeposits.push({
         id,
         brandId: session.id,
-        amountCents,
-        note: note || "Manual deposit (v1)",
-        status: "credited",
+        amountCents: cents,
+        note: note?.trim() || "Manual EFT deposit",
+        status: "pending",
+        bankReference: null,
+        confirmedBy: null,
+        confirmedAt: null,
         createdAt: nowIso(),
-      });
-      applyWalletDelta(s, {
-        userId: session.id,
-        availableDelta: amountCents,
-        type: "credit",
-        reason: note || "Brand deposit (manual)",
-        referenceType: "brand_deposit",
-        referenceId: id,
       });
     });
   } catch (e) {
-    return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
+    return { ok: false as const, error: e instanceof Error ? e.message : "Could not submit the deposit." };
   }
 
+  revalidatePath("/dashboard/brand/deposits");
+  revalidatePath("/dashboard/admin/deposits");
+  return { ok: true as const, id };
+}
+
+export async function confirmBrandDepositAction(id: string, bankReference?: string) {
+  const session = await requireSession();
+  if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
+
+  const store = await readStore();
+  const deposit = store.brandDeposits.find((item) => item.id === id);
+  if (!deposit) return { ok: false as const, error: "Deposit not found." };
+  if (deposit.status === "credited") return { ok: false as const, error: "This deposit is already credited." };
+  if (deposit.status === "rejected") return { ok: false as const, error: "This deposit was rejected." };
+
+  const reference = bankReference?.trim() || null;
+  try {
+    await updateStore((s) => {
+      const row = s.brandDeposits.find((item) => item.id === id);
+      if (!row || row.status !== "pending") throw new Error("Deposit is no longer pending.");
+      applyWalletDelta(s, {
+        userId: row.brandId,
+        availableDelta: row.amountCents,
+        type: "credit",
+        reason: `EFT deposit confirmed${row.note ? `: ${row.note}` : ""} (confirmed by ${session.email})`,
+        referenceType: "brand_deposit",
+        referenceId: row.id,
+      });
+      row.status = "credited";
+      row.bankReference = reference;
+      row.confirmedBy = session.id;
+      row.confirmedAt = nowIso();
+    });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Could not confirm the deposit." };
+  }
+
+  revalidatePath("/dashboard/admin/deposits");
+  revalidatePath("/dashboard/admin");
+  revalidatePath(`/dashboard/admin/users/${deposit.brandId}`);
+  revalidatePath("/dashboard/brand/deposits");
+  revalidatePath("/dashboard/brand");
+  revalidatePath("/dashboard/settings/wallet");
+  return { ok: true as const };
+}
+
+export async function rejectBrandDepositAction(id: string, note?: string) {
+  const session = await requireSession();
+  if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
+
+  try {
+    await updateStore((s) => {
+      const row = s.brandDeposits.find((item) => item.id === id);
+      if (!row) throw new Error("Deposit not found.");
+      if (row.status !== "pending") throw new Error("Only a pending deposit can be rejected.");
+      row.status = "rejected";
+      row.confirmedBy = session.id;
+      row.confirmedAt = nowIso();
+      if (note?.trim()) row.note = note.trim();
+    });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Could not reject the deposit." };
+  }
+
+  revalidatePath("/dashboard/admin/deposits");
   revalidatePath("/dashboard/brand/deposits");
   return { ok: true as const };
 }

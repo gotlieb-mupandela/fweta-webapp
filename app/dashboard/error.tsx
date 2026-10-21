@@ -20,7 +20,7 @@ export default function DashboardError({
       <h1 className="font-display text-3xl tracking-tight text-foreground">Dashboard unavailable</h1>
       <p className="mt-3 max-w-md text-sm leading-relaxed text-muted">
         A server error occurred while loading this page. This is often caused by Supabase
-        configuration — confirm migrations are applied and Vercel env vars are set.
+        configuration. Confirm migrations are applied and Vercel env vars are set.
       </p>
       {error.digest ? (
         <p className="mt-2 text-xs text-muted-light">Error ID: {error.digest}</p>

@@ -40,6 +40,7 @@ export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile 
                 tiktok: String(fd.get("tiktok") || ""),
                 youtube: String(fd.get("youtube") || ""),
                 instagram: String(fd.get("instagram") || ""),
+                facebook: String(fd.get("facebook") || ""),
                 x: String(fd.get("x") || ""),
               },
               published: fd.get("published") === "on",
@@ -97,6 +98,15 @@ export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile 
               name="instagram"
               type="url"
               defaultValue={profile?.socials.instagram ?? ""}
+            />
+          </div>
+          <div>
+            <Label htmlFor="facebook">Facebook URL</Label>
+            <Input
+              id="facebook"
+              name="facebook"
+              type="url"
+              defaultValue={profile?.socials.facebook ?? ""}
             />
           </div>
           <div>

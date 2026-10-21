@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { getCampaign } from "@/app/actions/campaigns";
 import { listCampaignSubmissions } from "@/app/actions/submissions";
+import { RecordViewsForm } from "@/components/forms/record-views-form";
 import { SubmissionReviewForm } from "@/components/forms/submission-review-form";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,7 @@ export default async function CampaignSubmissionsPage({
     <div className="dash-stack">
       <PageHeader
         title="Submission queue"
-        description={`Review clips for ${campaign.title}.`}
+        description={`Review clips for ${campaign.title}. Enter the view count you checked, then approve. Earnings use the campaign CPM.`}
         action={
           <Link href={`/dashboard/brand/campaigns/${id}`}>
             <Button size="sm" variant="secondary">
@@ -91,6 +92,11 @@ export default async function CampaignSubmissionsPage({
                   {s.status === "pending" ? (
                     <div className="border-t border-border/80 pt-3">
                       <SubmissionReviewForm submissionId={s.id} />
+                    </div>
+                  ) : null}
+                  {s.status === "approved" ? (
+                    <div className="border-t border-border/80 pt-3">
+                      <RecordViewsForm submissionId={s.id} currentViews={s.views} />
                     </div>
                   ) : null}
                 </div>

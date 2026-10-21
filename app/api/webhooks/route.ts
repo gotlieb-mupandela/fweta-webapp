@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     {
       received: true,
       status: "not_implemented",
-      message: "Webhook handler stub — Phase 13",
+      message: "Webhook handler stub. Phase 13",
     },
     { status: 202 },
   );

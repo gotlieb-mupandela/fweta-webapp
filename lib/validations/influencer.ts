@@ -13,6 +13,7 @@ export const influencerProfileSchema = z.object({
       tiktok: z.string().url().optional().or(z.literal("")),
       youtube: z.string().url().optional().or(z.literal("")),
       instagram: z.string().url().optional().or(z.literal("")),
+      facebook: z.string().url().optional().or(z.literal("")),
       x: z.string().url().optional().or(z.literal("")),
     })
     .optional(),

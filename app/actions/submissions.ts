@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
+import { creditSubmissionEarnings } from "@/lib/campaigns/earnings";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { Submission } from "@/lib/db/types";
-import { submissionReviewSchema, submissionSchema } from "@/lib/validations/submission";
+import { manualViewsSchema, submissionReviewSchema, submissionSchema } from "@/lib/validations/submission";
 
 function normalizePostUrl(url: string): string {
   try {
@@ -121,6 +122,16 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
     sub.status = parsed.data.status;
     sub.reviewNote = parsed.data.reviewNote ?? null;
     sub.updatedAt = nowIso();
+    if (parsed.data.status === "approved" && parsed.data.views != null) {
+      sub.views = parsed.data.views;
+      s.viewSnapshots.push({
+        id: newId(),
+        submissionId: sub.id,
+        views: parsed.data.views,
+        recordedAt: nowIso(),
+      });
+      creditSubmissionEarnings(s, sub.id);
+    }
     if (parsed.data.status === "flagged") {
       s.fraudFlags.push({
         id: newId(),
@@ -136,6 +147,48 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
   revalidatePath(`/dashboard/brand/campaigns/${campaign.id}/submissions`);
   revalidateClipperSurfaces(campaign.id);
   return { ok: true as const };
+}
+
+export async function recordCheckedViewsAction(raw: unknown) {
+  const session = await requireSession();
+  const parsed = manualViewsSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false as const, error: "Enter a whole view count." };
+
+  const store = await readStore();
+  const submission = store.submissions.find((item) => item.id === parsed.data.submissionId);
+  if (!submission) return { ok: false as const, error: "Not found." };
+  const campaign = store.campaigns.find((item) => item.id === submission.campaignId);
+  if (!campaign) return { ok: false as const, error: "Campaign missing." };
+  if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
+    return { ok: false as const, error: "Not allowed." };
+  }
+  if (submission.status !== "approved") {
+    return { ok: false as const, error: "Approve the clip before recording views." };
+  }
+
+  let credited = 0;
+  try {
+    await updateStore((s) => {
+      const sub = s.submissions.find((item) => item.id === parsed.data.submissionId);
+      if (!sub || sub.status !== "approved") throw new Error("Approve the clip before recording views.");
+      sub.views = parsed.data.views;
+      sub.updatedAt = nowIso();
+      s.viewSnapshots.push({
+        id: newId(),
+        submissionId: sub.id,
+        views: parsed.data.views,
+        recordedAt: nowIso(),
+      });
+      credited = creditSubmissionEarnings(s, sub.id);
+    });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Could not record views." };
+  }
+
+  revalidateClipperSurfaces(campaign.id);
+  revalidatePath("/dashboard/clipper/earnings");
+  revalidatePath("/leaderboard");
+  return { ok: true as const, creditedCents: credited };
 }
 
 export async function listClipperSubmissions() {

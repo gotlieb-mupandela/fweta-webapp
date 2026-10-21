@@ -21,7 +21,10 @@ export default async function PublicCampaignPage({
 
   const session = await getSession();
   const canSubmit = Boolean(
-    session && (session.roles.includes("clipper") || session.roles.includes("admin")),
+    session &&
+      (session.roles.includes("clipper") ||
+        session.roles.includes("influencer") ||
+        session.roles.includes("admin")),
   );
   const remaining = Math.max(0, campaign.budgetTotalCents - campaign.budgetSpentCents);
   const mySubs = canSubmit

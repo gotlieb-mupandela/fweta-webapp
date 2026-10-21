@@ -92,15 +92,15 @@ export default async function BrandDashboardPage() {
         </section>
 
         <section>
-          <SectionHeader title="Bookings" href="/influencers" linkLabel="Browse influencers →" />
+          <SectionHeader title="Bookings" href="/dashboard/brand/creators" linkLabel="Find creators" />
           {bookings.length === 0 ? (
             <EmptyState
               title="No bookings yet"
               description="Hire influencers at their listed rates for trusted sponsored posts."
               action={
-                <Link href="/influencers">
+                <Link href="/dashboard/brand/creators">
                   <Button size="sm" variant="secondary">
-                    Browse influencers
+                    Find creators
                   </Button>
                 </Link>
               }

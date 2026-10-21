@@ -20,4 +20,4 @@ export type WithdrawalStatus = "pending" | "processing" | "paid" | "rejected";
 
 export type AccountType = "cheque" | "savings" | "transmission";
 
-export type SocialPlatform = "tiktok" | "youtube" | "instagram" | "x";
+export type SocialPlatform = "tiktok" | "youtube" | "instagram" | "facebook" | "x";

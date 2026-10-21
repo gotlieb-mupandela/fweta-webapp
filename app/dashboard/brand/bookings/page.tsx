@@ -23,9 +23,9 @@ export default async function BrandBookingsPage() {
         title="Bookings"
         description="Influencer collaborations and escrow payments."
         action={
-          <Link href="/influencers">
+          <Link href="/dashboard/brand/creators">
             <Button size="sm" variant="secondary">
-              Browse influencers
+              Find creators
             </Button>
           </Link>
         }
@@ -34,10 +34,10 @@ export default async function BrandBookingsPage() {
       {bookings.length === 0 ? (
         <EmptyState
           title="No bookings"
-          description="Browse influencers to request a collaboration."
+          description="Open the creator list to request a collaboration."
           action={
-            <Link href="/influencers">
-              <Button size="sm">Browse influencers</Button>
+            <Link href="/dashboard/brand/creators">
+              <Button size="sm">Find creators</Button>
             </Link>
           }
         />
@@ -54,6 +54,7 @@ export default async function BrandBookingsPage() {
                       <p className="font-medium">{profile?.displayName ?? "Influencer"}</p>
                       <p className="text-sm text-muted">{rate?.title ?? "Rate card item"}</p>
                       <p className="mt-1 text-sm">{formatMoney(b.amountCents)}</p>
+                      {b.brief ? <p className="mt-2 text-sm text-muted">{b.brief}</p> : null}
                       {b.deliverableUrl ? (
                         <a
                           href={b.deliverableUrl}

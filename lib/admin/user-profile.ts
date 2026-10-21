@@ -18,6 +18,7 @@ import type {
   WithdrawalRequest,
 } from "@/lib/db/types";
 import { maskAccountNumber } from "@/lib/utils";
+import { isSocialPlatform, PLATFORM_LABEL, SOCIAL_PLATFORMS } from "@/lib/social/platforms";
 import type { AccountType, SocialPlatform } from "@/types/enums";
 
 export type AdminProfile = Omit<Profile, "passwordHash">;
@@ -89,7 +90,7 @@ export type AdminUserDossier = {
   fraudFlags: AdminFraudRow[];
 };
 
-const PLATFORMS: SocialPlatform[] = ["tiktok", "youtube", "instagram", "x"];
+const PLATFORMS: readonly SocialPlatform[] = SOCIAL_PLATFORMS;
 
 function withoutPassword(profile: Profile): AdminProfile {
   const { passwordHash, ...safe } = profile;
@@ -107,10 +108,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function asPlatform(value: unknown): SocialPlatform | null {
-  if (value === "tiktok" || value === "youtube" || value === "instagram" || value === "x") {
-    return value;
-  }
-  return null;
+  return isSocialPlatform(value) ? value : null;
 }
 
 function cents(value: unknown): number {
@@ -198,6 +196,14 @@ function collectVerification(profile: Profile, socials: SocialLink[]): Verificat
     });
   }
 
+  for (const link of socials.filter((item) => item.source === "account" || item.source === "public")) {
+    rows.push({
+      label: `${PLATFORM_LABEL[link.platform]} ${link.source === "public" ? "public profile" : "profile"}`,
+      status: link.status ?? "Listed",
+      detail: link.value,
+    });
+  }
+
   if (loose.kyc) {
     rows.push({
       label: "Payout identity",
@@ -209,6 +215,20 @@ function collectVerification(profile: Profile, socials: SocialLink[]): Verificat
       label: "Payout identity",
       status: "Not submitted",
       detail: "No identity record is stored yet. Payouts stay manual EFT.",
+    });
+  }
+
+  if (profile.verification) {
+    rows.push({
+      label: "Bio code",
+      status: profile.verification.status,
+      detail: profile.verification.code,
+    });
+  } else if (profile.roles.includes("clipper") || profile.roles.includes("influencer")) {
+    rows.push({
+      label: "Bio code",
+      status: "Not requested",
+      detail: "No verification code has been issued.",
     });
   }
 

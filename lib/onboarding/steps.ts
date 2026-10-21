@@ -6,6 +6,7 @@ export type OnboardingField =
   | "phone"
   | "socialTiktok"
   | "socialInstagram"
+  | "socialFacebook"
   | "socialYoutube"
   | "socialX"
   | "companyName"
@@ -62,6 +63,14 @@ const CORE: OnboardingStep[] = [
     xp: 10,
     optional: true,
     placeholder: "@yourhandle",
+  },
+  {
+    id: "socialFacebook",
+    title: "What's your Facebook?",
+    subtitle: "Handle or profile link. Skip if you don't use Facebook.",
+    xp: 10,
+    optional: true,
+    placeholder: "your.page",
   },
   {
     id: "socialYoutube",

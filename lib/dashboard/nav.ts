@@ -74,6 +74,13 @@ export const ROLE_NAV: Record<UserRole, RoleNavConfig> = {
     ],
     sidebarExtra: [
       {
+        href: "/dashboard/brand/creators",
+        label: "Creators",
+        shortLabel: "Creators",
+        icon: Users,
+        match: "prefix",
+      },
+      {
         href: "/dashboard/brand/deposits",
         label: "Deposits",
         shortLabel: "Deposits",
@@ -184,6 +191,13 @@ export const ROLE_NAV: Record<UserRole, RoleNavConfig> = {
     ],
     sidebarExtra: [
       {
+        href: "/dashboard/clipper/campaigns",
+        label: "Open campaigns",
+        shortLabel: "Campaigns",
+        icon: Sparkles,
+        match: "prefix",
+      },
+      {
         href: "/dashboard/influencer/profile",
         label: "Public profile",
         shortLabel: "Profile",
@@ -239,6 +253,20 @@ export const ROLE_NAV: Record<UserRole, RoleNavConfig> = {
     ],
     sidebarExtra: [
       {
+        href: "/dashboard/admin/deposits",
+        label: "Deposits",
+        shortLabel: "Deposits",
+        icon: BadgeDollarSign,
+        match: "prefix",
+      },
+      {
+        href: "/dashboard/admin/verification",
+        label: "Bio codes",
+        shortLabel: "Verify",
+        icon: ShieldAlert,
+        match: "prefix",
+      },
+      {
         href: "/dashboard/admin/stats",
         label: "Stats",
         shortLabel: "Stats",
@@ -283,6 +311,7 @@ const TITLE_OVERRIDES: Record<string, string> = {
   "/dashboard/brand/campaigns/new": "New campaign",
   "/dashboard/brand/bookings": "Bookings",
   "/dashboard/brand/analytics": "Analytics",
+  "/dashboard/brand/creators": "Creators",
   "/dashboard/brand/deposits": "Deposits",
   "/dashboard/clipper": "Overview",
   "/dashboard/clipper/campaigns": "Campaigns",
@@ -294,6 +323,9 @@ const TITLE_OVERRIDES: Record<string, string> = {
   "/dashboard/influencer/profile": "Profile",
   "/dashboard/influencer/earnings": "Earnings",
   "/dashboard/admin": "Overview",
+  "/dashboard/admin/deposits": "Deposits",
+  "/dashboard/admin/verification": "Bio codes",
+  "/dashboard/settings/verification": "Verification",
   "/dashboard/admin/withdrawals": "Withdrawals",
   "/dashboard/admin/users": "Users",
   "/dashboard/admin/fraud": "Fraud",

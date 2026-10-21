@@ -13,6 +13,7 @@ export type ProfileSocials = {
   tiktok?: string;
   youtube?: string;
   instagram?: string;
+  facebook?: string;
   x?: string;
 };
 
@@ -32,6 +33,14 @@ export type Profile = {
   socials?: ProfileSocials;
   /** `null` = must finish onboarding. Missing/undefined = legacy (skip). */
   onboardingCompletedAt?: string | null;
+  /** Creator puts this code in a social bio. Admin confirms it from the queue. */
+  verification?: {
+    code: string;
+    status: "pending" | "verified" | "rejected";
+    requestedAt: string;
+    reviewedAt: string | null;
+    reviewedBy: string | null;
+  } | null;
   bio: string;
   avatarUrl: string | null;
   roles: UserRole[];
@@ -148,12 +157,7 @@ export type InfluencerProfile = {
   niche: string;
   location: string;
   avatarUrl: string | null;
-  socials: {
-    tiktok?: string;
-    youtube?: string;
-    instagram?: string;
-    x?: string;
-  };
+  socials: ProfileSocials;
   featuredWork: string[];
   published: boolean;
   createdAt: string;
@@ -192,7 +196,11 @@ export type BrandDeposit = {
   brandId: string;
   amountCents: number;
   note: string;
-  status: "pending" | "credited";
+  status: "pending" | "credited" | "rejected";
+  /** EFT reference entered when an admin confirms the transfer. */
+  bankReference: string | null;
+  confirmedBy: string | null;
+  confirmedAt: string | null;
   createdAt: string;
 };
 

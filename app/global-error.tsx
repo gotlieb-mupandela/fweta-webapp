@@ -33,7 +33,7 @@ export default function GlobalError({
           Something went wrong
         </h1>
         <p style={{ marginTop: "0.75rem", maxWidth: "28rem", fontSize: "0.875rem", opacity: 0.7 }}>
-          The app hit an unexpected error. Your data is safe — try again.
+          The app hit an unexpected error. Your data is safe. Try again.
         </p>
         {error.digest ? (
           <p style={{ marginTop: "0.5rem", fontSize: "0.75rem", opacity: 0.55 }}>

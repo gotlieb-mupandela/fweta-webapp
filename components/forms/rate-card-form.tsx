@@ -30,7 +30,13 @@ export function RateCardForm() {
             title: String(fd.get("title") || ""),
             description: String(fd.get("description") || ""),
             type: String(fd.get("type") || "per_post") as "per_post" | "per_reel" | "per_1k_views" | "package" | "ugc_flat",
-            platform: String(fd.get("platform") || "multi") as "tiktok" | "youtube" | "instagram" | "x" | "multi",
+            platform: String(fd.get("platform") || "multi") as
+              | "tiktok"
+              | "youtube"
+              | "instagram"
+              | "facebook"
+              | "x"
+              | "multi",
             priceCents: Math.round(price * 100),
           });
           if (!res.ok) setError(res.error);
@@ -68,6 +74,7 @@ export function RateCardForm() {
             <option value="tiktok">TikTok</option>
             <option value="youtube">YouTube</option>
             <option value="instagram">Instagram</option>
+            <option value="facebook">Facebook</option>
             <option value="x">X</option>
           </Select>
         </div>

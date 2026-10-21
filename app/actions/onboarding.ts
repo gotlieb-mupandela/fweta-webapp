@@ -11,34 +11,20 @@ import { needsOnboarding } from "@/lib/onboarding/steps";
 import { newId, nowIso, updateStore } from "@/lib/db/store";
 import type { InfluencerProfile, ProfileSocials } from "@/lib/db/types";
 import { onboardingCompleteSchema } from "@/lib/validations/onboarding";
+import { profileUrl } from "@/lib/social/platforms";
 import { slugify } from "@/lib/utils";
 import type { SocialPlatform } from "@/types/enums";
 
-const PLATFORM_ORDER: SocialPlatform[] = ["tiktok", "instagram", "youtube", "x"];
+const PLATFORM_ORDER: SocialPlatform[] = ["tiktok", "instagram", "facebook", "youtube", "x"];
 
 function normalizeHandle(platform: SocialPlatform, raw: string): string {
-  const value = raw.trim();
-  if (/^https?:\/\//i.test(value)) return value;
-  const handle = value.replace(/^@/, "");
-  switch (platform) {
-    case "tiktok":
-      return `https://www.tiktok.com/@${handle}`;
-    case "instagram":
-      return `https://www.instagram.com/${handle}`;
-    case "youtube":
-      return handle.startsWith("@") || handle.includes("/")
-        ? `https://www.youtube.com/${handle.replace(/^@/, "@")}`
-        : `https://www.youtube.com/@${handle}`;
-    case "x":
-      return `https://x.com/${handle}`;
-    default:
-      return value;
-  }
+  return profileUrl(platform, raw);
 }
 
 function socialsFromAnswers(socials: {
   tiktok?: string;
   instagram?: string;
+  facebook?: string;
   youtube?: string;
   x?: string;
 }): ProfileSocials {
@@ -142,7 +128,7 @@ export async function completeOnboardingAction(raw: unknown) {
           avatarUrl: null,
           socials,
           featuredWork: [],
-          published: false,
+          published: true,
           createdAt: now,
           updatedAt: now,
         };

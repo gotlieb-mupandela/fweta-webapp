@@ -10,6 +10,7 @@ import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
 
 const QUICK_LINKS = [
+  { href: "/dashboard/admin/deposits", label: "EFT deposits" },
   { href: "/dashboard/admin/withdrawals", label: "Withdrawal queue" },
   { href: "/dashboard/admin/users", label: "User management" },
   { href: "/dashboard/admin/fraud", label: "Fraud review" },
@@ -54,7 +55,9 @@ export default async function AdminDashboardPage() {
       ) : null}
 
       <div className="dash-split">
-        <AdminCreditForm users={users.map((u) => ({ id: u.id, email: u.email }))} />
+        <AdminCreditForm
+          users={users.map((u) => ({ id: u.id, email: u.email, displayName: u.displayName }))}
+        />
         <section>
           <SectionHeader title="Quick links" />
           <ul className="space-y-2.5">

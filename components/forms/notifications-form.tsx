@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 
 import { updateNotificationsAction } from "@/app/actions/settings";
 import { Button } from "@/components/ui/button";
-import { FieldError } from "@/components/ui/input";
+import { FieldError, FieldSuccess } from "@/components/ui/input";
 
 export function NotificationsForm({
   notifyEmail,
@@ -18,6 +18,7 @@ export function NotificationsForm({
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -27,6 +28,7 @@ export function NotificationsForm({
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
         setError(null);
+        setSuccess(false);
         startTransition(async () => {
           const res = await updateNotificationsAction({
             notifyEmail: fd.get("notifyEmail") === "on",
@@ -34,7 +36,10 @@ export function NotificationsForm({
             notifyBookings: fd.get("notifyBookings") === "on",
           });
           if (!res.ok) setError(res.error);
-          else router.refresh();
+          else {
+            setSuccess(true);
+            router.refresh();
+          }
         });
       }}
     >
@@ -51,6 +56,7 @@ export function NotificationsForm({
         Booking updates
       </label>
       <FieldError>{error}</FieldError>
+      <FieldSuccess>{success ? "Preferences saved." : null}</FieldSuccess>
       <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : "Save preferences"}
       </Button>

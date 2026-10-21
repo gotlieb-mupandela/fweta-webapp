@@ -40,6 +40,7 @@ export default async function CampaignsPage({
           <option value="tiktok">TikTok</option>
           <option value="youtube">YouTube</option>
           <option value="instagram">Instagram</option>
+          <option value="facebook">Facebook</option>
           <option value="x">X</option>
         </select>
         <Button type="submit" size="sm">

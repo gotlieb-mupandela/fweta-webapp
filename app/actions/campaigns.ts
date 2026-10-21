@@ -70,7 +70,7 @@ export async function createCampaignAction(raw: unknown) {
         const wallet = s.wallets.find((w) => w.userId === session.id);
         if (!wallet || wallet.availableCents < campaign.budgetTotalCents) {
           throw new Error(
-            `Insufficient wallet balance. You need ${formatMoney(campaign.budgetTotalCents)} available — record a deposit first.`,
+            `Insufficient wallet balance. You need ${formatMoney(campaign.budgetTotalCents)} available. Submit an EFT deposit and wait for admin confirmation, then publish.`,
           );
         }
         applyWalletDelta(s, {
@@ -134,7 +134,7 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
         const wallet = s.wallets.find((w) => w.userId === c.brandId);
         if (!wallet || wallet.availableCents < c.budgetTotalCents) {
           throw new Error(
-            `Insufficient wallet balance. You need ${formatMoney(c.budgetTotalCents)} available — record a deposit first.`,
+            `Insufficient wallet balance. You need ${formatMoney(c.budgetTotalCents)} available. Submit an EFT deposit and wait for admin confirmation, then publish.`,
           );
         }
         applyWalletDelta(s, {
@@ -210,7 +210,7 @@ export async function deleteCampaignAction(id: string) {
             userId: campaign.brandId,
             availableDelta: remaining,
             type: "credit",
-            reason: "Campaign deleted — unused budget returned",
+            reason: "Campaign deleted. Unused budget returned",
             referenceType: "campaign_fund",
             referenceId: campaign.id,
           });

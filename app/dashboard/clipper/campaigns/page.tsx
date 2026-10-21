@@ -7,11 +7,16 @@ import { SubmitClipForm } from "@/components/forms/submit-clip-form";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
+import { PLATFORM_LABEL } from "@/lib/social/platforms";
 import { formatMoney } from "@/lib/utils";
 
 export default async function ClipperCampaignsPage() {
   const session = await getSession();
-  if (!session?.roles.includes("clipper") && !session?.roles.includes("admin")) {
+  if (
+    !session?.roles.includes("clipper") &&
+    !session?.roles.includes("influencer") &&
+    !session?.roles.includes("admin")
+  ) {
     redirect("/dashboard");
   }
 
@@ -61,7 +66,7 @@ export default async function ClipperCampaignsPage() {
                         <Badge tone="muted">Left {formatMoney(remaining)}</Badge>
                       </div>
                       <p className="mt-2.5 text-xs text-muted">
-                        {c.platforms.join(" · ")}
+                        {c.platforms.map((platform) => PLATFORM_LABEL[platform] ?? platform).join(" · ")}
                         {c.endDate ? ` · Ends ${c.endDate.slice(0, 10)}` : ""}
                       </p>
                       {c.requirements ? (

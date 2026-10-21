@@ -18,8 +18,21 @@ export async function PublicChrome({
   return (
     <div className="bg-atmosphere min-h-dvh">
       <header className="public-header sticky top-0 z-40">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4 md:px-8">
-          <Logo href={session ? "/dashboard" : "/login"} />
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-4 md:px-8">
+          <div className="flex min-w-0 flex-wrap items-center gap-4">
+            <Logo href={session ? "/dashboard" : "/login"} />
+            <nav className="flex gap-3 text-sm">
+              <Link href="/campaigns" className="text-muted hover:text-foreground">
+                Campaigns
+              </Link>
+              <Link href="/influencers" className="text-muted hover:text-foreground">
+                Creators
+              </Link>
+              <Link href="/leaderboard" className="text-muted hover:text-foreground">
+                Leaderboard
+              </Link>
+            </nav>
+          </div>
           {session ? (
             <Link href="/dashboard">
               <Button size="sm" variant="secondary">

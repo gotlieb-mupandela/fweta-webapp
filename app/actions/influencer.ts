@@ -4,12 +4,99 @@ import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
-import type { InfluencerProfile, RateCardItem } from "@/lib/db/types";
+import type { DatabaseStore, InfluencerProfile, Profile, ProfileSocials, RateCardItem } from "@/lib/db/types";
 import {
   influencerProfileSchema,
   rateCardSchema,
 } from "@/lib/validations/influencer";
 import { slugify } from "@/lib/utils";
+
+function socialsFromForm(socials?: {
+  tiktok?: string;
+  youtube?: string;
+  instagram?: string;
+  facebook?: string;
+  x?: string;
+}): ProfileSocials {
+  const pick = (value?: string) => {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : undefined;
+  };
+  return {
+    tiktok: pick(socials?.tiktok),
+    youtube: pick(socials?.youtube),
+    instagram: pick(socials?.instagram),
+    facebook: pick(socials?.facebook),
+    x: pick(socials?.x),
+  };
+}
+
+function isCreatorAccount(profile: Profile): boolean {
+  return (
+    !profile.suspended &&
+    profile.onboardingCompletedAt !== null &&
+    (profile.roles.includes("influencer") || profile.roles.includes("clipper"))
+  );
+}
+
+function needsDiscoverableRepair(store: DatabaseStore): boolean {
+  return store.profiles.some((account) => {
+    if (!isCreatorAccount(account)) return false;
+    const existing = store.influencerProfiles.find((profile) => profile.userId === account.id);
+    if (!existing) return true;
+    // Onboarding used to save published:false without a later edit.
+    return !existing.published && existing.updatedAt === existing.createdAt;
+  });
+}
+
+/** Brands can only book a published profile. Create one for finished creators who never got one. */
+export async function ensureDiscoverableCreators() {
+  const snapshot = await readStore();
+  if (!needsDiscoverableRepair(snapshot)) return;
+
+  const now = nowIso();
+  await updateStore((store) => {
+    for (const account of store.profiles) {
+      if (!isCreatorAccount(account)) continue;
+      const existing = store.influencerProfiles.find((profile) => profile.userId === account.id);
+      if (existing) {
+        if (!existing.published && existing.updatedAt === existing.createdAt) {
+          existing.published = true;
+        }
+        continue;
+      }
+
+      const base = slugify(account.displayName) || `creator-${account.id.slice(0, 6)}`;
+      let slug = base;
+      let n = 1;
+      while (store.influencerProfiles.some((profile) => profile.slug === slug)) {
+        slug = `${base}-${n++}`;
+      }
+      const niche =
+        account.niche?.trim() || (account.roles.includes("influencer") ? "Creator" : "Clipper");
+      const headline = niche.length >= 5 ? niche : `${account.displayName} on fweta`;
+      const bio =
+        account.bio.trim().length >= 10 ? account.bio.trim() : `${account.displayName} creates on fweta.`;
+
+      store.influencerProfiles.push({
+        id: newId(),
+        userId: account.id,
+        slug,
+        displayName: account.displayName,
+        headline,
+        bio,
+        niche,
+        location: account.location?.trim() || "Namibia",
+        avatarUrl: account.avatarUrl,
+        socials: { ...(account.socials ?? {}) },
+        featuredWork: [],
+        published: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  });
+}
 
 export async function upsertInfluencerProfileAction(raw: unknown) {
   const session = await requireSession();
@@ -43,12 +130,7 @@ export async function upsertInfluencerProfileAction(raw: unknown) {
         bio: parsed.data.bio,
         niche: parsed.data.niche,
         location: parsed.data.location,
-        socials: {
-          tiktok: parsed.data.socials?.tiktok || undefined,
-          youtube: parsed.data.socials?.youtube || undefined,
-          instagram: parsed.data.socials?.instagram || undefined,
-          x: parsed.data.socials?.x || undefined,
-        },
+        socials: socialsFromForm(parsed.data.socials),
         published: parsed.data.published ?? current.published,
         updatedAt: now,
       });
@@ -63,14 +145,9 @@ export async function upsertInfluencerProfileAction(raw: unknown) {
         niche: parsed.data.niche,
         location: parsed.data.location,
         avatarUrl: mirroredAvatar,
-        socials: {
-          tiktok: parsed.data.socials?.tiktok || undefined,
-          youtube: parsed.data.socials?.youtube || undefined,
-          instagram: parsed.data.socials?.instagram || undefined,
-          x: parsed.data.socials?.x || undefined,
-        },
+        socials: socialsFromForm(parsed.data.socials),
         featuredWork: [],
-        published: parsed.data.published ?? false,
+        published: parsed.data.published ?? true,
         createdAt: now,
         updatedAt: now,
       };
@@ -159,6 +236,7 @@ export async function listMyRateCards() {
 }
 
 export async function listPublicInfluencers(filters?: { q?: string; niche?: string }) {
+  await ensureDiscoverableCreators();
   const store = await readStore();
   return store.influencerProfiles
     .filter((p) => p.published)
@@ -174,6 +252,7 @@ export async function listPublicInfluencers(filters?: { q?: string; niche?: stri
 }
 
 export async function getPublicInfluencer(slug: string) {
+  await ensureDiscoverableCreators();
   const store = await readStore();
   const profile = store.influencerProfiles.find((p) => p.slug === slug && p.published);
   if (!profile) return null;

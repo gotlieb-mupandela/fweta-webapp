@@ -17,6 +17,7 @@ export const onboardingCompleteSchema = z
     socials: z.object({
       tiktok: socialHandleField.optional().default(""),
       instagram: socialHandleField.optional().default(""),
+      facebook: socialHandleField.optional().default(""),
       youtube: socialHandleField.optional().default(""),
       x: socialHandleField.optional().default(""),
     }),
@@ -29,7 +30,7 @@ export const onboardingCompleteSchema = z
   .refine(
     (d) =>
       Boolean(d.companyName?.trim()) ||
-      [d.socials.tiktok, d.socials.instagram, d.socials.youtube, d.socials.x].some(
+      [d.socials.tiktok, d.socials.instagram, d.socials.facebook, d.socials.youtube, d.socials.x].some(
         (v) => (v ?? "").trim().length >= 2,
       ),
     { message: "Add a business name or at least one social profile", path: ["socials"] },

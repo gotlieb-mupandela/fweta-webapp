@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { UserSuspendButton } from "@/components/forms/user-suspend-button";
 import { PLATFORM_LABEL, PlatformIcon } from "@/components/admin/platform-icon";
+import { AdminCreditForm } from "@/components/forms/admin-credit-form";
 import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { Badge } from "@/components/ui/card";
 import type {
@@ -50,6 +51,7 @@ function socialHref(platform: SocialPlatform, value: string): string | null {
   if (platform === "tiktok") return `https://www.tiktok.com/@${handle}`;
   if (platform === "youtube") return `https://www.youtube.com/@${handle}`;
   if (platform === "instagram") return `https://www.instagram.com/${handle}/`;
+  if (platform === "facebook") return `https://www.facebook.com/${handle}`;
   return `https://x.com/${handle}`;
 }
 
@@ -427,8 +429,15 @@ export function AdminUserProfile({ dossier }: { dossier: AdminUserDossier }) {
             <Field label="Wallet updated">{formatWhen(dossier.wallet.updatedAt)}</Field>
           </dl>
         ) : (
-          <QuietEmpty>No wallet row is stored.</QuietEmpty>
+          <QuietEmpty>No wallet row is stored. Crediting below creates one.</QuietEmpty>
         )}
+        <div className="mb-6 max-w-md">
+          <AdminCreditForm
+            title="Manual EFT credit"
+            presetUserId={profile.id}
+            users={[{ id: profile.id, email: profile.email, displayName: profile.displayName }]}
+          />
+        </div>
         {dossier.ledger.length === 0 ? (
           <QuietEmpty>No ledger entries. Wallet changes are only recorded with a ledger row.</QuietEmpty>
         ) : (

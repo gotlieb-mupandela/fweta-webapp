@@ -39,9 +39,9 @@ export async function GET() {
     },
     hint:
       !diag.jsonBlobSaveOk
-        ? "JSON save failed — run supabase/migrations/20260829140000_fweta_app_store.sql and verify SUPABASE_SERVICE_ROLE_KEY is the SECRET key (not publishable)."
+        ? "JSON save failed. Run supabase/migrations/20260829140000_fweta_app_store.sql and verify SUPABASE_SERVICE_ROLE_KEY is the SECRET key (not publishable)."
         : diag.profileCount === 0
-          ? "Store empty — log in once at /login to seed demo users, then re-check."
+          ? "Store empty. Log in once at /login to seed demo users, then re-check."
           : null,
   });
 }

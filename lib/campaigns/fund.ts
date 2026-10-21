@@ -31,7 +31,7 @@ export async function fundCampaignFromWallet(params: {
       const wallet = s.wallets.find((w) => w.userId === params.brandId);
       if (!wallet || wallet.availableCents < params.budgetCents) {
         throw new Error(
-          `Insufficient wallet balance. You need ${formatMoney(params.budgetCents)} available — record a deposit first.`,
+          `Insufficient wallet balance. You need ${formatMoney(params.budgetCents)} available. Submit an EFT deposit and wait for admin confirmation, then publish.`,
         );
       }
       applyWalletDelta(s, {

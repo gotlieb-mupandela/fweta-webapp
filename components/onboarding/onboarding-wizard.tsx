@@ -13,19 +13,19 @@ import {
   totalOnboardingXp,
   type OnboardingField,
 } from "@/lib/onboarding/steps";
+import { PLATFORM_LABEL, SOCIAL_PLATFORMS } from "@/lib/social/platforms";
 import { cn } from "@/lib/utils";
 import type { SocialPlatform, UserRole } from "@/types/enums";
 
-const PLATFORMS: { id: SocialPlatform; label: string }[] = [
-  { id: "tiktok", label: "TikTok" },
-  { id: "instagram", label: "Instagram" },
-  { id: "youtube", label: "YouTube" },
-  { id: "x", label: "X" },
-];
+const PLATFORMS: { id: SocialPlatform; label: string }[] = SOCIAL_PLATFORMS.map((id) => ({
+  id,
+  label: PLATFORM_LABEL[id],
+}));
 
 const SOCIAL_FIELDS = [
   "socialTiktok",
   "socialInstagram",
+  "socialFacebook",
   "socialYoutube",
   "socialX",
 ] as const;
@@ -38,6 +38,7 @@ type Answers = {
   phone: string;
   socialTiktok: string;
   socialInstagram: string;
+  socialFacebook: string;
   socialYoutube: string;
   socialX: string;
   companyName: string;
@@ -53,6 +54,7 @@ const INITIAL: Answers = {
   phone: "",
   socialTiktok: "",
   socialInstagram: "",
+  socialFacebook: "",
   socialYoutube: "",
   socialX: "",
   companyName: "",
@@ -123,6 +125,7 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
       socials: {
         tiktok: answers.socialTiktok,
         instagram: answers.socialInstagram,
+        facebook: answers.socialFacebook,
         youtube: answers.socialYoutube,
         x: answers.socialX,
       },

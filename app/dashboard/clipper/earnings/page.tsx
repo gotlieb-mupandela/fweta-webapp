@@ -7,7 +7,11 @@ import { formatMoney } from "@/lib/utils";
 
 export default async function ClipperEarningsPage() {
   const session = await getSession();
-  if (!session?.roles.includes("clipper") && !session?.roles.includes("admin")) {
+  if (
+    !session?.roles.includes("clipper") &&
+    !session?.roles.includes("influencer") &&
+    !session?.roles.includes("admin")
+  ) {
     redirect("/dashboard");
   }
 

@@ -1,4 +1,7 @@
+import { PLATFORM_LABEL as PLATFORM_LABELS } from "@/lib/social/platforms";
 import type { SocialPlatform } from "@/types/enums";
+
+export const PLATFORM_LABEL = PLATFORM_LABELS;
 
 export function PlatformIcon({ platform }: { platform: SocialPlatform }) {
   const common = { viewBox: "0 0 24 24", className: "size-3.5", "aria-hidden": true as const };
@@ -25,6 +28,13 @@ export function PlatformIcon({ platform }: { platform: SocialPlatform }) {
       </svg>
     );
   }
+  if (platform === "facebook") {
+    return (
+      <svg {...common} fill="currentColor">
+        <path d="M14.5 8.5H13V7.2c0-.4.3-.5.6-.5H14.5V5h-1.6C11 5 10.2 6 10.2 7.4V8.5H9v1.8h1.2V19h2.1v-8.7h1.5l.5-1.8Z" />
+      </svg>
+    );
+  }
   return (
     <svg {...common} fill="currentColor">
       <path d="M14.7 10.3 22.2 2h-1.8l-6.5 7.2L8.7 2H2.2l7.9 11.1L2.2 22h1.8l6.9-7.7L15.5 22h6.5l-7.3-11.7Zm-2.4 2.7-.8-1.1L4.7 3.3h2.7l5.1 7.1.8 1.1 6.7 9.2h-2.7l-5.4-7.7Z" />
@@ -32,9 +42,3 @@ export function PlatformIcon({ platform }: { platform: SocialPlatform }) {
   );
 }
 
-export const PLATFORM_LABEL: Record<SocialPlatform, string> = {
-  tiktok: "TikTok",
-  youtube: "YouTube",
-  instagram: "Instagram",
-  x: "X",
-};

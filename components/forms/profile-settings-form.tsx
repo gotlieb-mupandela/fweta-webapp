@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { updateProfileAction } from "@/app/actions/settings";
 import { AvatarUpload } from "@/components/forms/avatar-upload";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
+import { FieldError, FieldSuccess, Input, Label, Textarea } from "@/components/ui/input";
 
 export function ProfileSettingsForm({
   displayName,
@@ -19,6 +19,7 @@ export function ProfileSettingsForm({
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -31,13 +32,17 @@ export function ProfileSettingsForm({
           e.preventDefault();
           const fd = new FormData(e.currentTarget);
           setError(null);
+          setSuccess(false);
           startTransition(async () => {
             const res = await updateProfileAction({
               displayName: String(fd.get("displayName") || ""),
               bio: String(fd.get("bio") || ""),
             });
             if (!res.ok) setError(res.error);
-            else router.refresh();
+            else {
+              setSuccess(true);
+              router.refresh();
+            }
           });
         }}
       >
@@ -50,6 +55,7 @@ export function ProfileSettingsForm({
           <Textarea id="bio" name="bio" defaultValue={bio} />
         </div>
         <FieldError>{error}</FieldError>
+        <FieldSuccess>{success ? "Profile saved." : null}</FieldSuccess>
         <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save profile"}
         </Button>

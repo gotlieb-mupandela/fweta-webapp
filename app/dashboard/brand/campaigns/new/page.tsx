@@ -28,7 +28,7 @@ export default async function NewCampaignPage() {
           </Link>
         </p>
         <p className="mt-1.5 text-xs text-muted">
-          Launching an active campaign allocates the full budget from your wallet.
+          Clippers only see this campaign after you publish it. Publishing allocates the full budget from your wallet. There is no admin approval step. If the balance is short, submit an EFT and wait for confirmation.
         </p>
       </Card>
       <CampaignForm mode="create" walletAvailableCents={wallet.availableCents} />

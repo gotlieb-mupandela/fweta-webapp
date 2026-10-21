@@ -46,7 +46,7 @@ export function BookingRequestForm({
         <Select id="rateCardItemId" name="rateCardItemId" required defaultValue={rates[0]?.id}>
           {rates.map((r) => (
             <option key={r.id} value={r.id}>
-              {r.title} — N${(r.priceCents / 100).toFixed(2)}
+              {r.title} · N${(r.priceCents / 100).toFixed(2)}
             </option>
           ))}
         </Select>

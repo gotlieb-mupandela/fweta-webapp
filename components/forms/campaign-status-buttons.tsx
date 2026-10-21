@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { deleteCampaignAction, setCampaignStatusAction } from "@/app/actions/campaigns";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/input";
+import { campaignClipperVisibility } from "@/lib/campaigns/visibility";
 import type { CampaignStatus } from "@/types/enums";
 
 export function CampaignStatusButtons({
@@ -31,12 +32,17 @@ export function CampaignStatusButtons({
     });
   }
 
+  const visibility = campaignClipperVisibility(status);
+
   return (
-    <div>
+    <div className="space-y-3">
+      <p className="text-sm text-muted">
+        <span className="font-medium text-foreground">{visibility.label}.</span> {visibility.detail}
+      </p>
       <div className="flex flex-wrap gap-2">
-        {status === "draft" || status === "paused" ? (
+        {status === "draft" || status === "paused" || status === "pending" ? (
           <Button size="sm" variant="gold" disabled={pending} onClick={() => setStatus("active")}>
-            Activate
+            Publish to clippers
           </Button>
         ) : null}
         {status === "active" ? (

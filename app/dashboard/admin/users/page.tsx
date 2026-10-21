@@ -6,22 +6,54 @@ import { adminListUsers } from "@/app/actions/settings";
 import { UserSuspendButton } from "@/components/forms/user-suspend-button";
 import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 
-export default async function AdminUsersPage() {
+export default async function AdminUsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const session = await getSession();
   if (!session?.roles.includes("admin")) {
     redirect("/dashboard");
   }
 
-  const users = await adminListUsers();
+  const params = await searchParams;
+  const query = params.q?.trim().toLowerCase() ?? "";
+  const users = (await adminListUsers()).filter((user) => {
+    if (!query) return true;
+    const haystack = `${user.displayName} ${user.email} ${user.primaryRole} ${user.roles.join(" ")}`.toLowerCase();
+    return haystack.includes(query);
+  });
 
   return (
     <div className="dash-stack">
       <PageHeader
         title="Users"
         description="Open an account to review profile, money, and activity. Suspension stays on the row."
+        action={
+          // File download. A client Link would try to render the CSV as a page.
+          // eslint-disable-next-line @next/next/no-html-link-for-pages
+          <a href="/dashboard/admin/users/export">
+            <Button size="sm" variant="secondary">
+              Export CSV
+            </Button>
+          </a>
+        }
       />
+
+      <form className="flex flex-wrap gap-3">
+        <input
+          name="q"
+          defaultValue={params.q ?? ""}
+          placeholder="Search name, email, or role"
+          className="input-capsule h-11 min-w-[200px] flex-1"
+        />
+        <Button type="submit" size="sm">
+          Search
+        </Button>
+      </form>
 
       {users.length === 0 ? (
         <EmptyState title="No users" description="Accounts will appear here after signup." />

@@ -9,6 +9,7 @@ import { getSession } from "@/lib/auth/session";
 
 const LINKS = [
   { href: "/dashboard/settings/profile", label: "Profile", desc: "Display name and bio" },
+  { href: "/dashboard/settings/verification", label: "Verification", desc: "Bio code for creators" },
   { href: "/dashboard/settings/roles", label: "Roles", desc: "Brand, influencer, clipper" },
   { href: "/dashboard/settings/notifications", label: "Notifications", desc: "Email preferences" },
   { href: "/dashboard/settings/security", label: "Security", desc: "Change password" },

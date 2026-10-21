@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { submitClipAction } from "@/app/actions/submissions";
 import { Button } from "@/components/ui/button";
 import { FieldError, FieldSuccess, Input, Label, Select } from "@/components/ui/input";
+import { PLATFORM_LABEL } from "@/lib/social/platforms";
 import { formatMoney } from "@/lib/utils";
 import type { SocialPlatform } from "@/types/enums";
 
@@ -29,7 +30,7 @@ export function SubmitClipForm({
   }
 
   if (exhausted) {
-    return <p className="text-sm text-muted">Budget exhausted — this campaign is no longer paying.</p>;
+    return <p className="text-sm text-muted">Budget exhausted. This campaign is no longer paying.</p>;
   }
 
   return (
@@ -63,7 +64,7 @@ export function SubmitClipForm({
           name="postUrl"
           type="url"
           required
-          placeholder="https://www.tiktok.com/@you/video/…"
+          placeholder="https://www.facebook.com/reel/… or another post link"
         />
       </div>
       <div>
@@ -71,7 +72,7 @@ export function SubmitClipForm({
         <Select id={`platform-${campaignId}`} name="platform" defaultValue={platforms[0]}>
           {platforms.map((p) => (
             <option key={p} value={p}>
-              {p}
+              {PLATFORM_LABEL[p]}
             </option>
           ))}
         </Select>

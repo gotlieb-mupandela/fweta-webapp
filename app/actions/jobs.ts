@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import { fetchVideoViewsFromApify, isApifyConfigured } from "@/lib/social/apify";
-import { applyWalletDelta } from "@/lib/wallet/ledger";
+import { creditSubmissionEarnings } from "@/lib/campaigns/earnings";
 
 /**
  * Phase 7 automation — callable via /api/jobs/poll-views or cron.
@@ -90,35 +90,7 @@ export async function recalculateEarningsJob() {
     let delta = 0;
     try {
       await updateStore((s) => {
-        const sub = s.submissions.find((x) => x.id === id);
-        if (!sub || sub.status !== "approved") return;
-        const camp = s.campaigns.find((c) => c.id === sub.campaignId);
-        if (!camp) return;
-
-        // CPM math: earnings = views / 1000 * cpm, capped per submission and remaining budget
-        const raw = Math.floor((sub.views / 1000) * camp.cpmCents);
-        const cappedByVideo = Math.min(raw, camp.maxPayoutPerSubmissionCents);
-        const remainingBudget = camp.budgetTotalCents - camp.budgetSpentCents;
-        const targetEarnings = Math.min(cappedByVideo, remainingBudget + sub.earningsCents);
-        const d = targetEarnings - sub.earningsCents;
-        if (d <= 0) return;
-
-        applyWalletDelta(s, {
-          userId: sub.clipperId,
-          availableDelta: d,
-          type: "credit",
-          reason: `Campaign earnings · ${camp.title}`,
-          referenceType: "campaign_earning",
-          referenceId: sub.id,
-        });
-        sub.earningsCents = targetEarnings;
-        sub.updatedAt = nowIso();
-        camp.budgetSpentCents += d;
-        if (camp.budgetSpentCents >= camp.budgetTotalCents) {
-          camp.status = "completed";
-        }
-        camp.updatedAt = nowIso();
-        delta = d;
+        delta = creditSubmissionEarnings(s, id);
       });
     } catch {
       // One bad submission (e.g. wallet invariant) skips; rest still credit.
