@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { createCampaignAction, updateCampaignAction } from "@/app/actions/campaigns";
+import { PostingGuide } from "@/components/platforms/posting-guide";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select, Textarea } from "@/components/ui/input";
 import type { Campaign } from "@/lib/db/types";
@@ -171,6 +172,11 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
             </label>
           ))}
         </div>
+        {platforms.length > 0 ? (
+          <div className="mt-4">
+            <PostingGuide platforms={platforms} />
+          </div>
+        ) : null}
       </div>
       <div>
         <Label htmlFor="requirements">Requirements</Label>

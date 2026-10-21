@@ -1,10 +1,12 @@
 import Link from "next/link";
 
 import { listPublicInfluencers } from "@/app/actions/influencer";
+import { PlatformChip } from "@/components/platforms/platform-chip";
 import { PublicChrome } from "@/components/public-chrome";
 import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { Badge, Card, EmptyState } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import type { SocialPlatform } from "@/types/enums";
 
 export default async function InfluencersPage({
   searchParams,
@@ -67,6 +69,11 @@ export default async function InfluencersPage({
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Badge tone="gold">{p.niche}</Badge>
                       <Badge tone="muted">{p.location}</Badge>
+                      {(["tiktok", "instagram", "youtube", "x"] as const)
+                        .filter((platform): platform is SocialPlatform => Boolean(p.socials?.[platform]))
+                        .map((platform) => (
+                          <PlatformChip key={platform} platform={platform} />
+                        ))}
                     </div>
                   </Card>
                 </Link>

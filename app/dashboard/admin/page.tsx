@@ -11,8 +11,12 @@ import { formatMoney } from "@/lib/utils";
 
 const QUICK_LINKS = [
   { href: "/dashboard/admin/deposits", label: "EFT deposits" },
+  { href: "/dashboard/admin/payins", label: "Pay-ins" },
   { href: "/dashboard/admin/withdrawals", label: "Withdrawal queue" },
+  { href: "/dashboard/admin/views", label: "View checks" },
   { href: "/dashboard/admin/users", label: "User management" },
+  { href: "/dashboard/admin/verification", label: "Bio codes" },
+  { href: "/dashboard/admin/accounts", label: "Account verification" },
   { href: "/dashboard/admin/fraud", label: "Fraud review" },
   { href: "/dashboard/admin/stats", label: "Platform stats" },
 ];

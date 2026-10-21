@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 
 import { getCampaign } from "@/app/actions/campaigns";
 import { listClipperSubmissions } from "@/app/actions/submissions";
+import { PlatformChip } from "@/components/platforms/platform-chip";
+import { PostingGuide } from "@/components/platforms/posting-guide";
 import { PublicChrome } from "@/components/public-chrome";
 import { SubmitClipForm } from "@/components/forms/submit-clip-form";
 import { BudgetBar } from "@/components/rewards/budget-bar";
@@ -15,7 +17,6 @@ import { readStore } from "@/lib/db/store";
 import { accountsForUser } from "@/lib/onboarding/accounts";
 import {
   ABUSE_RULES,
-  PLATFORM_LABEL,
   audienceLabel,
   campaignIsDiscoverable,
   campaignLeaderboard,
@@ -67,9 +68,7 @@ export default async function PublicCampaignPage({
           <Badge tone="gold">{campaign.type === "clipping" ? "Clipping" : "UGC"}</Badge>
           <Badge>{campaign.category}</Badge>
           {campaign.platforms.map((platform) => (
-            <Badge key={platform} tone="muted">
-              {PLATFORM_LABEL[platform]}
-            </Badge>
+            <PlatformChip key={platform} platform={platform} />
           ))}
         </div>
         <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
@@ -123,6 +122,16 @@ export default async function PublicCampaignPage({
             {audienceLabel(campaign.countries)}. The brand approves every clip. The rate above is yours. The platform fee sits on the brand side.
           </p>
         </Card>
+
+        <div className="mt-4">
+          <h2 className="font-display text-2xl tracking-tight">How to post</h2>
+          <p className="mt-1 text-sm text-muted">
+            Each network has its own frame, caption, and link. Use the one you publish on.
+          </p>
+          <div className="mt-3">
+            <PostingGuide platforms={campaign.platforms} />
+          </div>
+        </div>
 
         {campaign.requirements ? (
           <Card className="mt-4">

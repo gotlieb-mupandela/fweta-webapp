@@ -1,13 +1,10 @@
 import Link from "next/link";
 
+import { PlatformChip } from "@/components/platforms/platform-chip";
 import { Badge } from "@/components/ui/card";
 import { BudgetBar } from "@/components/rewards/budget-bar";
 import type { Campaign } from "@/lib/db/types";
-import {
-  PLATFORM_LABEL,
-  audienceLabel,
-  remainingBudgetCents,
-} from "@/lib/rewards/content-rewards";
+import { audienceLabel, remainingBudgetCents } from "@/lib/rewards/content-rewards";
 import { formatMoney, formatNumber } from "@/lib/utils";
 
 export function CampaignCard({
@@ -41,21 +38,21 @@ export function CampaignCard({
           </p>
         </div>
       </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {campaign.platforms.map((platform) => (
+          <PlatformChip key={platform} platform={platform} />
+        ))}
+      </div>
       <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-muted">{campaign.description}</p>
       <BudgetBar campaign={campaign} className="mt-4" />
       <p className="mt-2 text-xs text-muted">
         {formatMoney(remaining)} left
-        {campaign.endDate ? ` · Ends ${campaign.endDate.slice(0, 10)}` : " · No end date"}
+        {campaign.endDate ? ` · Ends ${campaign.endDate.slice(0, 10)}` : " · Open until the budget ends"}
         {` · ${approvedClips} approved`}
       </p>
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {campaign.platforms.map((platform) => (
-          <Badge key={platform} tone="muted">
-            {PLATFORM_LABEL[platform]}
-          </Badge>
-        ))}
         <Badge>Min {formatNumber(campaign.minViews)} views</Badge>
-        <Badge tone="gold">Max {formatMoney(campaign.maxPayoutPerSubmissionCents)}</Badge>
+        <Badge tone="gold">Max {formatMoney(campaign.maxPayoutPerSubmissionCents)} per post</Badge>
       </div>
       <p className="mt-3 text-xs text-muted">{audienceLabel(campaign.countries)} · Brand approves each clip</p>
       <p className="mt-1 text-xs text-muted">

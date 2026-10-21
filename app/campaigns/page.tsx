@@ -1,7 +1,10 @@
 import Link from "next/link";
 
 import { listActiveCampaignsPublic } from "@/app/actions/campaigns";
+import { PlatformPicker } from "@/components/platforms/platform-picker";
+import { PostingGuide } from "@/components/platforms/posting-guide";
 import { PublicChrome } from "@/components/public-chrome";
+import { isSocialPlatform } from "@/lib/platforms/guides";
 import { Badge, Card, EmptyState } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/utils";
@@ -23,7 +26,13 @@ export default async function CampaignsPage({
       title="Open campaigns"
       description="Browse content rewards campaigns and start earning."
     >
-      <form className="flex flex-wrap gap-3">
+      <PlatformPicker basePath="/campaigns" params={params} />
+      {isSocialPlatform(params.platform) ? (
+        <div className="mt-4">
+          <PostingGuide platforms={[params.platform]} />
+        </div>
+      ) : null}
+      <form className="mt-4 flex flex-wrap gap-3">
         <input
           name="q"
           defaultValue={params.q}

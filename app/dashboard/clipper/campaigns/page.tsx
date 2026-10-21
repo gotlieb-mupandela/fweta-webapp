@@ -4,13 +4,20 @@ import { redirect } from "next/navigation";
 import { listActiveCampaignsPublic } from "@/app/actions/campaigns";
 import { listClipperSubmissions } from "@/app/actions/submissions";
 import { SubmitClipForm } from "@/components/forms/submit-clip-form";
+import { PlatformPicker } from "@/components/platforms/platform-picker";
+import { PostingGuide } from "@/components/platforms/posting-guide";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
+import { isSocialPlatform } from "@/lib/platforms/guides";
 import { PLATFORM_LABEL } from "@/lib/social/platforms";
 import { formatMoney } from "@/lib/utils";
 
-export default async function ClipperCampaignsPage() {
+export default async function ClipperCampaignsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ platform?: string; q?: string; type?: string }>;
+}) {
   const session = await getSession();
   if (
     !session?.roles.includes("clipper") &&
@@ -20,8 +27,13 @@ export default async function ClipperCampaignsPage() {
     redirect("/dashboard");
   }
 
+  const params = await searchParams;
   const [campaigns, submissions] = await Promise.all([
-    listActiveCampaignsPublic(),
+    listActiveCampaignsPublic({
+      platform: params.platform,
+      q: params.q,
+      type: params.type,
+    }),
     listClipperSubmissions(),
   ]);
 
@@ -31,6 +43,8 @@ export default async function ClipperCampaignsPage() {
         title="Active campaigns"
         description="Join open campaigns and submit your clips."
       />
+      <PlatformPicker basePath="/dashboard/clipper/campaigns" params={params} />
+      {isSocialPlatform(params.platform) ? <PostingGuide platforms={[params.platform]} /> : null}
 
       {campaigns.length === 0 ? (
         <EmptyState
@@ -87,11 +101,14 @@ export default async function ClipperCampaignsPage() {
                     </p>
                   ) : null}
                   <div className="mt-4 border-t border-border/80 pt-4">
-                    <SubmitClipForm
-                      campaignId={c.id}
-                      platforms={c.platforms}
-                      remainingBudgetCents={remaining}
-                    />
+                    <PostingGuide platforms={c.platforms} />
+                    <div className="mt-4">
+                      <SubmitClipForm
+                        campaignId={c.id}
+                        platforms={c.platforms}
+                        remainingBudgetCents={remaining}
+                      />
+                    </div>
                   </div>
                 </Card>
               </li>

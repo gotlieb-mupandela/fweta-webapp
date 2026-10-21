@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getPublicInfluencer } from "@/app/actions/influencer";
+import { PlatformChip } from "@/components/platforms/platform-chip";
 import { PublicChrome } from "@/components/public-chrome";
+import { RATE_TYPE_LABEL, ratePlatformLabel } from "@/lib/platforms/guides";
 import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { Badge, Card, ListRow } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,6 +40,11 @@ export default async function PublicInfluencerPage({
             </h1>
             <p className="mt-2 text-lg text-muted">{profile.headline}</p>
             <p className="mt-1 text-sm text-muted-light">{profile.location}</p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {SOCIAL_PLATFORMS.filter((platform) => profile.socials?.[platform]).map((platform) => (
+                <PlatformChip key={platform} platform={platform} />
+              ))}
+            </div>
           </div>
         </div>
 
@@ -75,8 +82,8 @@ export default async function PublicInfluencerPage({
                   <ListRow>
                     <div>
                       <p className="font-medium">{r.title}</p>
-                      <p className="text-sm capitalize text-muted">
-                        {r.type} · {r.platform}
+                      <p className="text-sm text-muted">
+                        {RATE_TYPE_LABEL[r.type] ?? r.type} · {ratePlatformLabel(r.platform)}
                       </p>
                     </div>
                     <p className="font-display text-lg">{formatMoney(r.priceCents)}</p>

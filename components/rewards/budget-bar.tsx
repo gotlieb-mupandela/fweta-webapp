@@ -13,11 +13,11 @@ export function BudgetBar({
   const pct = Math.round(ratio * 100);
   return (
     <div className={className}>
-      <div className="mb-1.5 flex items-center justify-between text-[11px] text-muted">
+      <div className="mb-1.5 flex items-center justify-between gap-3 text-[11px] text-muted">
+        <span>{formatMoney(campaign.budgetSpentCents)} paid</span>
         <span>
-          {formatMoney(campaign.budgetSpentCents)} paid
+          {pct}% of {formatMoney(campaign.budgetTotalCents)}
         </span>
-        <span>{formatMoney(campaign.budgetTotalCents)} budget</span>
       </div>
       <div
         className="h-1.5 overflow-hidden rounded-full bg-surface-2"
