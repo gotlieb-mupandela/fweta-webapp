@@ -6,6 +6,7 @@ import { ContextHelp } from "@/components/onboarding/context-help";
 import { EmptyState, PageHeader, SectionHeader, Stat, StatGrid } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+import { splitCreatorIncome } from "@/lib/licensing/hub";
 import { formatMoney, formatNumber } from "@/lib/utils";
 
 export default async function ClipperEarningsPage() {
@@ -42,12 +43,13 @@ export default async function ClipperEarningsPage() {
     byCampaign.set(submission.campaignId, current);
   }
   const breakdown = [...byCampaign.values()].sort((a, b) => b.earningsCents - a.earningsCents);
+  const income = splitCreatorIncome(ledger);
 
   return (
     <div className="dash-stack">
       <PageHeader
         title="Earnings"
-        description="Set aside is reserved when a clip is approved. After the fraud hold it moves to available if the post is still live. Bank transfer is a manual Namibian EFT from N$100."
+        description="View earnings and UGC license fees are listed separately. Both sit in this wallet. Bank transfer is a manual Namibian EFT from N$100."
       />
       <ContextHelp
         title="Earnings follow a view check"
@@ -57,9 +59,11 @@ export default async function ClipperEarningsPage() {
 
       <StatGrid>
         <Stat label="Available" value={formatMoney(wallet.availableCents)} />
-        <Stat label="Set aside" value={formatMoney(setAside || wallet.pendingCents)} />
+        <Stat label="View earnings" value={formatMoney(income.viewCents)} />
+        <Stat label="UGC fees" value={formatMoney(income.ugcCents)} />
         <Stat label="Verified views" value={formatNumber(views)} />
         <Stat label="Approved clips" value={String(approved.length)} />
+        <Stat label="Set aside" value={formatMoney(setAside || wallet.pendingCents)} />
       </StatGrid>
 
       <section>

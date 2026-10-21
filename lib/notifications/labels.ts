@@ -21,4 +21,6 @@ export const NOTIFICATION_LABEL: Record<NotificationKind, string> = {
   prize_awarded: "Prize",
   referral_bonus: "Referral",
   account_reviewed: "Account",
+  ugc_update: "UGC",
+  directory_update: "Directory",
 };

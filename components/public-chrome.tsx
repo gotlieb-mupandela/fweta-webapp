@@ -22,14 +22,17 @@ export async function PublicChrome({
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-4 md:px-8">
           <div className="flex min-w-0 flex-wrap items-center gap-4">
             <Logo href={session ? "/dashboard" : "/login"} />
-            <nav className="flex gap-3 text-sm">
-              <Link href="/campaigns" className="text-muted hover:text-foreground">
+            <nav aria-label="Public" className="flex flex-wrap gap-3 text-sm text-muted">
+              <Link href="/campaigns" className="hover:text-foreground">
                 Campaigns
               </Link>
-              <Link href="/influencers" className="text-muted hover:text-foreground">
+              <Link href="/directory" className="hover:text-foreground">
+                Directory
+              </Link>
+              <Link href="/influencers" className="hover:text-foreground">
                 Creators
               </Link>
-              <Link href="/leaderboard" className="text-muted hover:text-foreground">
+              <Link href="/leaderboard" className="hover:text-foreground">
                 Leaderboard
               </Link>
             </nav>

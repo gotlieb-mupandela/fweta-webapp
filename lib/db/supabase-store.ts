@@ -47,6 +47,14 @@ const emptyStore = (): DatabaseStore => ({
   auditLog: [],
   prizeAwards: [],
   platformSettings: [],
+  ugcBriefs: [],
+  ugcApplications: [],
+  ugcDeliveries: [],
+  contentLicenses: [],
+  licenseDisputes: [],
+  creatorPortfolios: [],
+  businessListings: [],
+  creatorReviews: [],
 });
 
 function supabaseUrl(): string | undefined {
@@ -299,6 +307,14 @@ export async function loadStoreFromSupabase(): Promise<DatabaseStore | null> {
         fill("auditLog");
         fill("prizeAwards");
         fill("platformSettings");
+        fill("ugcBriefs");
+        fill("ugcApplications");
+        fill("ugcDeliveries");
+        fill("contentLicenses");
+        fill("licenseDisputes");
+        fill("creatorPortfolios");
+        fill("businessListings");
+        fill("creatorReviews");
       }
       return relational;
     }

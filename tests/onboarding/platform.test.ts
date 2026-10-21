@@ -66,6 +66,14 @@ function emptyStore(): DatabaseStore {
     auditLog: [],
     prizeAwards: [],
     platformSettings: [],
+    ugcBriefs: [],
+    ugcApplications: [],
+    ugcDeliveries: [],
+    contentLicenses: [],
+    licenseDisputes: [],
+    creatorPortfolios: [],
+    businessListings: [],
+    creatorReviews: [],
   };
 }
 

@@ -1,0 +1,35 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+
+import { getMyWallet } from "@/app/actions/wallet";
+import { UgcBriefForm } from "@/components/forms/licensing-forms";
+import { Card, PageHeader } from "@/components/ui/card";
+import { getSession } from "@/lib/auth/session";
+import { formatMoney } from "@/lib/utils";
+
+export default async function NewUgcBriefPage() {
+  const session = await getSession();
+  if (!session?.roles.includes("brand") && !session?.roles.includes("admin")) redirect("/dashboard");
+  const wallet = await getMyWallet();
+
+  return (
+    <div className="dash-stack">
+      <PageHeader
+        title="New UGC brief"
+        description="Set the deliverable, the usage rights, and a fixed fee per video. Opening the brief reserves that budget from your wallet."
+      />
+      <Card className="max-w-2xl">
+        <p className="text-sm text-muted">
+          Wallet balance: <span className="font-medium text-foreground">{formatMoney(wallet.availableCents)}</span>
+          {" · "}
+          <Link href="/dashboard/brand/deposits" className="font-medium text-gold-deep hover:underline">
+            Record a deposit
+          </Link>
+        </p>
+        <div className="mt-6">
+          <UgcBriefForm />
+        </div>
+      </Card>
+    </div>
+  );
+}

@@ -202,6 +202,14 @@ export function hydrateStore(store: DatabaseStore): DatabaseStore {
   if (!Array.isArray(store.auditLog)) store.auditLog = [];
   if (!Array.isArray(store.prizeAwards)) store.prizeAwards = [];
   if (!Array.isArray(store.platformSettings)) store.platformSettings = [];
+  if (!Array.isArray(store.ugcBriefs)) store.ugcBriefs = [];
+  if (!Array.isArray(store.ugcApplications)) store.ugcApplications = [];
+  if (!Array.isArray(store.ugcDeliveries)) store.ugcDeliveries = [];
+  if (!Array.isArray(store.contentLicenses)) store.contentLicenses = [];
+  if (!Array.isArray(store.licenseDisputes)) store.licenseDisputes = [];
+  if (!Array.isArray(store.creatorPortfolios)) store.creatorPortfolios = [];
+  if (!Array.isArray(store.businessListings)) store.businessListings = [];
+  if (!Array.isArray(store.creatorReviews)) store.creatorReviews = [];
   return store;
 }
 
