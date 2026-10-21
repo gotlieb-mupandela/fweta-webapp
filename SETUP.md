@@ -113,11 +113,11 @@ If either Resend variable is missing, fweta skips the send and logs a warning. I
 
 ## 3. Vercel Cron
 
-- `vercel.json` schedules `0 * * * *` to `/api/jobs/settle-rewards` and `0 5 * * *` to `/api/jobs/housekeeping`.
+- `vercel.json` schedules `0 2 * * *` to `/api/jobs/settle-rewards` and `0 5 * * *` to `/api/jobs/housekeeping`.
 - Settle closes ended campaigns, splits a pool, and releases holds. It does not fetch views.
 - Housekeeping does the same close once a day and releases booking requests older than 14 days.
 - View counts are entered by an admin unless `APIFY_API_TOKEN` is set. Without it, `/api/jobs/poll-views` returns 410.
-- The hourly settle cron needs a Vercel plan that allows more than one cron. The daily housekeeping schedule can run on Hobby by itself.
+- Both schedules are once a day, which is what the Hobby plan allows.
 - Cron sends `Authorization: Bearer <CRON_SECRET>`, which must match the env var.
 
 **Manual test** (replace the secret):

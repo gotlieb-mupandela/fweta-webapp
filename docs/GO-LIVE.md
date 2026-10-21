@@ -13,7 +13,7 @@ This file splits what the repo already does from what Gotlieb has to provide. No
 - **Manual view counts.** An admin enters totals at `/dashboard/admin/views`. Saving a higher count writes a snapshot and runs the existing CPM earnings math. Counts cannot be lowered. Nothing simulates views. `GET` or `POST /api/jobs/poll-views` returns 401 without the cron bearer, 410 when Apify is unset, and runs a fetch only when `APIFY_API_TOKEN` is set.
 - **Errors.** `ERROR_WEBHOOK_URL`, if set, receives a short JSON report from `/api/observability` and from server `reportServerError`. Unset, the app only logs.
 - **Pages.** Terms, privacy, and creator terms live under `/legal`. `app/not-found.tsx` is the 404. `app/error.tsx` and `app/global-error.tsx` are the 500 surfaces. Public campaigns and influencers have titles, `app/robots.ts`, and `app/sitemap.ts`.
-- **Crons.** `vercel.json` calls `GET /api/jobs/settle-rewards` every hour and `GET /api/jobs/housekeeping` daily at 05:00 UTC. Housekeeping ends active or paused campaigns whose end date has passed, returns unused funded budget and the unused fee once, and cancels booking requests that have sat for 14 days, returning that escrow. It does not read social networks. Production requires `CRON_SECRET`.
+- **Crons.** `vercel.json` calls `GET /api/jobs/settle-rewards` daily at 02:00 UTC and `GET /api/jobs/housekeeping` daily at 05:00 UTC. Housekeeping ends active or paused campaigns whose end date has passed, returns unused funded budget and the unused fee once, and cancels booking requests that have sat for 14 days, returning that escrow. It does not read social networks. Production requires `CRON_SECRET`. View checks stay manual between those runs.
 - **Manual money, unchanged.** Brands still record deposits themselves. Admins still mark withdrawals paid. Ledger rows are still written in the same store update as the balance change, and a second mark-paid or reject in the same write is ignored.
 
 ## Gotlieb provides
@@ -33,7 +33,7 @@ This file splits what the repo already does from what Gotlieb has to provide. No
 | `RESEND_API_KEY` | Resend API key. Server only. |
 | `RESEND_FROM` | Address on a domain verified in Resend, for example `fweta <notifications@fweta.com>`. |
 | Domain and DNS | `app.fweta.com` on the Vercel project. Marketing stays on fweta.com. |
-| Vercel plan | Two crons are configured: hourly `settle-rewards` and daily `housekeeping`. Hobby allows one cron. Use a plan that allows both, or delete the hourly entry and keep the daily housekeeping route. |
+| Vercel plan | Both crons run once a day: `settle-rewards` at 02:00 UTC and `housekeeping` at 05:00 UTC. That matches the Hobby once-a-day limit. |
 | Demo data | If `*@fweta.test` / `password123` is already in production, delete those profiles. |
 | Legal | Counsel reviews `/legal/terms`, `/legal/privacy`, and `/legal/creator-terms` before they are treated as final. |
 | Optional | `ERROR_WEBHOOK_URL` for an error sink. `FWETA_RELATIONAL_SYNC=true` only after the hardening migration, and only if you want the relational copy. Leave it unset to keep the JSON document as the source of truth. |
