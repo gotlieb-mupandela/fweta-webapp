@@ -4,11 +4,11 @@ import { notFound } from "next/navigation";
 import { getPublicInfluencer } from "@/app/actions/influencer";
 import { PlatformChip } from "@/components/platforms/platform-chip";
 import { PublicChrome } from "@/components/public-chrome";
-import { RATE_TYPE_LABEL, ratePlatformLabel } from "@/lib/platforms/guides";
 import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { Badge, Card, ListRow } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
+import { RATE_TYPE_LABEL, ratePlatformLabel } from "@/lib/platforms/guides";
 import { PLATFORM_LABEL, SOCIAL_PLATFORMS, profileUrl } from "@/lib/social/platforms";
 import { formatMoney } from "@/lib/utils";
 

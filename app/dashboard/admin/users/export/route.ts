@@ -1,36 +1,25 @@
-import { adminListUsers } from "@/app/actions/settings";
 import { getSession } from "@/lib/auth/session";
+import { readStore } from "@/lib/db/store";
+import { buildDirectory, directoryCsv, filterDirectory, isUserTab } from "@/lib/admin/directory";
 
-function csvCell(value: string): string {
-  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
-  return value;
-}
-
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getSession();
   if (!session?.roles.includes("admin")) {
-    return new Response("Admin only.", { status: 403 });
+    return new Response("Admin only", { status: 403 });
   }
 
-  const users = await adminListUsers();
-  const lines = [
-    "name,email,primaryRole,roles,suspended,createdAt",
-    ...users.map((user) =>
-      [
-        csvCell(user.displayName),
-        csvCell(user.email),
-        csvCell(user.primaryRole),
-        csvCell(user.roles.join(" ")),
-        user.suspended ? "yes" : "no",
-        csvCell(user.createdAt),
-      ].join(","),
-    ),
-  ];
+  const url = new URL(request.url);
+  const tabParam = url.searchParams.get("tab") ?? "all";
+  const tab = isUserTab(tabParam) ? tabParam : "all";
+  const query = url.searchParams.get("q") ?? "";
+  const store = await readStore();
+  const csv = directoryCsv(filterDirectory(buildDirectory(store), tab, query));
 
-  return new Response(lines.join("\n"), {
+  return new Response(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": "attachment; filename=fweta-users.csv",
+      "Content-Disposition": 'attachment; filename="fweta-users.csv"',
+      "Cache-Control": "no-store",
     },
   });
 }
