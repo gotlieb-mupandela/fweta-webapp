@@ -1,52 +1,37 @@
-import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { pollSubmissionViewsJob } from "@/app/actions/jobs";
+import { authorizeCron } from "@/lib/security/cron";
+import { isApifyConfigured } from "@/lib/social/apify";
 
-export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function authorizeCron(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET?.trim();
-  // Local/dev convenience: no secret configured outside production means
-  // manual triggers are allowed (production still requires the secret).
-  if (!secret) return process.env.NODE_ENV !== "production";
-  const header = request.headers.get("authorization") ?? "";
-  // Timing-safe enough for opaque bearer comparison without leaking length.
-  return header === `Bearer ${secret}`;
-}
-
-async function runPollViewsJob() {
-  try {
-    const result = await pollSubmissionViewsJob();
-    return NextResponse.json({ ok: true, ...result });
-  } catch (e) {
+/**
+ * Without Apify, view checks stay on the admin form and this route returns 410.
+ * With Apify configured, a valid cron bearer fetches counts and settles earnings.
+ */
+async function handle(request: Request) {
+  if (!authorizeCron(request)) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+  if (!isApifyConfigured()) {
     return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "Job failed" },
-      { status: 500 },
+      {
+        ok: false,
+        error: "View polling is off. An admin enters view counts, and earnings follow from that number.",
+      },
+      { status: 410 },
     );
   }
+  const result = await pollSubmissionViewsJob();
+  return NextResponse.json({ ok: true, ...result });
 }
 
-/**
- * GET /api/jobs/poll-views
- * Invoked by Vercel Cron (production). Requires Authorization: Bearer CRON_SECRET.
- */
-export async function GET(request: NextRequest) {
-  if (!authorizeCron(request)) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-  }
-  return runPollViewsJob();
+export async function GET(request: Request) {
+  return handle(request);
 }
 
-/**
- * POST /api/jobs/poll-views
- * Manual trigger (local or ops). Same CRON_SECRET auth as GET.
- */
-export async function POST(request: NextRequest) {
-  if (!authorizeCron(request)) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-  }
-  return runPollViewsJob();
+export async function POST(request: Request) {
+  return handle(request);
 }

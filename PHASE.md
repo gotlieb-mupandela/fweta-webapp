@@ -23,7 +23,7 @@ This document expands [AGENTS.md](./AGENTS.md) into an actionable build sequence
 | 10 | Brand Portal (full) | Spend analytics, deposits | Done |
 | 11 | Creator Portals (full) | Clipper + influencer earnings | Done |
 | 12 | Admin Portal (full) | Fraud, stats, users, withdrawals | Done |
-| 13 | Payments & Deposits | PayFast/Stripe (optional) | Stub |
+| 13 | Payments & Deposits | Manual deposits and EFT payouts | Done (no gateway) |
 | 14 | Moat | AI review, fraud, analytics | Partial (fraud queue) |
 
 ---
@@ -32,7 +32,8 @@ This document expands [AGENTS.md](./AGENTS.md) into an actionable build sequence
 
 - **Auth:** Cookie JWT (`fweta_session`) with bcrypt email + password. Demo users seeded on first load (`*@fweta.test` / `password123`). The admin account is seeded from `ADMIN_EMAIL` and `ADMIN_PASSWORD`, hashed at seed time.
 - **Data:** File store at `data/store.json` (gitignored). Ledger discipline enforced in `lib/wallet/ledger.ts`.
-- **Jobs:** `POST /api/jobs/poll-views` runs view growth simulation + CPM earnings.
+- **Jobs:** An admin records view counts at `/dashboard/admin/views`. `POST /api/jobs/poll-views` fetches counts only when Apify is configured, otherwise it returns 410. `POST /api/jobs/settle-rewards` releases holds and closes ended campaigns. `POST /api/jobs/housekeeping` does the same close once a day and releases stale booking holds.
+- **Email:** Resend when `RESEND_API_KEY` and `RESEND_FROM` are set. Otherwise sends are skipped with a warning. Admin previews live at `/dashboard/admin/emails`.
 - **Booking model:** Request → accept/decline → deliver → brand approve (documented decision: not instant book).
 - **Currency:** NAD (Namibia). Minimum withdrawal N$100.
 - **Design:** fweta marketing language — white / black / gold, Newsreader + Karla (match fweta.com).
@@ -128,8 +129,9 @@ See git history and routes under `/app` for full deliverables. Original phase ch
 ## Phase 7 — Automation
 
 ### Exit criteria
-- `POST /api/jobs/poll-views` creates snapshots and credits CPM earnings
-- Budget exhaustion ends campaign
+- Saving a confirmed view count credits earnings and stops the campaign when the budget is spent
+- Daily housekeeping ends a campaign past its end date and returns unused budget and fee once
+- Official TikTok and Meta view providers are later work, after those developer apps exist
 
 ---
 
@@ -154,10 +156,13 @@ See git history and routes under `/app` for full deliverables. Original phase ch
 
 ---
 
-## Phase 13 — Payments & Deposits (Optional)
+## Phase 13 — Payments & Deposits
 
-- [x] Webhook stub under `/api/webhooks`
-- [ ] PayFast/Stripe live integration
+Owner decision: do not integrate a payment gateway.
+
+- [x] Brand wallet credits are recorded manually
+- [x] Creator withdrawals are manual EFT, marked paid by an admin
+- [x] `/api/webhooks` rejects gateway posts instead of acknowledging them
 
 ---
 
@@ -175,7 +180,7 @@ See git history and routes under `/app` for full deliverables. Original phase ch
 |----------|--------|
 | Platform name | **fweta** |
 | Niche | African creators · Windhoek-built |
-| Brand deposit | Manual credit v1 |
+| Brand deposit | Manual record. No payment gateway. |
 | Influencer booking | Request/accept |
 | Auto-approve submissions | Manual only v1 |
 | Minimum withdrawal | N$100 |

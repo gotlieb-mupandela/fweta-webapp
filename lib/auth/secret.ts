@@ -13,6 +13,10 @@
  */
 
 const DEV_FALLBACK = "fweta-local-dev-secret-change-me";
+const INSECURE_DEFAULTS = new Set([
+  DEV_FALLBACK,
+  "fweta-payout-key-change-me",
+]);
 
 let warnedAuth = false;
 let warnedPayout = false;
@@ -23,12 +27,19 @@ function readEnv(name: "AUTH_SECRET" | "PAYOUT_ENCRYPTION_KEY"): string | undefi
   return value ? value : undefined;
 }
 
+function usableSecret(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  // The documented local default must not sign production sessions.
+  if (process.env.NODE_ENV === "production" && INSECURE_DEFAULTS.has(value)) return undefined;
+  return value;
+}
+
 function requireSecret(kind: "auth" | "payout"): string {
-  const auth = readEnv("AUTH_SECRET");
+  const auth = usableSecret(readEnv("AUTH_SECRET"));
   if (kind === "auth") {
     if (auth) return auth;
   } else {
-    const payout = readEnv("PAYOUT_ENCRYPTION_KEY");
+    const payout = usableSecret(readEnv("PAYOUT_ENCRYPTION_KEY"));
     if (payout) return payout;
     if (auth) return auth;
   }
@@ -67,11 +78,11 @@ export function getAuthSecretKey(): Uint8Array {
 
 /**
  * Key for verifying an existing cookie. Production returns null when
- * AUTH_SECRET is unset so a stale cookie cannot take down the page.
- * Signing still uses getAuthSecretKey and will not fall back to a public key.
+ * AUTH_SECRET is unset or still the public dev default, so a stale cookie
+ * cannot take down the page. Signing still uses getAuthSecretKey.
  */
 export function readAuthSecretKey(): Uint8Array | null {
-  const auth = readEnv("AUTH_SECRET");
+  const auth = usableSecret(readEnv("AUTH_SECRET"));
   if (auth) return new TextEncoder().encode(auth);
   if (process.env.NODE_ENV === "production") {
     if (!warnedUnverifiable) {

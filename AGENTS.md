@@ -99,7 +99,7 @@ Creator adds payout method (bank details) → requests withdrawal from wallet ba
 | Forms | **React Hook Form + Zod** | Shared validation schemas (UI + API) |
 | Background jobs | **Trigger.dev** or **Inngest** | View polling, admin notifications |
 | Creator payouts | **Manual EFT** (v1) | No Stripe Connect for creators initially |
-| Brand deposits | **Manual or PayFast/Stripe** (later) | Optional for v1 |
+| Brand deposits | **Manual record** | No payment gateway in v1 |
 | Hosting | **Vercel** | Next.js native deploy |
 
 ### Why Supabase over Convex
@@ -118,15 +118,16 @@ Jobs are **scheduled or event-driven tasks** that run without user interaction.
 
 | Job | Schedule / trigger | Purpose |
 |-----|-------------------|---------|
-| `poll-submission-views` | Every hour (cron) | Fetch view counts from social APIs; store snapshots |
-| `recalculate-earnings` | After view update | Update wallet balances from CPM math |
+| Admin view entry | `/dashboard/admin/views` | Record a submission's total views. No scraper and no view-fetch cron. |
+| `recalculate-earnings` | After an admin saves a view count | Update wallet balances from CPM math |
+| `housekeeping` | Daily 05:00 UTC | End campaigns past their end date, return unused funded budget once, release requested booking holds older than 14 days |
 | `notify-admin-withdrawal` | On withdrawal request | Alert admin dashboard + optional email |
 | `notify-creator-paid` | On admin marks paid | Email creator confirmation |
 | `budget-alerts` | After earnings update | Warn brand when campaign budget low |
 
-**Free tiers:** Inngest (~50K runs/mo) and Trigger.dev (~$5 credits/mo) are sufficient for MVP.
+**Free tiers:** Inngest (~50K runs/mo) and Trigger.dev (~$5 credits/mo) are sufficient for MVP. The daily housekeeping cron does not need them.
 
-**Do not** run view polling only in client-side `setInterval` — use a job runner.
+**Do not** fetch view counts from the browser or from a cron. An admin enters them until the official TikTok and Meta providers are enabled.
 
 ---
 
@@ -209,8 +210,9 @@ Core entities to implement:
 - Booking payments to wallet
 
 ### Phase 3 — Automation
-- Background view polling (Trigger.dev/Inngest)
-- Auto earnings calculation from CPM
+- Admin-entered view counts (official TikTok and Meta providers later)
+- Daily housekeeping: campaign end, unused-budget settlement, booking hold release
+- Earnings calculation from CPM after a view count is saved
 - Admin notifications on withdrawal
 
 ### Phase 4 — Marketplace
@@ -265,10 +267,13 @@ Not required for MVP — track in product design for later.
 ```
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=          # Server only — never expose
-TRIGGER_SECRET_KEY=                 # Or INNGEST_* keys
-# Future: social API keys for view polling
-# Future: Stripe/PayFast for brand deposits
+SUPABASE_SERVICE_ROLE_KEY=          # Server only. Never expose.
+RESEND_API_KEY=                     # Server only. Never expose.
+RESEND_FROM=                        # Verified domain, e.g. fweta <notifications@fweta.com>
+CRON_SECRET=                        # Required in production for housekeeping and settle-rewards
+TRIGGER_SECRET_KEY=                 # Optional. Crons use Vercel, not this.
+# View counts are manual unless APIFY_API_TOKEN is set.
+# Brand deposits and creator payouts are manual. No gateway keys.
 ```
 
 ---
@@ -279,7 +284,7 @@ TRIGGER_SECRET_KEY=                 # Or INNGEST_* keys
 |----------|------------|
 | Platform name | **fweta** |
 | Niche | African creators · Windhoek-built · Namibia |
-| Brand deposit | Manual credit v1 (gateway Phase 13) |
+| Brand deposit | Manual record. No payment gateway. |
 | Influencer booking | Request / accept (not instant book) |
 | Auto-approve submissions | Manual only in v1 |
 | Minimum withdrawal | N$100 |

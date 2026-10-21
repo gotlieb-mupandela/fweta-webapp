@@ -31,8 +31,14 @@ export const metadata: Metadata = {
     default: "fweta",
     template: "%s · fweta",
   },
-  description: "fweta workspace: campaigns, bookings, and payouts.",
+  description: "fweta workspace for campaigns, bookings, and payouts for African creators.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://app.fweta.com"),
+  openGraph: {
+    title: "fweta",
+    description: "Campaigns, bookings, and payouts for African creators.",
+    siteName: "fweta",
+    type: "website",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -56,6 +62,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body
         className={`${karla.className} min-h-full flex flex-col bg-background text-foreground antialiased`}
       >
+        <a href="#main" className="skip-link">
+          Skip to content
+        </a>
         {children}
       </body>
     </html>

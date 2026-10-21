@@ -9,13 +9,16 @@ import { getSession } from "@/lib/auth/session";
 
 const LINKS = [
   { href: "/dashboard/settings/profile", label: "Profile", desc: "Display name and bio" },
-  { href: "/dashboard/settings/verification", label: "Verification", desc: "Bio code for creators" },
-  { href: "/dashboard/settings/roles", label: "Roles", desc: "Brand, influencer, clipper" },
-  { href: "/dashboard/settings/notifications", label: "Notifications", desc: "Email preferences" },
+  { href: "/dashboard/settings/roles", label: "Roles", desc: "Brand and creator on one login" },
+  { href: "/dashboard/settings/accounts", label: "Connected accounts", desc: "Profiles you post from, plus the bio code" },
+  { href: "/dashboard/settings/verification", label: "Bio code", desc: "Request a code and paste it into a social bio" },
+  { href: "/dashboard/settings/notifications", label: "Email preferences", desc: "Which messages leave the app" },
+  { href: "/dashboard/notifications", label: "Notification inbox", desc: "Alerts already sent to you" },
   { href: "/dashboard/settings/security", label: "Security", desc: "Change password" },
-  { href: "/dashboard/settings/wallet", label: "Wallet", desc: "Balance overview" },
+  { href: "/dashboard/settings/wallet", label: "Wallet", desc: "Available and pending balance" },
   { href: "/dashboard/settings/payout", label: "Payout method", desc: "Bank details for EFT" },
-  { href: "/dashboard/settings/withdraw", label: "Withdraw", desc: "Request payout" },
+  { href: "/dashboard/settings/withdraw", label: "Payouts", desc: "Request a transfer from N$100" },
+  { href: "/help", label: "Help", desc: "First campaign, first clip, first payout" },
 ];
 
 export default async function SettingsPage() {

@@ -9,6 +9,10 @@ import {
   requireSession,
 } from "@/lib/auth/session";
 import { nowIso, readStore, updateStore } from "@/lib/db/store";
+import { pushAudit } from "@/lib/marketplace/audit";
+import { clawbackSubmission } from "@/lib/rewards/earnings";
+import { clientIp } from "@/lib/security/client-ip";
+import { rateLimit } from "@/lib/security/rate-limit";
 import {
   notificationPrefsSchema,
   passwordChangeSchema,
@@ -78,18 +82,35 @@ export async function updateNotificationsAction(raw: unknown) {
 export async function changePasswordAction(raw: unknown) {
   const session = await requireSession();
   const parsed = passwordChangeSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Check password fields." };
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Check password fields.",
+    };
+  }
+  const limited = rateLimit(`password:${await clientIp()}:${session.id}`, 5, 15 * 60 * 1000);
+  if (!limited.ok) {
+    return { ok: false as const, error: `Too many attempts. Try again in ${limited.retryAfterSec}s.` };
+  }
   const profile = await getProfileById(session.id);
   if (!profile) return { ok: false as const, error: "Not found." };
   const ok = await bcrypt.compare(parsed.data.currentPassword, profile.passwordHash);
   if (!ok) return { ok: false as const, error: "Current password incorrect." };
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+  let nextVersion = (profile.credentialVersion ?? 0) + 1;
   await updateStore((s) => {
     const p = s.profiles.find((x) => x.id === session.id);
     if (!p) return;
     p.passwordHash = passwordHash;
+    p.credentialVersion = (p.credentialVersion ?? 0) + 1;
+    nextVersion = p.credentialVersion;
     p.updatedAt = nowIso();
   });
+  const updated = await getProfileById(session.id);
+  if (updated) {
+    updated.credentialVersion = nextVersion;
+    await refreshSessionFromProfile(updated);
+  }
   return { ok: true as const };
 }
 
@@ -145,7 +166,14 @@ export async function getPlatformStats() {
   const store = await readStore();
   const gmv =
     store.ledgerEntries
-      .filter((e) => e.type === "credit" && e.referenceType !== "admin_credit")
+      .filter(
+        (e) =>
+          e.type === "credit" &&
+          e.referenceType !== "admin_credit" &&
+          e.referenceType !== "campaign_release" &&
+          e.referenceType !== "campaign_fee" &&
+          e.referenceType !== "campaign_fund",
+      )
       .reduce((sum, e) => sum + e.amountCents, 0) || 0;
   return {
     users: store.profiles.length,
@@ -172,9 +200,26 @@ export async function resolveFraudFlag(id: string, status: "resolved" | "dismiss
   if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
   await updateStore((s) => {
     const f = s.fraudFlags.find((x) => x.id === id);
-    if (!f) return;
+    if (!f || f.status !== "open") return;
     f.status = status;
     f.resolvedAt = nowIso();
+    pushAudit(s, {
+      actorId: session.id,
+      action: "fraud.resolve",
+      summary: `${status === "dismissed" ? "Dismissed" : "Upheld"} a fraud flag`,
+      targetType: "fraud_flag",
+      targetId: id,
+    });
+    if (f.kind !== "score") return;
+    const sub = s.submissions.find((item) => item.id === f.submissionId);
+    if (!sub) return;
+    if (status === "dismissed") {
+      sub.fraudState = "dismissed";
+      sub.updatedAt = f.resolvedAt;
+      return;
+    }
+    sub.fraudState = "upheld";
+    clawbackSubmission(s, sub.id, Date.now(), "Review upheld. This clip was forfeited.");
   });
   revalidatePath("/dashboard/admin/fraud");
   return { ok: true as const };

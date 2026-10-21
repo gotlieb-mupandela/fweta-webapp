@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Logo } from "@/components/brand/logo";
+import { LegalFooter } from "@/components/legal-footer";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 
@@ -54,7 +55,7 @@ export async function PublicChrome({
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-5 py-10 md:px-8 md:py-12">
+      <main id="main" className="mx-auto max-w-5xl px-5 py-10 md:px-8 md:py-12">
         {title ? (
           <div className="mb-8 animate-fade-up md:mb-10">
             <h1 className="font-display text-4xl tracking-tight text-foreground md:text-5xl">
@@ -67,6 +68,9 @@ export async function PublicChrome({
         ) : null}
         <div className="animate-fade-up delay-1">{children}</div>
       </main>
+      <footer className="mx-auto w-full max-w-5xl px-5 pb-10 md:px-8">
+        <LegalFooter />
+      </footer>
     </div>
   );
 }
