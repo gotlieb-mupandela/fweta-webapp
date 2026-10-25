@@ -14,14 +14,61 @@
 -- file does not revoke it. service_role table grants are not removed either,
 -- including access to fweta_app_store, so there is nothing to put back.
 --
--- Live anon and authenticated already cannot execute the seven functions.
--- Restoring execute for them would re-open the exposure and is not done here.
+-- Live anon and authenticated already cannot execute the other six functions.
+-- Restoring execute for them would re-open that exposure and is not done here.
+--
+-- fweta_json_store_set is different. The forward file revokes execute from
+-- public, anon, and authenticated. The block below grants those three back.
+-- That re-opens the exposure: the live function is security definer, has no
+-- JWT role check, and bypasses the revision check. The function is not
+-- dropped. Dropping it should wait until after main is deployed.
+-- service_role was not revoked, so this file does not change it.
 
 do $fweta_revoke_down$
 begin
-  raise notice 'No anon or authenticated grants from repo migrations to restore. service_role was not revoked.';
+  raise notice 'No anon or authenticated table grants from repo migrations to restore. service_role was not revoked.';
 end
 $fweta_revoke_down$;
+
+do $json_store_set_down$
+declare
+  fn record;
+  signature text;
+begin
+  if not exists (select 1 from pg_roles where rolname = 'anon')
+     or not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    raise exception 'anon and authenticated roles are required';
+  end if;
+
+  for fn in
+    select p.oid, p.prokind
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname = 'fweta_json_store_set'
+      and not exists (
+        select 1
+        from pg_depend d
+        where d.classid = 'pg_proc'::regclass
+          and d.objid = p.oid
+          and d.deptype = 'e'
+      )
+  loop
+    signature := fn.oid::regprocedure::text;
+    if fn.prokind = 'p' then
+      execute format(
+        'grant execute on procedure %s to public, anon, authenticated',
+        signature
+      );
+    else
+      execute format(
+        'grant execute on function %s to public, anon, authenticated',
+        signature
+      );
+    end if;
+  end loop;
+end
+$json_store_set_down$;
 
 -- OPTIONAL device_locations rollback. Commented out, same as the forward file.
 -- Uncommenting the grant below re-opens the anon SELECT leak.

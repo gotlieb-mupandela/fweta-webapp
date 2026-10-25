@@ -103,7 +103,12 @@ begin
     select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname = 'fweta_json_store_set'
   ) then
-    create function public.fweta_json_store_set() returns void language plpgsql as $body$ begin return; end $body$;
+    create function public.fweta_json_store_set()
+      returns void
+      language plpgsql
+      security definer
+      set search_path = public
+      as $body$ begin return; end $body$;
   end if;
   if not exists (
     select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -176,7 +181,7 @@ begin
   grant select, insert on table public.device_locations to anon;
 
   for fn in
-    select p.oid, p.prokind
+    select p.oid, p.prokind, p.proname
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
@@ -191,7 +196,21 @@ begin
         'fweta_cas_save_store'
       )
   loop
-    if fn.prokind = 'p' then
+    if fn.proname = 'fweta_json_store_set' then
+      -- Open client execute, matching the live leak. File 1 must close it
+      -- without dropping the function.
+      if fn.prokind = 'p' then
+        execute format(
+          'grant execute on procedure %s to public, anon, authenticated, service_role',
+          fn.oid::regprocedure
+        );
+      else
+        execute format(
+          'grant execute on function %s to public, anon, authenticated, service_role',
+          fn.oid::regprocedure
+        );
+      end if;
+    elsif fn.prokind = 'p' then
       execute format('revoke all on procedure %s from public, anon, authenticated', fn.oid::regprocedure);
       execute format('grant execute on procedure %s to service_role', fn.oid::regprocedure);
     else
@@ -376,6 +395,16 @@ begin
     end if;
   end loop;
 
+  if not exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname = 'fweta_json_store_set'
+  ) then
+    raise exception 'file 1 dropped fweta_json_store_set';
+  end if;
+
   select count(*) into missing_service
   from service_table_before b
   where not exists (
@@ -495,6 +524,34 @@ begin
   end if;
   if not has_table_privilege('anon', 'public.device_locations', 'SELECT') then
     raise exception 'rollback changed device_locations';
+  end if;
+  if not exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname = 'fweta_json_store_set'
+  ) then
+    raise exception 'rollback dropped fweta_json_store_set';
+  end if;
+  if not has_function_privilege(
+       'anon',
+       'public.fweta_json_store_set()'::regprocedure,
+       'execute'
+     )
+     or not has_function_privilege(
+       'authenticated',
+       'public.fweta_json_store_set()'::regprocedure,
+       'execute'
+     ) then
+    raise exception 'rollback did not restore client execute on fweta_json_store_set';
+  end if;
+  if has_function_privilege(
+       'anon',
+       'public.fweta_load_store()'::regprocedure,
+       'execute'
+     ) then
+    raise exception 'rollback restored execute on a function other than fweta_json_store_set';
   end if;
 end
 $down_keeps_lock$;

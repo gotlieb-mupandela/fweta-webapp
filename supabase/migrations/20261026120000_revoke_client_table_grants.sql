@@ -23,9 +23,17 @@
 -- Live public functions this file revokes for anon, authenticated, and public:
 --   adjust_wallet, fweta_assert_service_role, fweta_json_store_get,
 --   fweta_json_store_set, fweta_load_store, fweta_save_store, rls_auto_enable.
--- On the live database anon and authenticated already cannot execute them, so
--- those revokes are no-ops until a grant is added again. Extension-owned
--- functions are skipped. A missing name is skipped.
+-- For the functions other than fweta_json_store_set, live anon and
+-- authenticated already cannot execute them, so those revokes are no-ops
+-- until a grant is added again. Extension-owned functions are skipped. A
+-- missing name is skipped.
+--
+-- fweta_json_store_set is the exception. QA found it on live: it is security
+-- definer, it has no JWT role check, and it bypasses the revision check.
+-- This file revokes execute on it from public, anon, and authenticated.
+-- It does not drop the function. Dropping it should wait until after main
+-- is deployed. service_role keeps execute when it can already call it, so
+-- the server path can keep using it until that deploy.
 --
 -- Overlap with PR 28 (branch cursor/security-lockdown-vercel-checks-2c49,
 -- file supabase/migrations/20261021100752_security_lockdown.sql, not on main):
@@ -95,7 +103,7 @@ begin
   end loop;
 
   for fn in
-    select p.oid, p.prokind
+    select p.oid, p.prokind, p.proname
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
@@ -123,7 +131,20 @@ begin
       end if;
     end if;
 
-    if fn.prokind = 'p' then
+    -- fweta_json_store_set: revoke execute only. Do not drop the function.
+    if fn.proname = 'fweta_json_store_set' then
+      if fn.prokind = 'p' then
+        execute format(
+          'revoke execute on procedure %s from public, anon, authenticated',
+          signature
+        );
+      else
+        execute format(
+          'revoke execute on function %s from public, anon, authenticated',
+          signature
+        );
+      end if;
+    elsif fn.prokind = 'p' then
       execute format(
         'revoke all on procedure %s from public, anon, authenticated',
         signature
