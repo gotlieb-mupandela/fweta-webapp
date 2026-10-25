@@ -30,3 +30,21 @@ export function visibleUgcBrief(
   );
   return hasApplication ? brief : null;
 }
+
+/**
+ * Brand management page. Uses visibleUgcBrief, then keeps the page to the
+ * owning brand or an admin. Another brand does not see it, including an open
+ * brief that creators can browse. canManage is only the owning brand: pause,
+ * invite, accept, revision, approval, and dispute all require that brand id.
+ */
+export function brandUgcDetailAccess(
+  briefs: readonly UgcBrief[],
+  applications: readonly UgcApplication[],
+  briefId: string,
+  viewer: UgcBriefViewer,
+): { brief: UgcBrief; canManage: boolean } | null {
+  const brief = visibleUgcBrief(briefs, applications, briefId, viewer);
+  if (!brief) return null;
+  if (brief.brandId !== viewer.id && !viewer.roles.includes("admin")) return null;
+  return { brief, canManage: brief.brandId === viewer.id };
+}

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { UgcApplication, UgcBrief } from "../../lib/db/types";
-import { visibleUgcBrief, type UgcBriefViewer } from "../../lib/ugc/brief-access";
+import { brandUgcDetailAccess, visibleUgcBrief, type UgcBriefViewer } from "../../lib/ugc/brief-access";
 
 const brandId = "brand-1";
 const creatorId = "creator-1";
@@ -125,4 +125,37 @@ test("a non-open status other than draft stays hidden without an application", (
   (completed as { status: string }).status = "completed";
   const found = visibleUgcBrief([completed], [], "brief-1", viewer(creatorId, ["clipper"]));
   assert.equal(found, null);
+});
+
+test("an admin can read another brand's brief on the brand page", () => {
+  for (const status of ["draft", "open", "paused", "closed"] as const) {
+    const access = brandUgcDetailAccess([brief(status)], [], "brief-1", viewer(adminId, ["admin"]));
+    assert.equal(access?.brief.id, "brief-1");
+    assert.equal(access?.canManage, false);
+  }
+});
+
+test("the owning brand can manage their brief", () => {
+  const access = brandUgcDetailAccess([brief("paused")], [], "brief-1", viewer(brandId, ["brand"]));
+  assert.equal(access?.brief.id, "brief-1");
+  assert.equal(access?.canManage, true);
+});
+
+test("another brand cannot open the brand page, including an open brief", () => {
+  const otherBrand = "brand-2";
+  for (const status of ["draft", "open", "paused", "closed"] as const) {
+    const access = brandUgcDetailAccess([brief(status)], [application(otherBrand)], "brief-1", viewer(otherBrand, ["brand"]));
+    assert.equal(access, null);
+  }
+  assert.equal(brandUgcDetailAccess([brief("open")], [], "missing", viewer(adminId, ["admin"])), null);
+});
+
+test("a creator application does not open the brand management page", () => {
+  const access = brandUgcDetailAccess(
+    [brief("paused")],
+    [application(creatorId)],
+    "brief-1",
+    viewer(creatorId, ["clipper", "brand"]),
+  );
+  assert.equal(access, null);
 });
