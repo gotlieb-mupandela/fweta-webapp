@@ -1,5 +1,6 @@
 import { nowIso, updateStore } from "@/lib/db/store";
 import { finalizeCampaign } from "@/lib/rewards/earnings";
+import { sweepUnfinalizedUploads } from "@/lib/storage/pending";
 import { applyWalletDelta } from "@/lib/wallet/ledger";
 
 /** Requested bookings keep escrow this long, then the daily job returns it. */
@@ -10,11 +11,13 @@ export type HousekeepingResult = {
   campaignsSettled: number;
   budgetReturnedCents: number;
   holdsReleased: number;
+  uploadsRemoved: number;
 };
 
 /**
  * Ends campaigns whose end date has passed, returns unused budget and fee once,
- * and releases booking escrow that has sat in "requested" for 14 days.
+ * releases booking escrow that has sat in "requested" for 14 days,
+ * and sweeps spent or expired uploads that were never finalized.
  * Does not read social networks or change view counts.
  */
 export async function runHousekeepingJob(now = new Date()): Promise<HousekeepingResult> {
@@ -25,6 +28,7 @@ export async function runHousekeepingJob(now = new Date()): Promise<Housekeeping
     campaignsSettled: 0,
     budgetReturnedCents: 0,
     holdsReleased: 0,
+    uploadsRemoved: 0,
   };
 
   await updateStore((store) => {
@@ -64,6 +68,8 @@ export async function runHousekeepingJob(now = new Date()): Promise<Housekeeping
       result.holdsReleased += 1;
     }
   });
+
+  result.uploadsRemoved = await sweepUnfinalizedUploads(now);
 
   return result;
 }

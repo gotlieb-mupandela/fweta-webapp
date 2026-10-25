@@ -2,9 +2,14 @@ import { createHash, randomBytes } from "crypto";
 
 import {
   type AllowedKind,
+  BRIEF_UPLOAD_RATE_LIMIT_ERROR,
   type StorageBucket,
   type UploadPurpose,
+  UPLOAD_GRANTS_PER_BRIEF_PER_HOUR,
+  UPLOAD_GRANTS_PER_HOUR,
+  UPLOAD_RATE_LIMIT_ERROR,
   UPLOAD_TTL_MS,
+  SIGNED_UPLOAD_RETENTION_MS,
   bucketFor,
   emptyFileMessage,
   limitFor,
@@ -100,6 +105,7 @@ export function issueStoredGrant(input: {
     expiresAt: new Date(input.nowMs + UPLOAD_TTL_MS).toISOString(),
     openedAt: null,
     finalizedAt: null,
+    spentAt: null,
     targetId: input.targetId ?? null,
     createdAt: now,
   };
@@ -111,6 +117,7 @@ export function claimStoredGrant(
   userId: string,
   nowMs: number,
 ): { ok: true; grant: StoredGrant } | { ok: false; error: string } {
+  if (grantIsSpent(grant)) return { ok: false, error: "This upload link was already used." };
   if (hashUploadToken(token) !== grant.tokenHash) return { ok: false, error: "This upload link is not valid." };
   if (userId !== grant.userId) return { ok: false, error: "This upload link is not valid." };
   if (!pathOwnedBy(grant.path, userId)) return { ok: false, error: "This upload link is not valid." };
@@ -128,7 +135,7 @@ export function finalizeStoredGrant(
 ):
   | { ok: true; grant: StoredGrant; kind: AllowedKind }
   | { ok: false; error: string; deleteObject: boolean; grant?: StoredGrant } {
-  if (grant.tokenHash.startsWith("spent:")) {
+  if (grantIsSpent(grant)) {
     return { ok: false, error: "This upload link was already used.", deleteObject: false };
   }
   if (hashUploadToken(token) !== grant.tokenHash || userId !== grant.userId || !pathOwnedBy(grant.path, userId)) {
@@ -136,7 +143,7 @@ export function finalizeStoredGrant(
   }
   if (!grant.openedAt) return { ok: false, error: "Upload the file before finishing.", deleteObject: false };
   if (grant.finalizedAt) return { ok: false, error: "This upload link was already used.", deleteObject: false };
-  const spent = { ...grant, tokenHash: `spent:${grant.id}` };
+  const spent = { ...grant, tokenHash: `spent:${grant.id}`, spentAt: new Date(nowMs).toISOString() };
   if (nowMs >= Date.parse(grant.expiresAt)) {
     return { ok: false, error: "This upload link has expired.", deleteObject: true, grant: spent };
   }
@@ -157,14 +164,111 @@ export function finalizeStoredGrant(
   };
 }
 
-export function grantsAfterSweep(grants: StoredGrant[], nowMs: number): { keep: StoredGrant[]; remove: StoredGrant[] } {
-  const remove: StoredGrant[] = [];
+export function grantIsSpent(grant: StoredGrant): boolean {
+  return Boolean(grant.spentAt) || grant.tokenHash.startsWith("spent:");
+}
+
+/**
+ * Spent and expired grants stay until SIGNED_UPLOAD_RETENTION_MS after they
+ * were created. The signed URL can still PUT after a rejected finalize deletes
+ * the object, so the row has to remain until that URL is dead. Each sweep
+ * deletes the object. The row is removed only after the window.
+ */
+export function grantsAfterSweep(grants: StoredGrant[], nowMs: number): {
+  keep: StoredGrant[];
+  deleteObjects: StoredGrant[];
+} {
+  const deleteObjects: StoredGrant[] = [];
   const keep: StoredGrant[] = [];
   for (const grant of grants) {
-    if (!grant.finalizedAt && Date.parse(grant.expiresAt) <= nowMs) remove.push(grant);
-    else keep.push(grant);
+    if (grant.finalizedAt) {
+      keep.push(grant);
+      continue;
+    }
+    const expired = Date.parse(grant.expiresAt) <= nowMs;
+    if (!grantIsSpent(grant) && !expired) {
+      keep.push(grant);
+      continue;
+    }
+    deleteObjects.push(grant);
+    if (nowMs < grantRetainUntil(grant)) keep.push(grant);
   }
-  return { keep, remove };
+  return { keep, deleteObjects };
+}
+
+/**
+ * Rows inside the signed URL window always stay.
+ * Rows past that window stay when a configured provider delete failed,
+ * so the next pass can retry. They are removed after a successful delete,
+ * or immediately when storage is not configured.
+ */
+export function retainAfterSweep(input: {
+  grants: StoredGrant[];
+  nowMs: number;
+  deletedIds: ReadonlySet<string>;
+  storageConfigured: boolean;
+}): StoredGrant[] {
+  const swept = grantsAfterSweep(input.grants, input.nowMs);
+  const staying = new Set(swept.keep.map((grant) => grant.id));
+  return input.grants.filter((grant) => {
+    if (staying.has(grant.id)) return true;
+    if (!input.storageConfigured) return false;
+    return !input.deletedIds.has(grant.id);
+  });
+}
+
+function grantRetainUntil(grant: StoredGrant): number {
+  const created = Date.parse(grant.createdAt);
+  if (Number.isFinite(created)) return created + SIGNED_UPLOAD_RETENTION_MS;
+  const expires = Date.parse(grant.expiresAt);
+  if (Number.isFinite(expires)) return expires + SIGNED_UPLOAD_RETENTION_MS;
+  return 0;
+}
+
+const STAGE_HOUR_MS = 60 * 60 * 1000;
+
+type StageApplication = {
+  id: string;
+  creatorId: string;
+  briefId: string;
+  status: string;
+};
+
+/** Shared gate for every action that stages an upload grant. */
+export function ugcStageDecision(input: {
+  userId: string;
+  applicationId: string;
+  applications: StageApplication[];
+  grants: StoredGrant[];
+  nowMs: number;
+}): { ok: true; briefId: string } | { ok: false; error: string } {
+  const application = input.applications.find((item) => item.id === input.applicationId);
+  if (!application || application.creatorId !== input.userId || application.status !== "accepted") {
+    return { ok: false, error: "Accept the brief before uploading." };
+  }
+  const hourly = hourlyUploadCapError(input.grants, input.userId, input.nowMs);
+  if (hourly) return { ok: false, error: hourly };
+  const briefIds = new Set(
+    input.applications.filter((item) => item.briefId === application.briefId).map((item) => item.id),
+  );
+  const hourAgo = input.nowMs - STAGE_HOUR_MS;
+  const onBrief = input.grants.filter((grant) => {
+    if (grant.userId !== input.userId) return false;
+    if (!(Date.parse(grant.createdAt) > hourAgo)) return false;
+    return grant.targetId === application.briefId || (grant.targetId != null && briefIds.has(grant.targetId));
+  });
+  if (onBrief.length >= UPLOAD_GRANTS_PER_BRIEF_PER_HOUR) {
+    return { ok: false, error: BRIEF_UPLOAD_RATE_LIMIT_ERROR };
+  }
+  return { ok: true, briefId: application.briefId };
+}
+
+/** Hourly cap for staging actions. The brief cap is applied by ugcStageDecision. */
+export function hourlyUploadCapError(grants: StoredGrant[], userId: string, nowMs: number): string | null {
+  const hourAgo = nowMs - STAGE_HOUR_MS;
+  const recent = grants.filter((grant) => grant.userId === userId && Date.parse(grant.createdAt) > hourAgo);
+  if (recent.length >= UPLOAD_GRANTS_PER_HOUR) return UPLOAD_RATE_LIMIT_ERROR;
+  return null;
 }
 
 export function canReadObject(input: { requesterId: string; ownerIds: string[]; isAdmin: boolean }): boolean {

@@ -50,7 +50,7 @@ After migration 6, paste `scripts/check-private-storage.sql`. It must not raise.
 
 Apply order for private uploads: migration 6, then the check script, then deploy. Rollback, only if Gotlieb asks to undo it: `supabase/rollbacks/20261025220000_private_storage_buckets.sql`. That deletes the two buckets and their objects. It does not turn avatar storage public again.
 
-Housekeeping should also call `sweepUnfinalizedUploads` from `lib/storage/pending.ts` once `lib/jobs/housekeeping.ts` is free. Another change owns that file right now.
+Housekeeping calls `sweepUnfinalizedUploads` from `lib/storage/pending.ts` at the end of `runHousekeepingJob`. That sweep deletes objects for spent or expired grants and keeps each grant until the signed upload URL can no longer write.
 
 After running #1, verify:
 

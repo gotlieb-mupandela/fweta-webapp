@@ -674,7 +674,11 @@ export type BusinessListing = {
   updatedAt: string;
 };
 
-/** Direct upload that is not recorded until finalize. Swept if it expires first. */
+/**
+ * Direct upload that is not recorded until finalize.
+ * A spent or expired grant stays until the signed URL can no longer write,
+ * so housekeeping can delete an object uploaded with that URL after a rejection.
+ */
 export type UploadGrant = {
   id: string;
   userId: string;
@@ -686,6 +690,8 @@ export type UploadGrant = {
   expiresAt: string;
   openedAt: string | null;
   finalizedAt: string | null;
+  /** Set when finalize rejects the bytes or the link is already used up. Absent on older rows. */
+  spentAt?: string | null;
   targetId: string | null;
   createdAt: string;
 };

@@ -5,12 +5,17 @@ import test from "node:test";
 import { uploadAvatarFile } from "../../lib/storage/avatars";
 import {
   AVATAR_MAX_BYTES,
+  BRIEF_UPLOAD_RATE_LIMIT_ERROR,
   GENERAL_READ_TTL_SECONDS,
   KYC_MAX_BYTES,
   KYC_READ_TTL_SECONDS,
   SCREENSHOT_MAX_BYTES,
+  SIGNED_UPLOAD_RETENTION_MS,
   STORAGE_NOT_READY_ERROR,
   UGC_MAX_BYTES,
+  UPLOAD_GRANTS_PER_BRIEF_PER_HOUR,
+  UPLOAD_GRANTS_PER_HOUR,
+  UPLOAD_RATE_LIMIT_ERROR,
   friendlyStorageError,
   withinLimit,
 } from "../../lib/storage/constants";
@@ -21,10 +26,13 @@ import {
   downloadHeaders,
   finalizeStoredGrant,
   grantsAfterSweep,
+  retainAfterSweep,
   issueStoredGrant,
   newUploadToken,
   prepareRead,
   privateBucketProblems,
+  ugcStageDecision,
+  type StoredGrant,
 } from "../../lib/storage/policy";
 
 const userA = "11111111-1111-4111-8111-111111111111";
@@ -149,6 +157,8 @@ test("finalize deletes a file whose bytes do not match its name", () => {
   if (checked.ok) return;
   assert.equal(checked.deleteObject, true);
   assert.equal(checked.grant?.finalizedAt ?? null, null);
+  assert.equal(typeof checked.grant?.spentAt, "string");
+  assert.match(checked.grant?.tokenHash ?? "", /^spent:/);
 });
 
 test("download responses use a fixed type, nosniff, and attachment for documents", () => {
@@ -220,15 +230,63 @@ test("Bucket not found becomes a friendly error", async () => {
   }
 });
 
-test("housekeeping drops uploads that were never finalized", () => {
-  const { issued } = grantFor();
-  const swept = grantsAfterSweep(
-    [issued, { ...issued, id: "kept", path: `${userA}/ugc/kept`, finalizedAt: issued.createdAt }],
-    nowMs + 5 * 60 * 1000,
-  );
-  assert.equal(swept.remove.length, 1);
-  assert.equal(swept.keep.length, 1);
-  assert.equal(swept.keep[0]?.finalizedAt, issued.createdAt);
+test("housekeeping sweeps spent and expired uploads and keeps the grant through the signed URL window", () => {
+  const housekeeping = readFileSync("lib/jobs/housekeeping.ts", "utf8");
+  assert.match(housekeeping, /result\.uploadsRemoved = await sweepUnfinalizedUploads\(now\)/);
+  assert.equal(SIGNED_UPLOAD_RETENTION_MS > 2 * 60 * 60 * 1000, true);
+
+  const { issued, token } = grantFor();
+  const opened = claimStoredGrant(issued, token, userA, nowMs);
+  assert.equal(opened.ok, true);
+  if (!opened.ok) return;
+  const svg = new TextEncoder().encode("<svg xmlns='http://www.w3.org/2000/svg'></svg>");
+  const rejected = finalizeStoredGrant(opened.grant, token, userA, nowMs + 1000, svg);
+  assert.equal(rejected.ok, false);
+  if (rejected.ok || !rejected.grant) return;
+
+  const duringUrl = grantsAfterSweep([rejected.grant], nowMs + 2 * 60 * 60 * 1000);
+  assert.equal(duringUrl.keep.some((grant) => grant.id === rejected.grant?.id), true);
+  assert.equal(duringUrl.deleteObjects.length, 1);
+  assert.equal(duringUrl.deleteObjects[0]?.path, rejected.grant.path);
+
+  const afterUrl = grantsAfterSweep([rejected.grant], nowMs + SIGNED_UPLOAD_RETENTION_MS);
+  assert.equal(afterUrl.keep.some((grant) => grant.id === rejected.grant?.id), false);
+  assert.equal(afterUrl.deleteObjects.length, 1);
+
+  const expired = grantsAfterSweep([issued], nowMs + 5 * 60 * 1000);
+  assert.equal(expired.keep.length, 1);
+  assert.equal(expired.deleteObjects.length, 1);
+  const expiredLater = grantsAfterSweep([issued], nowMs + SIGNED_UPLOAD_RETENTION_MS);
+  assert.equal(expiredLater.keep.length, 0);
+  assert.equal(expiredLater.deleteObjects.length, 1);
+
+  const finalized = { ...issued, id: "kept", path: `${userA}/ugc/kept`, finalizedAt: issued.createdAt };
+  const saved = grantsAfterSweep([finalized], nowMs + SIGNED_UPLOAD_RETENTION_MS);
+  assert.equal(saved.keep.length, 1);
+  assert.equal(saved.deleteObjects.length, 0);
+
+  const past = nowMs + SIGNED_UPLOAD_RETENTION_MS;
+  const keptDuring = retainAfterSweep({
+    grants: [rejected.grant],
+    nowMs: nowMs + 60 * 60 * 1000,
+    deletedIds: new Set([rejected.grant.id]),
+    storageConfigured: true,
+  });
+  assert.equal(keptDuring.length, 1);
+  const dropped = retainAfterSweep({
+    grants: [rejected.grant],
+    nowMs: past,
+    deletedIds: new Set([rejected.grant.id]),
+    storageConfigured: true,
+  });
+  assert.equal(dropped.length, 0);
+  const retry = retainAfterSweep({
+    grants: [rejected.grant],
+    nowMs: past,
+    deletedIds: new Set(),
+    storageConfigured: true,
+  });
+  assert.equal(retry.length, 1);
 });
 
 test("neither private bucket is public and anon cannot use storage.objects", () => {
@@ -280,4 +338,154 @@ test("the migration creates both private buckets and does not grant anon access"
   assert.equal(check.includes("'authenticated'"), true);
   assert.equal(check.includes("fweta-media is public"), true);
   assert.equal(check.includes("fweta-kyc is public"), true);
+});
+
+const acceptedApplication = {
+  id: "application-1",
+  creatorId: userA,
+  briefId: "brief-1",
+  status: "accepted",
+};
+
+function stagedCopies(count: number, targetId: string, createdAtMs: number, owner = userA): StoredGrant[] {
+  const { issued } = grantFor();
+  return Array.from({ length: count }, (_, index) => {
+    const id = `44444444-4444-4444-8444-${String(index + 1).padStart(12, "0")}`;
+    return {
+      ...issued,
+      id,
+      userId: owner,
+      path: `${owner}/ugc/${id}`,
+      targetId,
+      createdAt: new Date(createdAtMs).toISOString(),
+    };
+  });
+}
+
+test("stageUgcFileAction requires an accepted application on that brief", () => {
+  const licensing = readFileSync("app/actions/licensing.ts", "utf8");
+  const form = readFileSync("components/forms/licensing-forms.tsx", "utf8");
+  assert.match(licensing, /ugcStageDecision\(/);
+  assert.match(form, /body\.set\("applicationId", applicationId\)/);
+
+  const allowed = ugcStageDecision({
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    applications: [acceptedApplication],
+    grants: [],
+    nowMs,
+  });
+  assert.equal(allowed.ok, true);
+
+  const missing = ugcStageDecision({
+    userId: userA,
+    applicationId: "missing-application",
+    applications: [acceptedApplication],
+    grants: [],
+    nowMs,
+  });
+  assert.equal(missing.ok, false);
+  if (missing.ok) return;
+  assert.equal(missing.error, "Accept the brief before uploading.");
+
+  const applied = ugcStageDecision({
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    applications: [{ ...acceptedApplication, status: "applied" }],
+    grants: [],
+    nowMs,
+  });
+  assert.equal(applied.ok, false);
+
+  const someoneElse = ugcStageDecision({
+    userId: userB,
+    applicationId: acceptedApplication.id,
+    applications: [acceptedApplication],
+    grants: [],
+    nowMs,
+  });
+  assert.equal(someoneElse.ok, false);
+});
+
+test("stageUgcFileAction caps grants per user and per brief", () => {
+  assert.equal(UPLOAD_GRANTS_PER_HOUR, 30);
+  assert.equal(UPLOAD_GRANTS_PER_BRIEF_PER_HOUR < UPLOAD_GRANTS_PER_HOUR, true);
+  const applications = [
+    acceptedApplication,
+    { ...acceptedApplication, id: "application-old", status: "declined" },
+    { ...acceptedApplication, id: "application-2", briefId: "brief-2" },
+  ];
+  const under = ugcStageDecision({
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    applications,
+    grants: stagedCopies(UPLOAD_GRANTS_PER_BRIEF_PER_HOUR - 1, "application-old", nowMs - 1000),
+    nowMs,
+  });
+  assert.equal(under.ok, true);
+  const atBrief = ugcStageDecision({
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    applications,
+    grants: stagedCopies(UPLOAD_GRANTS_PER_BRIEF_PER_HOUR, "application-old", nowMs - 1000),
+    nowMs,
+  });
+  assert.equal(atBrief.ok, false);
+  if (atBrief.ok) return;
+  assert.equal(atBrief.error, BRIEF_UPLOAD_RATE_LIMIT_ERROR);
+
+  const otherBrief = ugcStageDecision({
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    applications,
+    grants: stagedCopies(UPLOAD_GRANTS_PER_BRIEF_PER_HOUR, "application-2", nowMs - 1000),
+    nowMs,
+  });
+  assert.equal(otherBrief.ok, true);
+
+  const stale = ugcStageDecision({
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    applications,
+    grants: stagedCopies(UPLOAD_GRANTS_PER_HOUR, acceptedApplication.id, nowMs - 60 * 60 * 1000),
+    nowMs,
+  });
+  assert.equal(stale.ok, true);
+});
+
+test("createUgcUploadAction uses the same hourly grant cap", () => {
+  const uploads = readFileSync("app/actions/uploads.ts", "utf8");
+  assert.match(uploads, /ugcStageDecision\(/);
+  const applications = [
+    acceptedApplication,
+    { ...acceptedApplication, id: "application-2", briefId: "brief-2" },
+  ];
+  const capped = ugcStageDecision({
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    applications,
+    grants: stagedCopies(UPLOAD_GRANTS_PER_HOUR, "application-2", nowMs - 1000),
+    nowMs,
+  });
+  assert.equal(capped.ok, false);
+  if (capped.ok) return;
+  assert.equal(capped.error, UPLOAD_RATE_LIMIT_ERROR);
+
+  const room = ugcStageDecision({
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    applications,
+    grants: stagedCopies(UPLOAD_GRANTS_PER_HOUR - 1, "application-2", nowMs - 1000),
+    nowMs,
+  });
+  assert.equal(room.ok, true);
+
+  const otherUser = ugcStageDecision({
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    applications,
+    grants: stagedCopies(UPLOAD_GRANTS_PER_HOUR, "application-2", nowMs - 1000, userB),
+    nowMs,
+  });
+  assert.equal(otherUser.ok, true);
 });

@@ -273,6 +273,7 @@ async function stageDeliveryFiles(applicationId: string, files: File[]) {
     }
     const body = new FormData();
     body.set("file", file);
+    body.set("applicationId", applicationId);
     const saved = await stageUgcFileAction(body);
     if (!saved.ok) return saved;
     staged.push(saved.file);

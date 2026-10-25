@@ -22,6 +22,22 @@ export type AllowedKind = "png" | "jpg" | "webp" | "pdf";
 export const UPLOAD_TTL_MS = 5 * 60 * 1000;
 export const UPLOAD_TTL_SECONDS = 5 * 60;
 
+/**
+ * Provider signed upload tokens can last about 2 hours when the sign route
+ * ignores expiresIn. Keep a spent or expired grant for that lifetime plus a
+ * margin so housekeeping can still delete an object written with the same URL.
+ */
+export const SIGNED_UPLOAD_RETENTION_MS = 2 * 60 * 60 * 1000 + 30 * 60 * 1000;
+
+/** Staged upload grants one user may create in an hour. */
+export const UPLOAD_GRANTS_PER_HOUR = 30;
+
+/** Staged upload grants one user may create on one brief in an hour. */
+export const UPLOAD_GRANTS_PER_BRIEF_PER_HOUR = 12;
+
+export const UPLOAD_RATE_LIMIT_ERROR = "You have uploaded too many files this hour. Try again later.";
+export const BRIEF_UPLOAD_RATE_LIMIT_ERROR = "This brief already has too many uploads this hour. Try again later.";
+
 /** Signed read links. KYC is shorter than the general bucket. */
 export const GENERAL_READ_TTL_SECONDS = 5 * 60;
 export const KYC_READ_TTL_SECONDS = 60;

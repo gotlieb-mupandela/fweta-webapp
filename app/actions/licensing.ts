@@ -24,6 +24,7 @@ import {
 } from "@/lib/licensing/hub";
 import { pushNotification } from "@/lib/notifications/inbox";
 import { SERVER_ACTION_FILE_MAX } from "@/lib/storage/constants";
+import { ugcStageDecision } from "@/lib/storage/policy";
 import { saveUgcFile } from "@/lib/ugc/files";
 import { submitStagedDeliverySchema } from "@/lib/validations/uploads";
 
@@ -278,15 +279,37 @@ export async function submitDeliveryAction(formData: FormData) {
 
 export async function stageUgcFileAction(formData: FormData) {
   const session = await requireSession();
+  const applicationId = String(formData.get("applicationId") ?? "");
   const file = formData.get("file");
   if (!(file instanceof File) || file.size <= 0) return { ok: false as const, error: "Choose a file to upload." };
   if (file.size > SERVER_ACTION_FILE_MAX) {
     return { ok: false as const, error: "Files over 4 MB upload directly. Choose the file again." };
   }
+  const store = await readStore();
+  const decision = ugcStageDecision({
+    userId: session.id,
+    applicationId,
+    applications: store.ugcApplications,
+    grants: store.uploadGrants ?? [],
+    nowMs: Date.now(),
+  });
+  if (!decision.ok) return { ok: false as const, error: decision.error };
   try {
     const saved = await saveUgcFile(file, session.id);
     const now = nowIso();
+    let blocked: string | null = null;
     await updateStore((draft) => {
+      const again = ugcStageDecision({
+        userId: session.id,
+        applicationId,
+        applications: draft.ugcApplications,
+        grants: draft.uploadGrants ?? [],
+        nowMs: Date.now(),
+      });
+      if (!again.ok) {
+        blocked = again.error;
+        return;
+      }
       draft.uploadGrants = [
         ...(draft.uploadGrants ?? []),
         {
@@ -300,11 +323,13 @@ export async function stageUgcFileAction(formData: FormData) {
           expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
           openedAt: now,
           finalizedAt: now,
-          targetId: null,
+          spentAt: null,
+          targetId: applicationId,
           createdAt: now,
         },
       ];
     });
+    if (blocked) return { ok: false as const, error: blocked };
     return { ok: true as const, file: saved };
   } catch (error) {
     return fail(error);
