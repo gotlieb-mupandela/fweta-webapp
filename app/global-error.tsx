@@ -1,13 +1,12 @@
 "use client";
 
-import { Component, useEffect, type ReactNode } from "react";
+import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Karla, Newsreader } from "next/font/google";
 
+import { TryAgain } from "@/components/errors/try-again";
 import { Button } from "@/components/ui/button";
-import { recoverGlobalError } from "@/lib/errors/recover-global-error";
 
 import "./globals.css";
 
@@ -48,6 +47,7 @@ export default function GlobalError({
 
   return (
     <html lang="en" className={`${karla.variable} ${newsreader.variable} h-full`}>
+      <title>Something went wrong · Fweta</title>
       <body
         className={`${karla.className} flex min-h-full flex-col bg-background text-foreground antialiased`}
       >
@@ -67,7 +67,7 @@ export default function GlobalError({
             Something went wrong
           </h1>
           <p className="mt-3 max-w-md text-sm leading-relaxed text-muted">
-            fweta hit an unexpected error. Try again, or go back home.
+            Fweta hit an unexpected error. Try again, or go back home.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <TryAgain reset={reset} />
@@ -81,38 +81,3 @@ export default function GlobalError({
   );
 }
 
-function TryAgainWithRouter({ reset }: { reset: () => void }) {
-  const router = useRouter();
-  return (
-    <Button type="button" onClick={() => recoverGlobalError(reset, () => router.refresh())}>
-      Try again
-    </Button>
-  );
-}
-
-class TryAgainBoundary extends Component<{ reset: () => void; children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-
-  static getDerivedStateFromError(): { failed: boolean } {
-    return { failed: true };
-  }
-
-  render() {
-    if (this.state.failed) {
-      return (
-        <Button type="button" onClick={() => recoverGlobalError(this.props.reset)}>
-          Try again
-        </Button>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-function TryAgain({ reset }: { reset: () => void }) {
-  return (
-    <TryAgainBoundary reset={reset}>
-      <TryAgainWithRouter reset={reset} />
-    </TryAgainBoundary>
-  );
-}

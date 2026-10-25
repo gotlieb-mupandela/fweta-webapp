@@ -16,7 +16,8 @@ function renderError(Component: typeof RootError): string {
 test("route error page renders the fweta mark and recovery actions", () => {
   const html = renderError(RootError);
   assert.match(html, /This page did not load/);
-  assert.match(html, /Something went wrong on fweta\. Try again, or go back home\./);
+  assert.match(html, /Something went wrong on Fweta\. Try again, or go back home\./);
+  assert.match(html, />fweta</);
   assert.match(html, /Try again/);
   assert.match(html, /Back home/);
   assert.match(html, /fweta-mark\.png/);
@@ -27,7 +28,8 @@ test("route error page renders the fweta mark and recovery actions", () => {
 test("dashboard error page renders the fweta mark and recovery actions", () => {
   const html = renderError(DashboardError);
   assert.match(html, /This page did not load/);
-  assert.match(html, /fweta could not open this part of your workspace\. Try again, or go back home\./);
+  assert.match(html, /Fweta could not open this part of your workspace\. Try again, or go back home\./);
+  assert.match(html, />fweta</);
   assert.match(html, /Try again/);
   assert.match(html, /Back home/);
   assert.match(html, /fweta-mark\.png/);

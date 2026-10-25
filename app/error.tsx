@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
+import { TryAgain } from "@/components/errors/try-again";
 import { Button } from "@/components/ui/button";
 
 export default function RootError({
@@ -42,12 +43,10 @@ export default function RootError({
         This page did not load
       </h1>
       <p className="mt-3 max-w-md text-sm leading-relaxed text-muted">
-        Something went wrong on fweta. Try again, or go back home.
+        Something went wrong on Fweta. Try again, or go back home.
       </p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-        <Button type="button" onClick={() => reset()}>
-          Try again
-        </Button>
+        <TryAgain reset={reset} />
         <Link href="/">
           <Button variant="secondary">Back home</Button>
         </Link>

@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import { recoverGlobalError } from "@/lib/errors/recover-global-error";
+import { recoverFromError, recoverGlobalError } from "@/lib/errors/recover-global-error";
 
 function walk(dir: string): string[] {
   const files: string[] = [];
@@ -54,4 +54,42 @@ test("global error recovery reloads when the router is missing", () => {
     () => calls.push("reload"),
   );
   assert.deepEqual(calls, ["reset", "reload"]);
+});
+
+test("shared recovery refreshes when the router is mounted", () => {
+  const calls: string[] = [];
+  recoverFromError(
+    () => calls.push("reset"),
+    { refresh: () => calls.push("refresh") },
+    () => calls.push("reload"),
+  );
+  assert.deepEqual(calls, ["refresh", "reset"]);
+});
+
+test("shared recovery reloads when the router is unavailable", () => {
+  const calls: string[] = [];
+  recoverFromError(
+    () => calls.push("reset"),
+    null,
+    () => calls.push("reload"),
+  );
+  assert.deepEqual(calls, ["reset", "reload"]);
+});
+
+test("segment and global error pages share router-safe recovery", () => {
+  const helper = readFileSync(path.join(process.cwd(), "components/errors/try-again.tsx"), "utf8");
+  assert.match(helper, /recoverFromError\(reset,\s*router\)/);
+  assert.match(helper, /recoverFromError\(this\.props\.reset,\s*null\)/);
+
+  const globalError = readFileSync(path.join(process.cwd(), "app/global-error.tsx"), "utf8");
+  assert.match(globalError, /<title>Something went wrong · Fweta<\/title>/);
+  assert.match(globalError, /Fweta hit an unexpected error\. Try again, or go back home\./);
+  assert.match(globalError, />fweta</);
+  assert.doesNotMatch(globalError, /\u2014/);
+
+  for (const rel of ["app/error.tsx", "app/dashboard/error.tsx", "app/global-error.tsx"]) {
+    const source = readFileSync(path.join(process.cwd(), rel), "utf8");
+    assert.match(source, /<TryAgain\s+reset=\{reset\}\s*\/>/, rel);
+    assert.doesNotMatch(source, /onClick=\{\(\)\s*=>\s*reset\(\)\}/, rel);
+  }
 });

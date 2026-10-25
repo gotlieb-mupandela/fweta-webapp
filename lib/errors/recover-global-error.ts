@@ -1,8 +1,8 @@
 import { startTransition } from "react";
 
-// global-error replaces the root layout. reset() only clears the boundary, so the
-// failed tree renders again and the error page stays. Refresh with the router, and
-// reload the document when that router is not mounted.
+// reset() only clears the boundary, so the failed tree renders again and the error
+// page stays. Refresh with the router, and reload the document when that router is
+// not mounted (global-error replaces the root layout).
 export function recoverGlobalError(
   reset: () => void,
   refresh?: () => void,
@@ -17,6 +17,20 @@ export function recoverGlobalError(
   }
   reset();
   reload();
+}
+
+/** Uses the router refresh when it is mounted, and reloads the document when it is not. */
+export function recoverFromError(
+  reset: () => void,
+  router?: { refresh?: () => void } | null,
+  reload?: () => void,
+): void {
+  if (router && typeof router.refresh === "function") {
+    const refresh = router.refresh.bind(router);
+    recoverGlobalError(reset, refresh, reload);
+    return;
+  }
+  recoverGlobalError(reset, undefined, reload);
 }
 
 function defaultReload(): void {
