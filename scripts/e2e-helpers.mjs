@@ -7,7 +7,11 @@
  * Playwright's own browser.
  *
  * These scripts talk to a local `npm run dev` or `next start` process, the
- * local file store, and the *@fweta.test accounts. They refuse app.fweta.com.
+ * local file store, and the *@fweta.test accounts. baseUrl() allows only
+ * localhost, 127.0.0.1, and ::1. Set E2E_ALLOW_REMOTE_BASE_URL=1 to use
+ * another host. fweta.com and any host ending in .fweta.com also need
+ * E2E_ALLOW_FWETA_HOSTS=1. Hosts are lowercased and a trailing dot is stripped
+ * before the comparison. Every page load and redirect is checked again.
  */
 import { createRequire } from "node:module";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
@@ -20,18 +24,215 @@ const require = createRequire(import.meta.url);
 export const PASSWORD = "password123";
 export const ADMIN_EMAIL = "admin@fweta.test";
 
-export function baseUrl() {
-  const raw = process.env.BASE_URL?.trim() || "http://localhost:3000";
+const LOCAL_E2E_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+const TARGET_GUARD = Symbol("fwetaE2eTargetGuard");
+const NAVIGATION_METHODS = ["goto", "reload", "goBack", "goForward", "waitForURL"];
+
+function explicitFlag(name) {
+  return process.env[name]?.trim() === "1";
+}
+
+function normalizeE2eHostname(hostname) {
+  let host = String(hostname ?? "").trim().toLowerCase();
+  // One leftover dot would miss the fweta.com suffix check (app.fweta.com.).
+  while (host.endsWith(".")) host = host.slice(0, -1);
+  if (host.startsWith("[") && host.endsWith("]")) {
+    host = host.slice(1, -1);
+    while (host.endsWith(".")) host = host.slice(0, -1);
+  }
+  return host;
+}
+
+function isFwetaHost(host) {
+  return host === "fweta.com" || host.endsWith(".fweta.com");
+}
+
+function hostBlockReason(hostname, subject) {
+  const host = normalizeE2eHostname(hostname);
+  if (!host) {
+    return `Refusing ${subject} because it has an empty host. Point BASE_URL at localhost, 127.0.0.1, or ::1.`;
+  }
+  if (isFwetaHost(host)) {
+    if (explicitFlag("E2E_ALLOW_REMOTE_BASE_URL") && explicitFlag("E2E_ALLOW_FWETA_HOSTS")) return null;
+    return `Refusing ${subject} ${host}. Hosts ending in fweta.com stay blocked unless E2E_ALLOW_REMOTE_BASE_URL=1 and E2E_ALLOW_FWETA_HOSTS=1 are both set.`;
+  }
+  if (LOCAL_E2E_HOSTS.has(host)) return null;
+  if (explicitFlag("E2E_ALLOW_REMOTE_BASE_URL")) return null;
+  return `Refusing ${subject} ${host}. E2E scripts only allow localhost, 127.0.0.1, and ::1. Set E2E_ALLOW_REMOTE_BASE_URL=1 to use another host.`;
+}
+
+function assertHttpTarget(raw, subject, invalidMessage) {
   let url;
   try {
-    url = new URL(raw);
+    url = raw instanceof URL ? raw : new URL(raw);
   } catch {
-    throw new Error(`BASE_URL is not a valid URL: ${raw}`);
+    throw new Error(invalidMessage);
   }
-  if (url.hostname === "app.fweta.com") {
-    throw new Error("Refusing BASE_URL host app.fweta.com. Point BASE_URL at a local server.");
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`Refusing ${subject} protocol ${url.protocol}. Use http or https.`);
   }
-  return url.origin;
+  const reason = hostBlockReason(url.hostname, subject);
+  if (reason) throw new Error(reason);
+  return url;
+}
+
+export function baseUrl() {
+  const raw = process.env.BASE_URL?.trim() || "http://localhost:3000";
+  return assertHttpTarget(raw, "BASE_URL host", `BASE_URL is not a valid URL: ${raw}`).origin;
+}
+
+function assertNavigationTarget(raw) {
+  if (raw == null) return;
+  const value = String(raw).trim();
+  if (!value || value === "about:blank") return;
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`Refusing navigation to an invalid URL: ${value}`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return;
+  const reason = hostBlockReason(url.hostname, "navigation host");
+  if (reason) throw new Error(reason);
+}
+
+function rememberBlock(page, state, error) {
+  if (!state.error) state.error = error;
+  if (state.closing) return;
+  state.closing = true;
+  const context = typeof page.context === "function" ? page.context() : null;
+  if (context && typeof context.close === "function") {
+    Promise.resolve(context.close()).catch(() => {});
+  }
+}
+
+function isMainFrameNavigation(page, request) {
+  if (!request || typeof request.isNavigationRequest !== "function" || !request.isNavigationRequest()) return false;
+  const main = typeof page.mainFrame === "function" ? page.mainFrame() : null;
+  const frame = typeof request.frame === "function" ? request.frame() : null;
+  if (main && frame && frame !== main) return false;
+  return true;
+}
+
+function reviewDocumentResponse(page, response) {
+  const request = typeof response.request === "function" ? response.request() : null;
+  if (!isMainFrameNavigation(page, request)) return;
+  const current = typeof response.url === "function" ? response.url() : request.url();
+  assertNavigationTarget(current);
+  const status = typeof response.status === "function" ? response.status() : 0;
+  if (status < 300 || status >= 400) return;
+  const headers = typeof response.headers === "function" ? response.headers() : {};
+  const location = String(headers.location || headers.Location || "").trim();
+  if (!location) return;
+  assertNavigationTarget(new URL(location, current).href);
+}
+
+function guardContext(context) {
+  if (!context || context[TARGET_GUARD]) return context;
+  context[TARGET_GUARD] = { kind: "context" };
+  if (typeof context.newPage !== "function") return context;
+  const original = context.newPage.bind(context);
+  context.newPage = async (...args) => guardPage(await original(...args));
+  return context;
+}
+
+function guardBrowser(browser) {
+  if (!browser || browser[TARGET_GUARD]) return browser;
+  browser[TARGET_GUARD] = { kind: "browser" };
+  if (typeof browser.newContext === "function") {
+    const original = browser.newContext.bind(browser);
+    browser.newContext = async (...args) => guardContext(await original(...args));
+  }
+  if (typeof browser.newPage === "function") {
+    const original = browser.newPage.bind(browser);
+    browser.newPage = async (...args) => guardPage(await original(...args));
+  }
+  return browser;
+}
+
+export async function guardPage(page) {
+  if (!page || page[TARGET_GUARD]) return page;
+  const state = { error: null, closing: false };
+  page[TARGET_GUARD] = state;
+
+  const context = typeof page.context === "function" ? page.context() : null;
+  if (context) guardContext(context);
+
+  if (typeof page.route === "function") {
+    await page.route("**/*", async (route) => {
+      try {
+        const request = route.request();
+        if (isMainFrameNavigation(page, request)) assertNavigationTarget(request.url());
+      } catch (error) {
+        rememberBlock(page, state, error instanceof Error ? error : new Error(String(error)));
+        try {
+          await route.abort("blockedbyclient");
+        } catch {
+          // The request may already be settled.
+        }
+        return;
+      }
+      if (state.error) {
+        try {
+          await route.abort("blockedbyclient");
+        } catch {
+          // The request may already be settled.
+        }
+        return;
+      }
+      await route.continue();
+    });
+  }
+
+  if (typeof page.on === "function") {
+    page.on("framenavigated", (frame) => {
+      try {
+        const main = typeof page.mainFrame === "function" ? page.mainFrame() : null;
+        if (main && frame && frame !== main) return;
+        const url = typeof frame?.url === "function" ? frame.url() : page.url();
+        assertNavigationTarget(url);
+      } catch (error) {
+        rememberBlock(page, state, error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+    page.on("load", () => {
+      try {
+        assertNavigationTarget(page.url());
+      } catch (error) {
+        rememberBlock(page, state, error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+    page.on("response", (response) => {
+      try {
+        const request = typeof response.request === "function" ? response.request() : null;
+        const main = typeof page.mainFrame === "function" ? page.mainFrame() : null;
+        const frame = request && typeof request.frame === "function" ? request.frame() : null;
+        if (main && frame && frame !== main) return;
+        reviewDocumentResponse(page, response);
+      } catch (error) {
+        rememberBlock(page, state, error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }
+
+  for (const method of NAVIGATION_METHODS) {
+    if (typeof page[method] !== "function") continue;
+    const original = page[method].bind(page);
+    page[method] = async (...args) => {
+      if (state.error) throw state.error;
+      try {
+        const result = await original(...args);
+        if (state.error) throw state.error;
+        assertNavigationTarget(page.url());
+        return result;
+      } catch (error) {
+        if (state.error) throw state.error;
+        throw error;
+      }
+    };
+  }
+
+  return page;
 }
 
 export function storePath() {
@@ -108,12 +309,12 @@ export async function launchBrowser(playwright) {
   };
   if (process.env.HEADED === "1") shared.slowMo = 250;
   if (process.env.CHROME_PATH?.trim()) {
-    return chromium.launch({ ...shared, executablePath: process.env.CHROME_PATH.trim() });
+    return guardBrowser(await chromium.launch({ ...shared, executablePath: process.env.CHROME_PATH.trim() }));
   }
   try {
-    return await chromium.launch({ ...shared, channel: "chrome" });
+    return guardBrowser(await chromium.launch({ ...shared, channel: "chrome" }));
   } catch {
-    return chromium.launch(shared);
+    return guardBrowser(await chromium.launch(shared));
   }
 }
 
