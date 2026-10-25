@@ -28,6 +28,11 @@ async function handle(request: Request) {
   return NextResponse.json({ ok: true, ...result });
 }
 
+/**
+ * GET /api/jobs/poll-views
+ * vercel.json must keep each cron at most once per day. On the Hobby plan an
+ * expression such as "0 * * * *" is rejected before a deployment is created.
+ */
 export async function GET(request: Request) {
   return handle(request);
 }
