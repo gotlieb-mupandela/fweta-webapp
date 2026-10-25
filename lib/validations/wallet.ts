@@ -11,6 +11,7 @@ export const adminCreditSchema = z.object({
     .positive("Enter an amount greater than zero.")
     .max(ADMIN_CREDIT_MAX_CENTS, "A single credit cannot exceed N$1,000,000."),
   reason: z.string().trim().min(3, "Add a reason for this credit.").max(200, "Reason is too long."),
+  requestKey: z.string().uuid("Submit the credit again."),
 });
 
 export type AdminCreditInput = z.infer<typeof adminCreditSchema>;

@@ -226,3 +226,53 @@ test("concurrent mark-paid calls against the store debit once, then a later call
     assert.equal(after.withdrawalRequests[0]?.bankReference, "BATCH");
   });
 });
+
+test("one admin credit request key credits once for a double submit and six concurrent submits", async () => {
+  await solo(async () => {
+    activeSession = admin;
+    const wallet = await import("../../app/actions/wallet");
+    const { readStore } = await import("../../lib/db/store");
+    const requestKey = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    const amountCents = 20_000;
+    const reason = "EFT received 14 Oct";
+
+    function seed() {
+      const store = emptyStore();
+      store.profiles.push(profile(userId, "brand@fweta.test"));
+      store.wallets.push({ userId, availableCents: 0, pendingCents: 0, updatedAt: at });
+      setStore(store);
+    }
+
+    function credit() {
+      return wallet.adminCreditWalletAction(userId, amountCents, reason, requestKey);
+    }
+
+    seed();
+    const first = await credit();
+    const second = await credit();
+    assert.equal(first.ok, true);
+    assert.equal(second.ok, true);
+    if (!first.ok || !second.ok) return;
+    assert.equal(second.entryId, first.entryId);
+    assert.equal(second.availableCents, first.availableCents);
+    assert.equal(first.availableCents, amountCents);
+
+    let after = await readStore();
+    assert.equal(after.ledgerEntries.length, 1);
+    assert.equal(after.ledgerEntries[0]?.requestKey, requestKey);
+    assert.equal(after.ledgerEntries[0]?.amountCents, amountCents);
+    assert.equal(after.auditLog.filter((row) => row.action === "wallet.admin_credit").length, 1);
+    assert.equal(after.wallets.find((row) => row.userId === userId)?.availableCents, amountCents);
+
+    seed();
+    const concurrent = await Promise.all(Array.from({ length: 6 }, () => credit()));
+    assert.equal(concurrent.filter((result) => result.ok).length, 6);
+    const entryIds = new Set(concurrent.map((result) => (result.ok ? result.entryId : "")));
+    assert.equal(entryIds.size, 1);
+    after = await readStore();
+    assert.equal(after.ledgerEntries.length, 1);
+    assert.equal(after.ledgerEntries[0]?.requestKey, requestKey);
+    assert.equal(after.auditLog.filter((row) => row.action === "wallet.admin_credit").length, 1);
+    assert.equal(after.wallets.find((row) => row.userId === userId)?.availableCents, amountCents);
+  });
+});

@@ -37,10 +37,15 @@ export async function getMyLedger() {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-export async function adminCreditWalletAction(userId: string, amountCents: number, reason: string) {
+export async function adminCreditWalletAction(
+  userId: string,
+  amountCents: number,
+  reason: string,
+  requestKey: string,
+) {
   const session = await requireSession();
   if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
-  const parsed = adminCreditSchema.safeParse({ userId, amountCents, reason });
+  const parsed = adminCreditSchema.safeParse({ userId, amountCents, reason, requestKey });
   if (!parsed.success) {
     return {
       ok: false as const,
@@ -58,6 +63,7 @@ export async function adminCreditWalletAction(userId: string, amountCents: numbe
         userId: parsed.data.userId,
         amountCents: parsed.data.amountCents,
         reason: parsed.data.reason,
+        requestKey: parsed.data.requestKey,
       });
       if (!result.ok) throw new Error(result.error);
       availableCents = result.availableCents;

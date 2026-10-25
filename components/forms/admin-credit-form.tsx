@@ -24,6 +24,7 @@ export function AdminCreditForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
   const locked = users.find((user) => user.id === presetUserId) ?? null;
 
   return (
@@ -45,9 +46,11 @@ export function AdminCreditForm({
             String(fd.get("userId") || presetUserId || ""),
             Math.round(amount * 100),
             String(fd.get("reason") || ""),
+            requestKey,
           );
           if (!res.ok) setError(res.error);
           else {
+            setRequestKey(crypto.randomUUID());
             form.reset();
             setSuccess(
               `Credited ${formatMoney(Math.round(amount * 100))}. Available balance is now ${formatMoney(res.availableCents)}. Ledger ${res.entryId} records the credit.`,

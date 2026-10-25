@@ -264,10 +264,12 @@ test("parallel booking declines refund escrow once", async () => {
 
 test("admin credit is bounded, requires a reason, and records the acting admin", () => {
   const reason = "EFT received 14 Oct";
+  const requestKey = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
   const parsed = adminCreditSchema.safeParse({
     userId,
     amountCents: 25_000,
     reason: `  ${reason}  `,
+    requestKey,
   });
   assert.equal(parsed.success, true);
   if (!parsed.success) return;
@@ -281,6 +283,7 @@ test("admin credit is bounded, requires a reason, and records the acting admin",
     userId: parsed.data.userId,
     amountCents: parsed.data.amountCents,
     reason: parsed.data.reason,
+    requestKey: parsed.data.requestKey,
   });
   assert.equal(result.ok, true);
   assert.equal(store.ledgerEntries.length, 1);
@@ -289,6 +292,7 @@ test("admin credit is bounded, requires a reason, and records the acting admin",
   assert.equal(store.ledgerEntries[0]?.userId, userId);
   assert.equal(store.ledgerEntries[0]?.amountCents, 25_000);
   assert.equal(store.ledgerEntries[0]?.reason, reason);
+  assert.equal(store.ledgerEntries[0]?.requestKey, requestKey);
   assert.equal(store.wallets[0]?.availableCents, 25_000);
 
   const audit = store.auditLog.find((row) => row.action === "wallet.admin_credit");
@@ -306,17 +310,21 @@ test("admin credit is bounded, requires a reason, and records the acting admin",
   const rejectedAmounts = [0, -100, 10.5, ADMIN_CREDIT_MAX_CENTS + 1, Number.NaN];
   for (const amountCents of rejectedAmounts) {
     assert.equal(
-      adminCreditSchema.safeParse({ userId, amountCents, reason }).success,
+      adminCreditSchema.safeParse({ userId, amountCents, reason, requestKey }).success,
       false,
       `expected ${String(amountCents)} to fail`,
     );
   }
   assert.equal(
-    adminCreditSchema.safeParse({ userId, amountCents: ADMIN_CREDIT_MAX_CENTS, reason }).success,
+    adminCreditSchema.safeParse({ userId, amountCents: ADMIN_CREDIT_MAX_CENTS, reason, requestKey }).success,
     true,
   );
-  assert.equal(adminCreditSchema.safeParse({ userId, amountCents: 25_000, reason: "no" }).success, false);
-  assert.equal(adminCreditSchema.safeParse({ userId, amountCents: 25_000, reason: "   " }).success, false);
+  assert.equal(adminCreditSchema.safeParse({ userId, amountCents: 25_000, reason: "no", requestKey }).success, false);
+  assert.equal(adminCreditSchema.safeParse({ userId, amountCents: 25_000, reason: "   ", requestKey }).success, false);
+  assert.equal(
+    adminCreditSchema.safeParse({ userId, amountCents: 25_000, reason, requestKey: "nope" }).success,
+    false,
+  );
 
   const missing = emptyStore();
   const denied = creditWalletInStore(missing, {
@@ -325,6 +333,7 @@ test("admin credit is bounded, requires a reason, and records the acting admin",
     userId,
     amountCents: 25_000,
     reason,
+    requestKey,
   });
   assert.equal(denied.ok, false);
   assert.equal(missing.ledgerEntries.length, 0);

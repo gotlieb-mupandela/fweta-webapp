@@ -9,6 +9,7 @@ export type AdminCreditWrite = {
   userId: string;
   amountCents: number;
   reason: string;
+  requestKey: string;
 };
 
 export type AdminCreditResult =
@@ -18,8 +19,20 @@ export type AdminCreditResult =
 /**
  * Credit a wallet and record the acting admin. Must run inside updateStore
  * so the ledger row and the audit row commit together, or not at all.
+ * A request key already stored on a ledger row returns that first credit.
  */
 export function creditWalletInStore(store: DatabaseStore, input: AdminCreditWrite): AdminCreditResult {
+  const existing = store.ledgerEntries.find(
+    (entry) => entry.referenceType === "admin_credit" && entry.requestKey === input.requestKey,
+  );
+  if (existing) {
+    return {
+      ok: true,
+      availableCents: existing.balanceAfterAvailableCents,
+      entryId: existing.id,
+    };
+  }
+
   const user = store.profiles.find((profile) => profile.id === input.userId);
   if (!user) return { ok: false, error: "User not found." };
 
@@ -32,6 +45,7 @@ export function creditWalletInStore(store: DatabaseStore, input: AdminCreditWrit
     actorId: input.adminId,
     actorEmail: input.adminEmail,
   });
+  entry.requestKey = input.requestKey;
   pushAudit(store, {
     actorId: input.adminId,
     actorEmail: input.adminEmail,

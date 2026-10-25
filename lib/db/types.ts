@@ -318,6 +318,8 @@ export type LedgerEntry = {
   /** Admin who recorded an admin_credit. Absent on other rows and older credits. */
   actorId?: string | null;
   actorEmail?: string | null;
+  /** Idempotency key for an admin credit. A repeat of the same key does not credit again. */
+  requestKey?: string | null;
 };
 
 export type PayoutMethod = {
