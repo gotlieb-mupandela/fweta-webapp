@@ -1,4 +1,4 @@
-# Content Rewards Platform — Phased Build Plan
+# fweta: Phased build plan
 
 This document expands [AGENTS.md](./AGENTS.md) into an actionable build sequence from scaffold through full platform. Each phase lists deliverables, routes, and exit criteria.
 

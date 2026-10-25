@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getPlatformStats } from "@/app/actions/settings";
@@ -5,6 +6,11 @@ import { Card, PageHeader, SectionHeader, Stat, StatGrid } from "@/components/ui
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Platform stats",
+  description: "Marketplace totals for fweta.",
+};
 
 export default async function AdminStatsPage() {
   const session = await getSession();

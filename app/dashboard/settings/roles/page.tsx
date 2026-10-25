@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { RolesSettingsForm } from "@/components/forms/roles-settings-form";
 import { ContextHelp } from "@/components/onboarding/context-help";
 import { PageHeader } from "@/components/ui/card";
 import { getProfileById, getSession } from "@/lib/auth/session";
+
+export const metadata: Metadata = {
+  title: "Roles",
+  description: "Dashboards this login can open.",
+};
 
 export default async function SettingsRolesPage() {
   const session = await getSession();

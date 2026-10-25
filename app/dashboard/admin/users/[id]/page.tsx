@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,11 @@ import { EmptyState } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { loadAdminUserDossier } from "@/lib/admin/user-profile";
 import { getSession } from "@/lib/auth/session";
+
+export const metadata: Metadata = {
+  title: "User",
+  description: "Account, clips, and payout details.",
+};
 
 export default async function AdminUserProfilePage({
   params,

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -5,6 +6,11 @@ import { VerificationReviewButtons } from "@/components/forms/verification-revie
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+
+export const metadata: Metadata = {
+  title: "Bio code queue",
+  description: "Confirm a creator bio code before the account can be used.",
+};
 
 export default async function AdminVerificationPage() {
   const session = await getSession();

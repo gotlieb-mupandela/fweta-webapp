@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogOut } from "lucide-react";
@@ -6,6 +7,11 @@ import { logoutAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
+
+export const metadata: Metadata = {
+  title: "Settings",
+  description: "Profile, payout, and security.",
+};
 
 const LINKS = [
   { href: "/dashboard/settings/profile", label: "Profile", desc: "Display name and bio" },

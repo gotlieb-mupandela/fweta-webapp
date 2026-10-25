@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,11 @@ import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
+
+export const metadata: Metadata = {
+  title: "Creators",
+  description: "Find creators for your brand.",
+};
 
 export default async function BrandCreatorsPage({
   searchParams,

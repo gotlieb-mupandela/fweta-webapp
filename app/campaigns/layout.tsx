@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Open campaigns",
-  description: "Browse fweta content rewards campaigns and submit clips on allowed platforms.",
+  title: { default: "Open campaigns", template: "%s · fweta" },
+  description: "Browse open fweta campaigns and submit clips on allowed platforms.",
   openGraph: {
     title: "Open campaigns · fweta",
-    description: "Browse content rewards campaigns and submit clips.",
+    description: "Browse open campaigns and submit clips.",
   },
 };
 

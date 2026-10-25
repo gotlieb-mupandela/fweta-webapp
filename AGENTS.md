@@ -1,4 +1,4 @@
-# Content Rewards Platform — Agent Guide
+# fweta: Agent guide
 
 This document is the single source of truth for AI agents and developers working on this project. Read this before making architectural or product decisions.
 

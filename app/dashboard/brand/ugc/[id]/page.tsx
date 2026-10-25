@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -13,6 +14,11 @@ import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatLabel, platformLabel, usageLabel } from "@/lib/licensing/hub";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "UGC brief",
+  description: "Brief, applications, and deliveries.",
+};
 
 export default async function BrandUgcDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();

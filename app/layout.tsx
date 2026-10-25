@@ -32,12 +32,18 @@ export const metadata: Metadata = {
     template: "%s · fweta",
   },
   description: "fweta workspace for campaigns, bookings, and payouts for African creators.",
+  applicationName: "fweta",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://app.fweta.com"),
   openGraph: {
     title: "fweta",
     description: "Campaigns, bookings, and payouts for African creators.",
     siteName: "fweta",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "fweta",
+    description: "Campaigns, bookings, and payouts for African creators.",
   },
   appleWebApp: {
     capable: true,

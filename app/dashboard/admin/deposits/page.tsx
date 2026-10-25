@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { DepositReviewButtons } from "@/components/forms/deposit-review-buttons";
@@ -5,6 +6,11 @@ import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Deposits",
+  description: "Confirm brand transfers into the wallet.",
+};
 
 export default async function AdminDepositsPage() {
   const session = await getSession();

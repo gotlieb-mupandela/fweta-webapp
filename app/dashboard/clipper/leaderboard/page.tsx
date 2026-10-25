@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { ensureReferralCodeAction } from "@/app/actions/growth";
@@ -16,6 +17,11 @@ import {
 } from "@/lib/marketplace/growth";
 import { publicHandle } from "@/lib/rewards/content-rewards";
 import { formatMoney, formatNumber } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Leaderboard",
+  description: "Checked views from this week.",
+};
 
 export default async function ClipperLeaderboardPage() {
   const session = await getSession();

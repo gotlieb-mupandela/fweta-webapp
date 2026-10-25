@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AdminViewForm, BulkViewForm, ConfirmViewForm, ViewCheckNotice } from "@/components/forms/view-check-forms";
@@ -14,6 +15,11 @@ import {
   remainingBudgetCents,
 } from "@/lib/rewards/content-rewards";
 import { formatMoney, formatNumber } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "View checks",
+  description: "Record view counts for approved clips.",
+};
 
 export default async function AdminViewChecksPage() {
   const session = await getSession();

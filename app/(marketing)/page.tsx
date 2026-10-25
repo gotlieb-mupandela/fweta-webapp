@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getSession } from "@/lib/auth/session";
 
-/** App entry — marketing lives on fweta.com; this product starts at auth. */
+export const metadata: Metadata = {
+  title: { absolute: "fweta" },
+  description: "fweta workspace for campaigns, bookings, and payouts for African creators.",
+};
+
+/** App entry. Marketing lives on fweta.com. This product starts at auth. */
 export default async function RootPage() {
   let session = null;
   try {

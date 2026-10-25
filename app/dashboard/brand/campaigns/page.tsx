@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -7,6 +8,11 @@ import { Button } from "@/components/ui/button";
 import { campaignClipperVisibility } from "@/lib/campaigns/visibility";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Campaigns",
+  description: "Campaigns you have created.",
+};
 
 export default async function BrandCampaignsPage() {
   const session = await getSession();

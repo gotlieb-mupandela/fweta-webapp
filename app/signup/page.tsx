@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
+
 import { SignupForm } from "@/components/auth/signup-form";
+
+export const metadata: Metadata = {
+  title: "Create account",
+  description: "Create a fweta account for campaigns, bookings, and payouts.",
+};
 
 // Read ?role= on the server. useSearchParams() in the client form made Next
 // prerender a client-only shell, which production showed as "Loading…" or

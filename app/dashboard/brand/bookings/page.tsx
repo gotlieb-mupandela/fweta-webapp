@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -8,6 +9,11 @@ import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Bookings",
+  description: "Influencer bookings for your brand.",
+};
 
 export default async function BrandBookingsPage() {
   const session = await getSession();

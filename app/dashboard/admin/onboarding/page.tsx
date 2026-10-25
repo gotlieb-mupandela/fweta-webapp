@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,11 @@ import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { PLATFORM_LABEL, summarizeOnboarding, type OnboardingGate } from "@/lib/onboarding/model";
+
+export const metadata: Metadata = {
+  title: "Onboarding",
+  description: "See who is still setting up an account.",
+};
 
 const TONE: Record<OnboardingGate, "neutral" | "gold" | "success" | "muted"> = {
   legacy: "muted",

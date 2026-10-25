@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
+
 import { LoginForm } from "@/components/auth/login-form";
 import { seedDemoAccounts } from "@/lib/auth/session";
+
+export const metadata: Metadata = {
+  title: "Sign in",
+  description: "Sign in to your fweta workspace.",
+};
 
 export const dynamic = "force-dynamic";
 

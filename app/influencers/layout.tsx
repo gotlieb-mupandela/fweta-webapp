@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Influencers",
+  title: { default: "Influencers", template: "%s · fweta" },
   description: "Browse fweta creator profiles and book at the rates they publish.",
   openGraph: {
     title: "Influencers · fweta",

@@ -1,6 +1,30 @@
 "use client";
 
 import { useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { Karla, Newsreader } from "next/font/google";
+
+import { TryAgain } from "@/components/errors/try-again";
+import { Button } from "@/components/ui/button";
+
+import "./globals.css";
+
+const karla = Karla({
+  variable: "--font-karla",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  adjustFontFallback: false,
+});
+
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  style: ["normal", "italic"],
+  adjustFontFallback: false,
+});
 
 export default function GlobalError({
   error,
@@ -10,7 +34,6 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[fweta] global error:", error);
     void fetch("/api/observability", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -23,50 +46,38 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html lang="en">
+    <html lang="en" className={`${karla.variable} ${newsreader.variable} h-full`}>
+      <title>Something went wrong · Fweta</title>
       <body
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "1.5rem",
-          textAlign: "center",
-          background: "#f4f3ef",
-          color: "#12110f",
-          fontFamily: "system-ui, sans-serif",
-        }}
+        className={`${karla.className} flex min-h-full flex-col bg-background text-foreground antialiased`}
       >
-        <h1 style={{ fontSize: "1.875rem", fontWeight: 500, letterSpacing: "-0.03em" }}>
-          Something went wrong
-        </h1>
-        <p style={{ marginTop: "0.75rem", maxWidth: "28rem", fontSize: "0.875rem", opacity: 0.7 }}>
-          The app hit an unexpected error. Your data is safe. Try again.
-        </p>
-        {error.digest ? (
-          <p style={{ marginTop: "0.5rem", fontSize: "0.75rem", opacity: 0.55 }}>
-            Error ID: {error.digest}
+        <div className="bg-atmosphere flex min-h-dvh flex-col items-center justify-center px-6 text-center">
+          <Link href="/" className="inline-flex items-center gap-2" aria-label="fweta">
+            <Image
+              src="/brand/fweta-mark.png"
+              alt=""
+              width={29}
+              height={32}
+              className="shrink-0 object-contain"
+              aria-hidden
+            />
+            <span className="text-[1.05rem] font-semibold tracking-tight text-foreground">fweta</span>
+          </Link>
+          <h1 className="mt-6 font-display text-3xl tracking-tight text-foreground md:text-4xl">
+            Something went wrong
+          </h1>
+          <p className="mt-3 max-w-md text-sm leading-relaxed text-muted">
+            Fweta hit an unexpected error. Try again, or go back home.
           </p>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => reset()}
-          style={{
-            marginTop: "1.5rem",
-            borderRadius: "1rem",
-            background: "#12110f",
-            color: "#fff",
-            padding: "0.65rem 1.25rem",
-            fontSize: "0.875rem",
-            fontWeight: 500,
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          Try again
-        </button>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <TryAgain reset={reset} />
+            <Link href="/">
+              <Button variant="secondary">Back home</Button>
+            </Link>
+          </div>
+        </div>
       </body>
     </html>
   );
 }
+
