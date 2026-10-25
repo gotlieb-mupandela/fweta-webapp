@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { getPublicInfluencer } from "@/app/actions/influencer";
+import { getPublicInfluencer } from "@/lib/influencer/discover";
 import { BookingRequestForm } from "@/components/forms/booking-request-form";
 import { PublicChrome } from "@/components/public-chrome";
 import { Card, PageHeader } from "@/components/ui/card";
