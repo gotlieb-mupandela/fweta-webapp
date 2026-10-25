@@ -16,6 +16,7 @@ export function BrandDepositForm() {
   return (
     <form
       className="max-w-md space-y-4"
+      noValidate
       onSubmit={(e) => {
         e.preventDefault();
         const form = e.currentTarget;
@@ -31,6 +32,7 @@ export function BrandDepositForm() {
           const res = await brandDepositAction(
             Math.round(amount * 100),
             String(fd.get("note") || "") || undefined,
+            String(fd.get("bankReference") || ""),
           );
           if (!res.ok) setError(res.error);
           else {
@@ -46,8 +48,19 @@ export function BrandDepositForm() {
         <Input id="amount" name="amount" type="number" step="0.01" min="0.01" required placeholder="1000.00" />
       </div>
       <div>
+        <Label htmlFor="bankReference">Bank reference</Label>
+        <Input
+          id="bankReference"
+          name="bankReference"
+          required
+          maxLength={64}
+          autoComplete="off"
+          placeholder="As it appears on the EFT"
+        />
+      </div>
+      <div>
         <Label htmlFor="note">Note (optional)</Label>
-        <Textarea id="note" name="note" placeholder="EFT reference or memo" />
+        <Textarea id="note" name="note" placeholder="Memo for the admin" />
       </div>
       <FieldError>{error}</FieldError>
       <FieldSuccess>{success}</FieldSuccess>

@@ -14,8 +14,10 @@ import {
 import type { PayoutMethod, WithdrawalRequest } from "@/lib/db/types";
 import { adjustWallet, applyWalletDelta, getWallet } from "@/lib/wallet/ledger";
 import { payoutMethodSchema } from "@/lib/validations/payout-method";
+import { brandDepositFileSchema } from "@/lib/validations/accounts";
 import { kycSchema, withdrawalSchema } from "@/lib/validations/withdrawal";
 import { nadToCents } from "@/lib/money/cents";
+import { confirmPendingPayIn, rejectPendingPayIn } from "@/lib/wallet/brand-deposit";
 import { maskAccountNumber } from "@/lib/utils";
 
 const MIN_WITHDRAWAL_CENTS = 10000; // N$100
@@ -285,12 +287,19 @@ export async function rejectWithdrawalAction(id: string, note?: string) {
   return { ok: true as const };
 }
 
-export async function brandDepositAction(amountCents: number, note?: string) {
+export async function brandDepositAction(amountCents: number, note?: string, bankReference?: string) {
   const session = await requireSession();
   if (!session.roles.includes("brand")) return { ok: false as const, error: "Brand only." };
   const cents = nadToCents(amountCents / 100);
   if (cents == null || cents !== amountCents) {
     return { ok: false as const, error: "Enter a valid amount in NAD." };
+  }
+  const parsed = brandDepositFileSchema.safeParse({ bankReference });
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Enter the bank reference from your EFT.",
+    };
   }
 
   const id = newId();
@@ -302,7 +311,7 @@ export async function brandDepositAction(amountCents: number, note?: string) {
         amountCents: cents,
         note: note?.trim() || "Manual EFT deposit",
         status: "pending",
-        bankReference: null,
+        bankReference: parsed.data.bankReference,
         confirmedBy: null,
         confirmedAt: null,
         createdAt: nowIso(),
@@ -314,6 +323,7 @@ export async function brandDepositAction(amountCents: number, note?: string) {
 
   revalidatePath("/dashboard/brand/deposits");
   revalidatePath("/dashboard/admin/deposits");
+  revalidatePath("/dashboard/admin/payins");
   return { ok: true as const, id };
 }
 
@@ -321,37 +331,28 @@ export async function confirmBrandDepositAction(id: string, bankReference?: stri
   const session = await requireSession();
   if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
 
-  const store = await readStore();
-  const deposit = store.brandDeposits.find((item) => item.id === id);
-  if (!deposit) return { ok: false as const, error: "Deposit not found." };
-  if (deposit.status === "credited") return { ok: false as const, error: "This deposit is already credited." };
-  if (deposit.status === "rejected") return { ok: false as const, error: "This deposit was rejected." };
-
-  const reference = bankReference?.trim() || null;
+  let brandId = "";
   try {
     await updateStore((s) => {
-      const row = s.brandDeposits.find((item) => item.id === id);
-      if (!row || row.status !== "pending") throw new Error("Deposit is no longer pending.");
-      applyWalletDelta(s, {
-        userId: row.brandId,
-        availableDelta: row.amountCents,
-        type: "credit",
-        reason: `EFT deposit confirmed${row.note ? `: ${row.note}` : ""} (confirmed by ${session.email})`,
-        referenceType: "brand_deposit",
-        referenceId: row.id,
+      const row = confirmPendingPayIn(s, {
+        depositId: id,
+        actorId: session.id,
+        actorRoles: session.roles,
+        bankReference,
+        now: nowIso(),
+        reason: (pending) =>
+          `EFT deposit confirmed${pending.note ? `: ${pending.note}` : ""} (confirmed by ${session.email})`,
       });
-      row.status = "credited";
-      row.bankReference = reference;
-      row.confirmedBy = session.id;
-      row.confirmedAt = nowIso();
+      brandId = row.brandId;
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Could not confirm the deposit." };
   }
 
   revalidatePath("/dashboard/admin/deposits");
+  revalidatePath("/dashboard/admin/payins");
   revalidatePath("/dashboard/admin");
-  revalidatePath(`/dashboard/admin/users/${deposit.brandId}`);
+  revalidatePath(`/dashboard/admin/users/${brandId}`);
   revalidatePath("/dashboard/brand/deposits");
   revalidatePath("/dashboard/brand");
   revalidatePath("/dashboard/settings/wallet");
@@ -364,19 +365,20 @@ export async function rejectBrandDepositAction(id: string, note?: string) {
 
   try {
     await updateStore((s) => {
-      const row = s.brandDeposits.find((item) => item.id === id);
-      if (!row) throw new Error("Deposit not found.");
-      if (row.status !== "pending") throw new Error("Only a pending deposit can be rejected.");
-      row.status = "rejected";
-      row.confirmedBy = session.id;
-      row.confirmedAt = nowIso();
-      if (note?.trim()) row.note = note.trim();
+      rejectPendingPayIn(s, {
+        depositId: id,
+        actorId: session.id,
+        actorRoles: session.roles,
+        note,
+        now: nowIso(),
+      });
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Could not reject the deposit." };
   }
 
   revalidatePath("/dashboard/admin/deposits");
+  revalidatePath("/dashboard/admin/payins");
   revalidatePath("/dashboard/brand/deposits");
   return { ok: true as const };
 }

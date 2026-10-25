@@ -6,6 +6,7 @@ import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
+import { payInRowView } from "@/lib/wallet/brand-deposit";
 
 export default async function AdminPayinsPage() {
   const session = await getSession();
@@ -34,17 +35,21 @@ export default async function AdminPayinsPage() {
         <ul className="space-y-2.5">
           {deposits.map((deposit) => {
             const brand = store.profiles.find((profile) => profile.id === deposit.brandId);
+            const view = payInRowView(deposit);
+            const tone =
+              deposit.status === "credited" ? "success" : deposit.status === "pending" ? "gold" : "danger";
             return (
               <li key={deposit.id} className="list-row items-start">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium">{formatMoney(deposit.amountCents)}</p>
+                  <p className="font-medium">{formatMoney(view.amountCents)}</p>
                   <p className="text-sm text-muted">{brand?.displayName ?? brand?.email ?? "Brand"}</p>
-                  <p className="text-xs text-muted">{deposit.note}</p>
+                  <p className="text-xs text-muted">{view.note}</p>
+                  {view.reference ? (
+                    <p className="text-xs text-muted">Reference {view.reference}</p>
+                  ) : null}
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <Badge tone={deposit.status === "credited" ? "success" : "gold"}>
-                    {deposit.status === "credited" ? "Confirmed" : "Waiting"}
-                  </Badge>
+                  <Badge tone={tone}>{view.statusLabel}</Badge>
                   {deposit.status === "pending" ? <ConfirmPayInButton depositId={deposit.id} /> : null}
                 </div>
               </li>

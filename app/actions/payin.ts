@@ -6,7 +6,7 @@ import { requireSession } from "@/lib/auth/session";
 import { newId, nowIso, updateStore } from "@/lib/db/store";
 import { payInRequestSchema } from "@/lib/validations/accounts";
 import { pushAudit } from "@/lib/marketplace/audit";
-import { applyWalletDelta } from "@/lib/wallet/ledger";
+import { confirmPendingPayIn } from "@/lib/wallet/brand-deposit";
 
 function revalidatePayins() {
   revalidatePath("/dashboard/brand/deposits");
@@ -45,21 +45,13 @@ export async function confirmPayInAction(depositId: string) {
 
   try {
     await updateStore((store) => {
-      const deposit = store.brandDeposits.find((item) => item.id === depositId);
-      if (!deposit) throw new Error("Pay-in not found.");
-      if (deposit.status === "credited") throw new Error("That pay-in is already confirmed.");
-      const now = nowIso();
-      applyWalletDelta(store, {
-        userId: deposit.brandId,
-        availableDelta: deposit.amountCents,
-        type: "credit",
+      const deposit = confirmPendingPayIn(store, {
+        depositId,
+        actorId: session.id,
+        actorRoles: session.roles,
+        now: nowIso(),
         reason: "Brand pay-in confirmed",
-        referenceType: "brand_deposit",
-        referenceId: deposit.id,
       });
-      deposit.status = "credited";
-      deposit.confirmedAt = now;
-      deposit.confirmedBy = session.id;
       pushAudit(store, {
         actorId: session.id,
         action: "payin.confirm",

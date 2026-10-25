@@ -392,8 +392,8 @@ export type BrandDeposit = {
   brandId: string;
   amountCents: number;
   note: string;
-  status: "pending" | "credited" | "rejected";
-  /** EFT reference entered when an admin confirms the transfer. */
+  status: "pending" | "credited" | "rejected" | "cancelled" | "expired";
+  /** EFT reference the brand enters when filing. Older rows may be null. */
   bankReference: string | null;
   confirmedBy: string | null;
   confirmedAt: string | null;
