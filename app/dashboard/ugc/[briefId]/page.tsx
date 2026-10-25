@@ -6,6 +6,7 @@ import { Badge, Card, PageHeader, SectionHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatLabel, platformLabel, usageLabel } from "@/lib/licensing/hub";
+import { visibleUgcBrief } from "@/lib/ugc/brief-access";
 import { formatMoney } from "@/lib/utils";
 
 export default async function CreatorUgcDetailPage({ params }: { params: Promise<{ briefId: string }> }) {
@@ -15,7 +16,7 @@ export default async function CreatorUgcDetailPage({ params }: { params: Promise
   if (!creator) redirect("/dashboard");
   const { briefId } = await params;
   const store = await readStore();
-  const brief = store.ugcBriefs.find((item) => item.id === briefId);
+  const brief = visibleUgcBrief(store.ugcBriefs, store.ugcApplications, briefId, session);
   if (!brief) notFound();
   const application = store.ugcApplications.find((item) => item.briefId === brief.id && item.creatorId === session.id && item.status !== "withdrawn" && item.status !== "declined");
   const deliveries = store.ugcDeliveries.filter((item) => item.applicationId === application?.id);
