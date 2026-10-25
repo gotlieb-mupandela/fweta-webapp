@@ -274,6 +274,10 @@ export type ViewSnapshot = {
   recordedAt: string;
   /** Admin who confirmed the count. Null while a creator report is waiting. */
   checkedBy: string | null;
+  /** Email of the admin who entered the count. Missing on older rows. */
+  actorEmail?: string | null;
+  /** View total before this count. Missing on older rows. */
+  previousViews?: number | null;
   /** `job` is a background poll. Older rows may omit this and still mean a poll. */
   source: "admin" | "bulk" | "creator" | "job";
   status: "confirmed" | "pending" | "replaced";

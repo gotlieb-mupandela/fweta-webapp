@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { ViewSnapshot } from "@/lib/db/types";
+import { settlementInstant, settleRewardsInStore } from "@/lib/rewards/settle-job";
 import { fetchVideoViewsFromApify, isApifyConfigured } from "@/lib/social/apify";
-import { creditSubmissionEarnings } from "@/lib/campaigns/earnings";
 
 function confirmedSnapshot(submissionId: string, views: number, at: string, source: ViewSnapshot["source"]): ViewSnapshot {
   return {
@@ -24,7 +24,7 @@ function confirmedSnapshot(submissionId: string, views: number, at: string, sour
 }
 
 /**
- * Phase 7 automation — callable via /api/jobs/poll-views or cron.
+ * Phase 7 automation, callable via /api/jobs/poll-views or cron.
  * Uses Apify when APIFY_API_TOKEN is set; otherwise simulates view growth.
  */
 export async function pollSubmissionViewsJob() {
@@ -40,6 +40,7 @@ export async function pollSubmissionViewsJob() {
       const campaign = store.campaigns.find((c) => c.id === submission.campaignId);
       if (!campaign || campaign.status !== "active") continue;
       if (campaign.budgetSpentCents >= campaign.budgetTotalCents) continue;
+      if (submission.payoutState === "clawed_back" || submission.fraudState === "upheld") continue;
 
       let newViews: number;
       if (useApify) {
@@ -68,7 +69,7 @@ export async function pollSubmissionViewsJob() {
   }
 
   // Phase 2: single atomic write for all view updates (was N sequential writes,
-  // each triggering a full Supabase save — slow and timeout-prone).
+  // each triggering a full Supabase save, which was slow and timeout-prone).
   let updated = 0;
   if (pending.size > 0) {
     const at = nowIso();
@@ -95,30 +96,32 @@ export async function pollSubmissionViewsJob() {
   };
 }
 
-export async function recalculateEarningsJob() {
-  const store = await readStore();
-  const ids = store.submissions.filter((s) => s.status === "approved").map((s) => s.id);
-  let credited = 0;
-
-  // Single write per submission (was two: wallet then record). Math is
-  // recomputed inside the transaction from current budget so concurrent
-  // runs can't overspend the campaign.
-  for (const id of ids) {
-    let delta = 0;
-    try {
-      await updateStore((s) => {
-        delta = creditSubmissionEarnings(s, id);
-      });
-    } catch {
-      // One bad submission (e.g. wallet invariant) skips; rest still credit.
-      continue;
-    }
-    credited += delta;
+function revalidateEarningsPaths() {
+  try {
+    revalidatePath("/dashboard/clipper");
+    revalidatePath("/dashboard/brand");
+  } catch {
+    // revalidatePath is a no-op outside a Next request.
   }
+}
 
-  revalidatePath("/dashboard/clipper");
-  revalidatePath("/dashboard/brand");
-  return { creditedCents: credited };
+export async function recalculateEarningsJob(asOf?: string) {
+  const nowMs = settlementInstant(asOf);
+  let totals = { reservedCents: 0, releasedCents: 0, clawedCents: 0 };
+
+  // One write for every clip. The status check and the wallet write share
+  // this callback, so a second run sees the first run's balances.
+  await updateStore((store) => {
+    totals = settleRewardsInStore(store, nowMs);
+  });
+
+  revalidateEarningsPaths();
+  return {
+    reservedCents: totals.reservedCents,
+    releasedCents: totals.releasedCents,
+    clawedCents: totals.clawedCents,
+    creditedCents: totals.reservedCents,
+  };
 }
 
 export async function budgetAlertsJob() {
@@ -135,14 +138,7 @@ export async function budgetAlertsJob() {
   return { alerts };
 }
 
-/** Manual view credits already happen when an admin saves a count. This job repeats that math. */
+/** Close ended campaigns, accrue from confirmed views, and release holds that are due. */
 export async function settleRewardsJob(asOf?: string) {
-  void asOf;
-  const result = await recalculateEarningsJob();
-  return {
-    reservedCents: 0,
-    releasedCents: result.creditedCents,
-    clawedCents: 0,
-    creditedCents: result.creditedCents,
-  };
+  return recalculateEarningsJob(asOf);
 }
