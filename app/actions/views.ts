@@ -5,9 +5,9 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/session";
 import { newId, nowIso, updateStore } from "@/lib/db/store";
 import type { DatabaseStore, Submission, ViewSnapshot } from "@/lib/db/types";
-import { pushAudit } from "@/lib/marketplace/audit";
 import { applyFraudScore } from "@/lib/rewards/fraud";
 import { applyConfirmedViews } from "@/lib/rewards/earnings";
+import { saveAdminViewForActor } from "@/lib/rewards/view-entry";
 import { recordViewsSchema } from "@/lib/validations/accounts";
 import { bulkViewsSchema, confirmViewSchema, manualViewsSchema, viewCountSchema, type ViewCountInput } from "@/lib/validations/views";
 import { saveViewScreenshot } from "@/lib/views/screenshots";
@@ -55,12 +55,14 @@ function commitConfirmed(
   input: ViewCountInput,
   source: ViewSnapshot["source"],
   checkedBy: string,
+  actorEmail: string | null,
   screenshotPath: string | null,
   nowMs: number,
 ): Saved {
   const campaign = store.campaigns.find((item) => item.id === submission.campaignId);
   if (!campaign) throw new Error("Campaign missing.");
   const at = new Date(nowMs).toISOString();
+  const previousViews = submission.views;
   for (const snap of store.viewSnapshots) {
     if (snap.submissionId === submission.id && snap.status === "pending") snap.status = "replaced";
   }
@@ -74,6 +76,8 @@ function commitConfirmed(
     screenshotPath,
     recordedAt: at,
     checkedBy,
+    actorEmail,
+    previousViews,
     source,
     status: "confirmed",
   });
@@ -119,29 +123,28 @@ export async function saveAdminViewAction(formData: FormData) {
   }
 
   const nowMs = Date.now();
-  let saved: Saved = { campaignId: "", stopped: false };
+  const saved = await saveAdminViewForActor(
+    session,
+    {
+      submissionId: parsed.data.submissionId,
+      views: parsed.data.views,
+      likes: parsed.data.likes,
+      comments: parsed.data.comments,
+      note: parsed.data.note,
+      screenshotPath,
+    },
+    nowMs,
+  );
+  if (!saved.ok) return saved;
   try {
-    await updateStore((store) => {
-      const submission = assertApproved(store.submissions.find((item) => item.id === parsed.data.submissionId));
-      saved = commitConfirmed(store, submission, parsed.data, "admin", session.id, screenshotPath, nowMs);
-      pushAudit(store, {
-        actorId: session.id,
-        action: "views.save",
-        summary: `Saved ${parsed.data.views} views`,
-        targetType: "submission",
-        targetId: parsed.data.submissionId,
-      });
-    });
-  } catch (e) {
-    return { ok: false as const, error: e instanceof Error ? e.message : "Could not save the count." };
+    revalidateViewSurfaces(saved.campaignId ? [saved.campaignId] : []);
+  } catch {
+    // revalidatePath is a no-op outside a Next request.
   }
-  revalidateViewSurfaces(saved.campaignId ? [saved.campaignId] : []);
   return {
     ok: true as const,
     stopped: saved.stopped,
-    message: saved.stopped
-      ? "Count saved. Earnings updated, and the campaign stopped because the budget ran out."
-      : "Count saved. Earnings, wallet, budget, and leaderboard are updated.",
+    message: saved.message,
   };
 }
 
@@ -167,7 +170,7 @@ export async function saveBulkViewsAction(raw: unknown) {
         submission: assertApproved(store.submissions.find((item) => item.id === entry.submissionId)),
       }));
       for (const item of ready) {
-        const result = commitConfirmed(store, item.submission, item.entry, "bulk", session.id, null, nowMs);
+        const result = commitConfirmed(store, item.submission, item.entry, "bulk", session.id, session.email, null, nowMs);
         campaignIds.add(result.campaignId);
         if (result.stopped) stopped += 1;
       }
@@ -285,12 +288,14 @@ export async function confirmCreatorViewAction(formData: FormData) {
           other.status = "replaced";
         }
       }
+      snap.previousViews = submission.views;
       snap.views = parsed.data.views;
       snap.likes = parsed.data.likes ?? null;
       snap.comments = parsed.data.comments ?? null;
       snap.note = parsed.data.note?.trim() ? parsed.data.note.trim() : snap.note;
       snap.status = "confirmed";
       snap.checkedBy = session.id;
+      snap.actorEmail = session.email;
       snap.recordedAt = new Date(nowMs).toISOString();
       applyConfirmedViews(
         store,
@@ -341,6 +346,7 @@ export async function recordSubmissionViewsAction(raw: unknown) {
       campaignId = submission.campaignId;
       const nowMs = Date.now();
       const at = new Date(nowMs).toISOString();
+      const previousViews = submission.views;
       for (const snap of store.viewSnapshots) {
         if (snap.submissionId === submission.id && snap.status === "pending") snap.status = "replaced";
       }
@@ -354,6 +360,8 @@ export async function recordSubmissionViewsAction(raw: unknown) {
         screenshotPath: null,
         recordedAt: at,
         checkedBy: session.id,
+        actorEmail: session.email,
+        previousViews,
         source: "admin",
         status: "confirmed",
       });
@@ -397,7 +405,7 @@ export async function setManualViewsAction(raw: unknown) {
       }
       campaignId = submission.campaignId;
       if (parsed.data.views === submission.views) return;
-      commitConfirmed(store, submission, parsed.data, "admin", session.id, null, nowMs);
+      commitConfirmed(store, submission, parsed.data, "admin", session.id, session.email, null, nowMs);
     });
   } catch (err) {
     return { ok: false as const, error: err instanceof Error ? err.message : "Could not save the count." };

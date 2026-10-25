@@ -247,6 +247,17 @@ export function clawbackSubmission(
   return recovered;
 }
 
+/** Fraud upheld: return unsettled money once and set a status settle will not pay. */
+export function forfeitUpheldSubmission(store: DatabaseStore, submissionId: string, nowMs: number): number {
+  const sub = store.submissions.find((item) => item.id === submissionId);
+  if (!sub) return 0;
+  sub.fraudState = "upheld";
+  const recovered = clawbackSubmission(store, sub.id, nowMs, "Review upheld. This clip was forfeited.");
+  if (sub.status !== "rejected") sub.status = "rejected";
+  sub.updatedAt = atIso(nowMs);
+  return recovered;
+}
+
 function releaseReserved(store: DatabaseStore, sub: Submission, camp: Campaign, nowMs: number): number {
   const amount = sub.reservedCents;
   const at = atIso(nowMs);
@@ -281,15 +292,17 @@ export function settleSubmission(
 ): SettleResult {
   const result: SettleResult = { reserved: 0, released: 0, clawed: 0 };
   const sub = store.submissions.find((s) => s.id === submissionId);
-  if (!sub || sub.status !== "approved") return result;
-  if (sub.payoutState === "released" || sub.payoutState === "clawed_back") return result;
-  const camp = store.campaigns.find((c) => c.id === sub.campaignId);
-  if (!camp) return result;
-
-  if (sub.fraudState === "upheld") {
-    result.clawed = clawbackSubmission(store, sub.id, nowMs, "Review upheld. This clip was forfeited.");
+  if (!sub) return result;
+  // Clawed-back, fraud-upheld, and any non-approved status are terminal: never credit again.
+  if (sub.payoutState === "clawed_back" || sub.fraudState === "upheld" || sub.status !== "approved") {
+    if (sub.fraudState === "upheld" && sub.payoutState !== "clawed_back" && sub.reservedCents > 0) {
+      result.clawed = clawbackSubmission(store, sub.id, nowMs, "Review upheld. This clip was forfeited.");
+    }
     return result;
   }
+  if (sub.payoutState === "released") return result;
+  const camp = store.campaigns.find((c) => c.id === sub.campaignId);
+  if (!camp) return result;
 
   const ended = campaignEnded(camp, nowMs) || camp.status === "completed" || camp.status === "paused";
   const earningUntilMs = sub.earningUntil ? Date.parse(sub.earningUntil) : null;

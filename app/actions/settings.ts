@@ -10,7 +10,7 @@ import {
 } from "@/lib/auth/session";
 import { nowIso, readStore, updateStore } from "@/lib/db/store";
 import { pushAudit } from "@/lib/marketplace/audit";
-import { clawbackSubmission } from "@/lib/rewards/earnings";
+import { forfeitUpheldSubmission } from "@/lib/rewards/earnings";
 import { clientIp } from "@/lib/security/client-ip";
 import { rateLimit } from "@/lib/security/rate-limit";
 import {
@@ -218,8 +218,7 @@ export async function resolveFraudFlag(id: string, status: "resolved" | "dismiss
       sub.updatedAt = f.resolvedAt;
       return;
     }
-    sub.fraudState = "upheld";
-    clawbackSubmission(s, sub.id, Date.now(), "Review upheld. This clip was forfeited.");
+    forfeitUpheldSubmission(s, sub.id, Date.now());
   });
   revalidatePath("/dashboard/admin/fraud");
   return { ok: true as const };

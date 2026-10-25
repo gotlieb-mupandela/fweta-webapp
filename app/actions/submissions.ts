@@ -3,29 +3,13 @@
 import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
-import { creditSubmissionEarnings } from "@/lib/campaigns/earnings";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
-import type { ViewSnapshot } from "@/lib/db/types";
 import { hydrateSubmission } from "@/lib/rewards/content-rewards";
 import { recordAppeal } from "@/lib/rewards/fraud";
+import { reviewSubmissionForActor } from "@/lib/rewards/review-submission";
+import { recordCheckedViewsForActor } from "@/lib/rewards/view-entry";
 import { bioContainsCode, localBioConfirmAllowed, observeBio } from "@/lib/social/observe";
-import { fraudAppealSchema, linkAccountSchema, manualViewsSchema, submissionReviewSchema, submissionSchema, verifyAccountSchema } from "@/lib/validations/submission";
-
-function confirmedSnapshot(submissionId: string, views: number, at: string, source: ViewSnapshot["source"]): ViewSnapshot {
-  return {
-    id: newId(),
-    submissionId,
-    views,
-    likes: null,
-    comments: null,
-    note: null,
-    screenshotPath: null,
-    recordedAt: at,
-    checkedBy: null,
-    source,
-    status: "confirmed",
-  };
-}
+import { fraudAppealSchema, linkAccountSchema, submissionSchema, verifyAccountSchema } from "@/lib/validations/submission";
 
 function makeBioCode(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -46,14 +30,21 @@ function normalizePostUrl(url: string): string {
 }
 
 function revalidateClipperSurfaces(campaignId?: string) {
-  revalidatePath("/dashboard/clipper");
-  revalidatePath("/dashboard/clipper/campaigns");
-  revalidatePath("/dashboard/clipper/submissions");
-  revalidatePath("/dashboard/clipper/earnings");
-  revalidatePath("/campaigns");
+  const paths = [
+    "/dashboard/clipper",
+    "/dashboard/clipper/campaigns",
+    "/dashboard/clipper/submissions",
+    "/dashboard/clipper/earnings",
+    "/campaigns",
+  ];
   if (campaignId) {
-    revalidatePath(`/campaigns/${campaignId}`);
-    revalidatePath(`/dashboard/brand/campaigns/${campaignId}/submissions`);
+    paths.push(`/campaigns/${campaignId}`);
+    paths.push(`/dashboard/brand/campaigns/${campaignId}/submissions`);
+  }
+  try {
+    for (const path of paths) revalidatePath(path);
+  } catch {
+    // revalidatePath is a no-op outside a Next request.
   }
 }
 
@@ -148,84 +139,25 @@ export async function submitClipAction(raw: unknown) {
 
 export async function reviewSubmissionAction(id: string, raw: unknown) {
   const session = await requireSession();
-  const parsed = submissionReviewSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Invalid review." };
-
+  const result = await reviewSubmissionForActor(session, id, raw);
+  if (!result.ok) return result;
   const store = await readStore();
-  const submission = store.submissions.find((s) => s.id === id);
-  if (!submission) return { ok: false as const, error: "Not found." };
-  const campaign = store.campaigns.find((c) => c.id === submission.campaignId);
-  if (!campaign) return { ok: false as const, error: "Campaign missing." };
-  if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
-    return { ok: false as const, error: "Not allowed." };
-  }
-
-  await updateStore((s) => {
-    const sub = s.submissions.find((x) => x.id === id);
-    if (!sub) return;
-    sub.status = parsed.data.status;
-    sub.reviewNote = parsed.data.reviewNote ?? null;
-    sub.updatedAt = nowIso();
-    if (parsed.data.status === "approved" && parsed.data.views != null) {
-      sub.views = parsed.data.views;
-      s.viewSnapshots.push(confirmedSnapshot(sub.id, parsed.data.views, nowIso(), "admin"));
-      creditSubmissionEarnings(s, sub.id);
-    }
-    if (parsed.data.status === "flagged") {
-      s.fraudFlags.push({
-        id: newId(),
-        submissionId: id,
-        reason: parsed.data.reviewNote || "Flagged by brand",
-        status: "open",
-        kind: "manual",
-        score: null,
-        appealNote: null,
-        createdAt: nowIso(),
-        resolvedAt: null,
-      });
-    }
-  });
-
-  revalidatePath(`/dashboard/brand/campaigns/${campaign.id}/submissions`);
-  revalidateClipperSurfaces(campaign.id);
-  return { ok: true as const };
+  const submission = store.submissions.find((item) => item.id === id);
+  if (submission) revalidateClipperSurfaces(submission.campaignId);
+  return result;
 }
 
 export async function recordCheckedViewsAction(raw: unknown) {
   const session = await requireSession();
-  const parsed = manualViewsSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Enter a whole view count." };
-
-  const store = await readStore();
-  const submission = store.submissions.find((item) => item.id === parsed.data.submissionId);
-  if (!submission) return { ok: false as const, error: "Not found." };
-  const campaign = store.campaigns.find((item) => item.id === submission.campaignId);
-  if (!campaign) return { ok: false as const, error: "Campaign missing." };
-  if (campaign.brandId !== session.id && !session.roles.includes("admin")) {
-    return { ok: false as const, error: "Not allowed." };
-  }
-  if (submission.status !== "approved") {
-    return { ok: false as const, error: "Approve the clip before recording views." };
-  }
-
-  let credited = 0;
+  const result = await recordCheckedViewsForActor(session, raw);
+  if (!result.ok) return result;
+  revalidateClipperSurfaces(result.campaignId);
   try {
-    await updateStore((s) => {
-      const sub = s.submissions.find((item) => item.id === parsed.data.submissionId);
-      if (!sub || sub.status !== "approved") throw new Error("Approve the clip before recording views.");
-      sub.views = parsed.data.views;
-      sub.updatedAt = nowIso();
-      s.viewSnapshots.push(confirmedSnapshot(sub.id, parsed.data.views, nowIso(), "admin"));
-      credited = creditSubmissionEarnings(s, sub.id);
-    });
-  } catch (e) {
-    return { ok: false as const, error: e instanceof Error ? e.message : "Could not record views." };
+    revalidatePath("/leaderboard");
+  } catch {
+    // revalidatePath is a no-op outside a Next request.
   }
-
-  revalidateClipperSurfaces(campaign.id);
-  revalidatePath("/dashboard/clipper/earnings");
-  revalidatePath("/leaderboard");
-  return { ok: true as const, creditedCents: credited };
+  return { ok: true as const, creditedCents: result.creditedCents };
 }
 
 export async function listClipperSubmissions() {

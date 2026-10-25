@@ -7,61 +7,52 @@ import { reviewSubmissionAction } from "@/app/actions/submissions";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
 
-export function SubmissionReviewForm({ submissionId }: { submissionId: string }) {
+export function SubmissionReviewForm({
+  submissionId,
+  mode = "review",
+}: {
+  submissionId: string;
+  mode?: "review" | "reject";
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function review(status: "approved" | "rejected" | "flagged", note?: string, views?: number) {
+  function review(status: "approved" | "rejected" | "flagged", note?: string) {
     setError(null);
     startTransition(async () => {
-      const res = await reviewSubmissionAction(submissionId, { status, reviewNote: note, views });
+      const res = await reviewSubmissionAction(submissionId, { status, reviewNote: note });
       if (!res.ok) setError(res.error);
       else router.refresh();
     });
   }
 
+  if (mode === "reject") {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-xs text-muted">
+          Rejecting an approved clip returns unsettled earnings to the campaign budget.
+        </p>
+        <div>
+          <Button size="sm" variant="secondary" type="button" disabled={pending} onClick={() => review("rejected")}>
+            Reject
+          </Button>
+        </div>
+        <FieldError>{error}</FieldError>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2">
-      <form
-        className="flex flex-wrap items-end gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const fd = new FormData(e.currentTarget);
-          const raw = String(fd.get("views") || "").trim();
-          const views = raw === "" ? undefined : Number(raw);
-          if (views != null && (!Number.isInteger(views) || views < 0)) {
-            setError("Enter a whole view count.");
-            return;
-          }
-          review("approved", undefined, views);
-        }}
-      >
-        <div>
-          <Label htmlFor={`views-${submissionId}`}>Checked views</Label>
-          <Input
-            id={`views-${submissionId}`}
-            name="views"
-            type="number"
-            min={0}
-            step={1}
-            placeholder="0"
-            className="h-9 w-32"
-          />
-        </div>
-        <Button size="sm" variant="gold" type="submit" disabled={pending}>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="gold" type="button" disabled={pending} onClick={() => review("approved")}>
           Approve
         </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          type="button"
-          disabled={pending}
-          onClick={() => review("rejected")}
-        >
+        <Button size="sm" variant="secondary" type="button" disabled={pending} onClick={() => review("rejected")}>
           Reject
         </Button>
-      </form>
+      </div>
       <form
         className="flex flex-wrap items-end gap-2"
         onSubmit={(e) => {
@@ -74,12 +65,7 @@ export function SubmissionReviewForm({ submissionId }: { submissionId: string })
           <Label htmlFor={`flag-${submissionId}`} className="sr-only">
             Flag note
           </Label>
-          <Input
-            id={`flag-${submissionId}`}
-            name="note"
-            placeholder="Flag reason"
-            className="h-9 w-40"
-          />
+          <Input id={`flag-${submissionId}`} name="note" placeholder="Flag reason" className="h-9 w-40" />
         </div>
         <Button size="sm" variant="danger" type="submit" disabled={pending}>
           Flag
