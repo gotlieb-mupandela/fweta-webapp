@@ -13,7 +13,7 @@ import { needsOnboarding } from "@/lib/onboarding/steps";
 import { activeMemberships, pendingInvitesForEmail, workspaceName } from "@/lib/onboarding/workspaces";
 
 export const metadata: Metadata = {
-  title: "Dashboard",
+  title: { default: "Dashboard", template: "%s · fweta" },
   robots: { index: false, follow: false },
 };
 

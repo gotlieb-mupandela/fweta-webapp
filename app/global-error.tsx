@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { Component, useEffect, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Karla, Newsreader } from "next/font/google";
 
 import { Button } from "@/components/ui/button";
+import { recoverGlobalError } from "@/lib/errors/recover-global-error";
 
 import "./globals.css";
 
@@ -68,9 +70,7 @@ export default function GlobalError({
             fweta hit an unexpected error. Try again, or go back home.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <Button type="button" onClick={() => reset()}>
-              Try again
-            </Button>
+            <TryAgain reset={reset} />
             <Link href="/">
               <Button variant="secondary">Back home</Button>
             </Link>
@@ -78,5 +78,41 @@ export default function GlobalError({
         </div>
       </body>
     </html>
+  );
+}
+
+function TryAgainWithRouter({ reset }: { reset: () => void }) {
+  const router = useRouter();
+  return (
+    <Button type="button" onClick={() => recoverGlobalError(reset, () => router.refresh())}>
+      Try again
+    </Button>
+  );
+}
+
+class TryAgainBoundary extends Component<{ reset: () => void; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  render() {
+    if (this.state.failed) {
+      return (
+        <Button type="button" onClick={() => recoverGlobalError(this.props.reset)}>
+          Try again
+        </Button>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function TryAgain({ reset }: { reset: () => void }) {
+  return (
+    <TryAgainBoundary reset={reset}>
+      <TryAgainWithRouter reset={reset} />
+    </TryAgainBoundary>
   );
 }

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { PublicChrome } from "@/components/public-chrome";
 
 export const metadata: Metadata = {
-  title: "Legal",
+  title: { default: "Legal", template: "%s · fweta" },
   description: "Terms, privacy, and creator terms for fweta.",
 };
 
