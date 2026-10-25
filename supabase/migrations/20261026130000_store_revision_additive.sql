@@ -15,11 +15,11 @@
 --
 -- Apply 20261026140000_store_revision_revoke_writes.sql only after the new
 -- build is deployed and a compare-and-swap save has been verified.
+-- See docs/apply-plan-store-revision.md.
 --
--- Do not also execute 20261021165036_fweta_app_store_revision.sql.
--- That file revokes table writes in the same step as these objects.
--- If a runner applies every file under supabase/migrations in timestamp order,
--- it will run that older file first and the current build will fail every save.
+-- 20261021165036_fweta_app_store_revision.sql was removed. Live must never
+-- execute a copy. That file revoked table writes in the same step as these
+-- objects, so the current build would fail every save.
 --
 -- Idempotent. Does not change fweta_profiles. Does not edit the lockdown migration.
 -- Does not grant or revoke table insert, update, or delete.

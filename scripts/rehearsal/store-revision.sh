@@ -15,6 +15,13 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SQL_DIR="${ROOT}/scripts/rehearsal/sql"
+if [[ -f "${ROOT}/supabase/migrations/20261021165036_fweta_app_store_revision.sql" ]]; then
+  echo "refusing to rehearse: 20261021165036_fweta_app_store_revision.sql is present" >&2
+  echo "that file revokes table writes in the same step as the additive objects" >&2
+  echo "live must never execute it; the additive and revoke files replace it" >&2
+  exit 2
+fi
+
 DB_NAME="${FWETA_REHEARSAL_DB:-fweta_rehearsal_store_revision}"
 N="${FWETA_REHEARSAL_CAS_N:-8}"
 PASS=0
@@ -210,7 +217,7 @@ differences from hosted Supabase
 - The old upsert is SQL with the same columns the pre-CAS supabase-js client sends: id, data, updated_at, on conflict id. Error text is PostgreSQL's, not a PostgREST wrapper. The SQLSTATE values are the ones the functions raise.
 - Files are applied as the local superuser postgres, which owns the objects. The hosted SQL editor runs as postgres, so security definer ownership matches that path. supabase_admin is created and is not used to apply the files.
 - The revoke rollback grants insert, update, and delete only. truncate, references, and trigger stay revoked.
-- 20261021165036_fweta_app_store_revision.sql is not executed. It revokes table writes in the same file as the additive objects.
+- 20261021165036_fweta_app_store_revision.sql is not in this repo and is not executed. Live must never run a copy. It revoked table writes in the same file as the additive objects. If live migration history has no row for that version, no repair is needed. If the version was recorded as applied, leave the record and do not run the SQL.
 - Trigger fire on this PostgreSQL 16 did not require the writing role to hold EXECUTE on the bump function. The additive file revokes that execute privilege and the upsert still bumps revision. Re-check that on the project's major version before applying if it is not 16.
 
 REHEARSAL_OK

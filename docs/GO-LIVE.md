@@ -21,7 +21,7 @@ This file splits what the repo already does from what Gotlieb has to provide. No
 | Item | What to do |
 | --- | --- |
 | Supabase project | Create it. Do not point this repo at an existing production database from CI. |
-| SQL | Run the migrations in `supabase/migrations` in filename order in the SQL editor, including `20261017160000_production_hardening.sql` and `20261017180000_platform_collections.sql`. Skip `20260829000000_init.sql` (outline only) and the avatars bucket until Storage exists. Then, if you want the new checks enforced on old rows: `alter table public.fweta_wallets validate constraint fweta_wallets_balances_nonnegative;` and the same for `fweta_ledger_amount_positive`. |
+| SQL | Run the migrations in `supabase/migrations` in filename order in the SQL editor, including `20261017160000_production_hardening.sql` and `20261017180000_platform_collections.sql`. Skip `20260829000000_init.sql` (outline only) and the avatars bucket until Storage exists. Do not paste `20261026140000_store_revision_revoke_writes.sql` in that batch, and do not execute `20261021165036_fweta_app_store_revision.sql` (that file is deleted). Follow `docs/apply-plan-store-revision.md` for the store revision files. Then, if you want the new checks enforced on old rows: `alter table public.fweta_wallets validate constraint fweta_wallets_balances_nonnegative;` and the same for `fweta_ledger_amount_positive`. |
 | `NEXT_PUBLIC_SUPABASE_URL` | Project URL. |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publishable key only. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Secret key. Never `NEXT_PUBLIC_`. |

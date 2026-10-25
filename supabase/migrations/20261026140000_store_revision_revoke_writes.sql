@@ -12,7 +12,8 @@
 -- This file does not drop revision, the bump trigger, or fweta_cas_save_store.
 -- Idempotent.
 --
--- Do not execute 20261021165036_fweta_app_store_revision.sql as well.
+-- 20261021165036_fweta_app_store_revision.sql was removed. Live must never
+-- execute a copy. See docs/apply-plan-store-revision.md.
 -- Do not re-run 20260830153000_fweta_app_store_grants.sql after this file.
 -- That file grants table writes back to service_role.
 

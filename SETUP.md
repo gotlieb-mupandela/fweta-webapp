@@ -45,6 +45,8 @@ Run **in order**, paste full file contents:
 
 Do not apply these from the app. Paste them in the Supabase SQL editor for the project you create. The hardening migration refuses to replace a populated relational store with an empty profile list, and it revokes `anon` / `authenticated` execute on `fweta_load_store` and `fweta_save_store`.
 
+Store revision is a separate sequence in `docs/apply-plan-store-revision.md`. Do not paste the revoke file with the list above. Live must never execute `20261021165036_fweta_app_store_revision.sql`. That file is deleted. If live migration history has no row for it, no repair is needed. If the version was recorded as applied, leave the record and do not run the SQL.
+
 After running #1, verify:
 
 ```sql
