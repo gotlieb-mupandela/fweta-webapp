@@ -37,10 +37,11 @@ function assertAdminViewWritable(store: DatabaseStore, actor: ViewActor, input: 
 
   const submission = store.submissions.find((item) => item.id === input.submissionId);
   if (!submission) throw new Error("Clip not found.");
-  if (submission.status !== "approved") throw new Error("Approve the clip before counting views.");
+  // Forfeited wins over "not approved": a clawed or upheld clip must not be counted again.
   if (submission.payoutState === "clawed_back" || submission.fraudState === "upheld") {
     throw new Error("This clip was forfeited.");
   }
+  if (submission.status !== "approved") throw new Error("Approve the clip before counting views.");
   const campaign = store.campaigns.find((item) => item.id === submission.campaignId);
   if (!campaign) throw new Error("Campaign missing.");
   if (isViewEntryClosed(campaign)) throw new Error(SETTLED_CAMPAIGN_ERROR);
@@ -224,8 +225,9 @@ export async function confirmCreatorViewForActor(
 }
 
 /**
- * Onboarding view entry. Refuses a settled, closed, or completed campaign
- * before any snapshot or wallet write. creditedCents is the creator pending change.
+ * Onboarding view entry. Refuses a forfeited clip and a settled, closed,
+ * or completed campaign before any snapshot or wallet write.
+ * creditedCents is the creator pending change.
  */
 export function recordSubmissionViewsInStore(
   store: DatabaseStore,
@@ -233,19 +235,7 @@ export function recordSubmissionViewsInStore(
   input: { submissionId: string; views: number },
   nowMs: number,
 ): { campaignId: string; creditedCents: number } {
-  if (!actor.roles.includes("admin")) throw new Error("Admin only.");
-  const submission = store.submissions.find((item) => item.id === input.submissionId);
-  if (!submission) throw new Error("Submission not found.");
-  if (submission.status !== "approved") {
-    throw new Error("Approve the clip before recording views.");
-  }
-  const campaign = store.campaigns.find((item) => item.id === submission.campaignId);
-  if (campaign && isViewEntryClosed(campaign)) {
-    throw new Error(SETTLED_CAMPAIGN_ERROR);
-  }
-  if (input.views < submission.views) {
-    throw new Error(VIEWS_BACKWARDS_ERROR);
-  }
+  const { submission } = assertAdminViewWritable(store, actor, input);
 
   const pendingBefore = store.wallets.find((row) => row.userId === submission.clipperId)?.pendingCents ?? 0;
   const at = new Date(nowMs).toISOString();

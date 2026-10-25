@@ -16,8 +16,10 @@ import {
   confirmCreatorViewForActor,
   recordCheckedViewsForActor,
   recordSubmissionViewsForActor,
+  recordSubmissionViewsInStore,
   saveAdminViewForActor,
   saveBulkViewsForActor,
+  saveBulkViewsInStore,
   setManualViewsForActor,
 } from "../../lib/rewards/view-entry";
 
@@ -411,6 +413,97 @@ test("recordSubmissionViewsAction refuses a settled or closed campaign before an
   assert.equal(balances(afterClosed).clipperPending, 0);
   assert.deepEqual(balances(afterClosed), closedBefore);
   assert.equal(afterClosed.viewSnapshots.length, 0);
+});
+
+test("recordSubmissionViewsAction refuses a forfeited clip before any write", async () => {
+  for (const partial of [
+    { payoutState: "clawed_back" as const },
+    { fraudState: "upheld" as const },
+  ]) {
+    await seed([submission({ id: subId, views: 1_000, ...partial })]);
+    await updateStore((store) => {
+      store.viewSnapshots.push(creatorReport({ views: 9_000 }));
+    });
+    const before = await readStore();
+    const beforeBalances = balances(before);
+    assert.equal(before.viewSnapshots.length, 1);
+
+    const draft = await readStore();
+    assert.throws(
+      () => recordSubmissionViewsInStore(draft, adminActor, { submissionId: subId, views: 5_000 }, now),
+      /This clip was forfeited\./,
+    );
+    assert.equal(draft.submissions.find((item) => item.id === subId)?.views, 1_000);
+    assert.equal(draft.viewSnapshots.length, 1);
+    assert.equal(draft.viewSnapshots[0]?.status, "pending");
+
+    const refused = await recordSubmissionViewsForActor(adminActor, { submissionId: subId, views: 5_000 }, now);
+    assert.equal(refused.ok, false);
+    if (!refused.ok) assert.equal(refused.error, "This clip was forfeited.");
+    const after = await readStore();
+    assert.equal(after.submissions.find((item) => item.id === subId)?.views, 1_000);
+    assert.equal(after.viewSnapshots.length, 1);
+    assert.equal(after.viewSnapshots[0]?.status, "pending");
+    assert.equal(
+      after.viewSnapshots.some((item) => item.status === "confirmed"),
+      false,
+    );
+    assert.deepEqual(balances(after), beforeBalances);
+  }
+});
+
+test("saveBulkViewsAction refuses one forfeited row and writes nothing", async () => {
+  for (const partial of [
+    { payoutState: "clawed_back" as const },
+    { fraudState: "upheld" as const },
+  ]) {
+    await seed([
+      submission({ id: subId, views: 0 }),
+      submission({
+        id: sub2Id,
+        views: 1_000,
+        postUrl: "https://www.tiktok.com/@kai/video/2",
+        ...partial,
+      }),
+    ]);
+    const before = await readStore();
+    const beforeBalances = balances(before);
+
+    const draft = await readStore();
+    assert.throws(
+      () =>
+        saveBulkViewsInStore(
+          draft,
+          adminActor,
+          [
+            { submissionId: subId, views: 5_000 },
+            { submissionId: sub2Id, views: 4_000 },
+          ],
+          now,
+        ),
+      /This clip was forfeited\./,
+    );
+    assert.equal(draft.submissions.find((item) => item.id === subId)?.views, 0);
+    assert.equal(draft.submissions.find((item) => item.id === sub2Id)?.views, 1_000);
+    assert.equal(draft.viewSnapshots.length, 0);
+
+    const refused = await saveBulkViewsForActor(
+      adminActor,
+      [
+        { submissionId: subId, views: 5_000 },
+        { submissionId: sub2Id, views: 4_000 },
+      ],
+      now,
+    );
+    assert.equal(refused.ok, false);
+    if (!refused.ok) assert.equal(refused.error, "This clip was forfeited.");
+    const after = await readStore();
+    assert.equal(after.submissions.find((item) => item.id === subId)?.views, 0);
+    assert.equal(after.submissions.find((item) => item.id === sub2Id)?.views, 1_000);
+    assert.equal(after.viewSnapshots.length, 0);
+    assert.deepEqual(balances(after), beforeBalances);
+    assert.equal(balances(after).clipperPending, 0);
+  }
 });
 
 test("recordSubmissionViewsAction reports the pending change and refuses a lower count", async () => {

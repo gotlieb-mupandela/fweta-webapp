@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/session";
 import { newId, nowIso, updateStore } from "@/lib/db/store";
 import {
+  SETTLED_CAMPAIGN_ERROR,
   confirmCreatorViewForActor,
+  isViewEntryClosed,
   recordSubmissionViewsForActor,
   saveAdminViewForActor,
   saveBulkViewsForActor,
@@ -159,7 +161,12 @@ export async function reportCreatorViewsAction(formData: FormData) {
     await updateStore((store) => {
       const submission = store.submissions.find((item) => item.id === parsed.data.submissionId);
       if (!submission || submission.clipperId !== session.id) throw new Error("Clip not found.");
+      if (submission.payoutState === "clawed_back" || submission.fraudState === "upheld") {
+        throw new Error("This clip was forfeited.");
+      }
       if (submission.status === "rejected") throw new Error("This clip was rejected.");
+      const campaign = store.campaigns.find((item) => item.id === submission.campaignId);
+      if (campaign && isViewEntryClosed(campaign)) throw new Error(SETTLED_CAMPAIGN_ERROR);
       campaignId = submission.campaignId;
       for (const snap of store.viewSnapshots) {
         if (snap.submissionId === submission.id && snap.status === "pending") snap.status = "replaced";
