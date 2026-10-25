@@ -1,19 +1,25 @@
 /**
  * UGC licensing and trust directory flow.
  *   node scripts/e2e-licensing.mjs
- * Against a local `next dev` on port 3000. Uses the demo accounts.
+ * Against a local `next dev` or `next start`. Uses the demo accounts.
  */
-import { mkdirSync, writeFileSync } from "node:fs";
-import playwright from "/tmp/pw/node_modules/playwright-core/index.js";
+import {
+  ADMIN_EMAIL,
+  artifactDir,
+  baseUrl,
+  confirmPayIn,
+  launchBrowser,
+  loadPlaywright,
+  login as signIn,
+  PASSWORD,
+  sampleVideoPath,
+  submitEftDeposit,
+} from "./e2e-helpers.mjs";
 
-const { chromium } = playwright;
-const BASE = process.env.QA_BASE || "http://127.0.0.1:3000";
-const PASSWORD = "password123";
-const SHOTS = "/tmp/qa-license";
-mkdirSync(SHOTS, { recursive: true });
-writeFileSync("/tmp/ugc-sample.mp4", Buffer.from("00000018667479706d703432000000006d70343269736f6d", "hex"));
+const BASE = baseUrl();
+const SHOTS = artifactDir("licensing");
+const SAMPLE_VIDEO = sampleVideoPath();
 
-const headless = process.env.HEADED !== "1";
 const results = [];
 const log = (entry) => {
   results.push(entry);
@@ -36,21 +42,12 @@ async function login(browser, email) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   page.on("dialog", (dialog) => dialog.accept());
-  await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
-  await page.fill("#email", email);
-  await page.fill("#password", PASSWORD);
-  await page.getByRole("button", { name: /^continue$/i }).click();
-  await page.waitForURL(/\/(dashboard|onboarding)/, { timeout: 20000 });
-  await dismissTour(page);
+  await signIn(page, email, PASSWORD);
   return { context, page };
 }
 
-const browser = await chromium.launch({
-  headless,
-  executablePath: "/usr/bin/google-chrome-stable",
-  args: ["--no-sandbox", "--disable-dev-shm-usage"],
-  slowMo: headless ? 0 : 250,
-});
+const playwright = await loadPlaywright();
+const browser = await launchBrowser(playwright);
 
 const stamp = Date.now().toString().slice(-6);
 const briefTitle = `River clip ${stamp}`;
@@ -60,21 +57,14 @@ try {
   const brand = await login(browser, "brand@fweta.test");
   await brand.page.goto(`${BASE}/dashboard/brand/deposits`, { waitUntil: "domcontentloaded" });
   await dismissTour(brand.page);
-  await brand.page.fill("#amount", "1000");
-  await brand.page.fill("#note", `UGC brief funding ${stamp}`);
-  await brand.page.getByRole("button", { name: /request confirmation/i }).click();
-  await brand.page.getByText(/request saved/i).waitFor({ timeout: 15000 });
+  const fundingNote = `UGC brief funding ${stamp}`;
+  await submitEftDeposit(brand.page, "1000", fundingNote);
   log({ ok: true, step: "brand requests pay-in" });
   await shot(brand.page, "01-payin");
   await brand.context.close();
 
-  const admin = await login(browser, "admin@fweta.test");
-  await admin.page.goto(`${BASE}/dashboard/admin/payins`, { waitUntil: "domcontentloaded" });
-  await dismissTour(admin.page);
-  const confirm = admin.page.locator("li", { hasText: `UGC brief funding ${stamp}` }).getByRole("button", { name: "Confirm transfer" });
-  await confirm.waitFor({ timeout: 15000 });
-  await confirm.click();
-  await admin.page.getByText("Confirmed").first().waitFor({ timeout: 15000 });
+  const admin = await login(browser, ADMIN_EMAIL);
+  await confirmPayIn(admin.page, fundingNote);
   log({ ok: true, step: "admin confirms pay-in" });
   await admin.context.close();
 
@@ -88,7 +78,7 @@ try {
   await brand2.page.fill("#ugc-fee", "200");
   await brand2.page.fill("#ugc-territory", "Namibia");
   await brand2.page.fill("#ugc-revisions", "1");
-  await brand2.page.getByRole("button", { name: /open and reserve/i }).click();
+  await brand2.page.getByRole("button", { name: "Open and reserve budget", exact: true }).click();
   await brand2.page.waitForURL(/\/dashboard\/brand\/ugc\/(?!new)/, { timeout: 20000 });
   const briefUrl = brand2.page.url();
   log({ ok: briefUrl.includes("/dashboard/brand/ugc/"), step: "brand opens brief", detail: briefUrl });
@@ -120,8 +110,8 @@ try {
 
   const creator2 = await login(browser, "creator@fweta.test");
   await creator2.page.goto(`${BASE}${briefPath}`, { waitUntil: "domcontentloaded" });
-  await creator2.page.setInputFiles("#files-" + briefPath.split("/").pop(), "/tmp/ugc-sample.mp4").catch(async () => {
-    await creator2.page.locator('input[type="file"]').setInputFiles("/tmp/ugc-sample.mp4");
+  await creator2.page.setInputFiles("#files-" + briefPath.split("/").pop(), SAMPLE_VIDEO).catch(async () => {
+    await creator2.page.locator('input[type="file"]').setInputFiles(SAMPLE_VIDEO);
   });
   await creator2.page.getByRole("button", { name: "Submit files" }).click();
   await creator2.page.getByText("submitted").first().waitFor({ timeout: 20000 });
@@ -162,7 +152,7 @@ try {
   log({ ok: true, step: "brand saves business listing" });
   await brand4.context.close();
 
-  const admin2 = await login(browser, "admin@fweta.test");
+  const admin2 = await login(browser, ADMIN_EMAIL);
   await admin2.page.goto(`${BASE}/dashboard/admin/directory`, { waitUntil: "domcontentloaded" });
   const card = admin2.page.locator("li", { hasText: businessName }).first();
   await card.getByRole("button", { name: "Publish" }).click();
@@ -175,8 +165,8 @@ try {
   await creator3.page.goto(`${BASE}${publicHref}`, { waitUntil: "domcontentloaded" });
   await creator3.page.selectOption("select", "5");
   await creator3.page.locator("textarea").first().fill("The coffee was excellent and the window table was quiet enough to film a short clip.");
-  await creator3.page.locator('input[name="postUrl"]').fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-  await creator3.page.locator('input[name="creatorOptIn"]').check();
+  await creator3.page.getByLabel("Link to a post, optional", { exact: true }).fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  await creator3.page.getByRole("checkbox", { name: "Publish this review on the public directory after an admin checks it", exact: true }).check();
   await creator3.page.getByRole("button", { name: "Submit review" }).click();
   await creator3.page.waitForTimeout(1500);
   log({ ok: true, step: "creator submits opted-in review" });
@@ -192,15 +182,16 @@ try {
   await creator3.page.goto(`${BASE}/dashboard/influencer/earnings`, { waitUntil: "domcontentloaded" });
   await creator3.page.getByText("UGC fees").waitFor({ timeout: 15000 });
   const earnings = await creator3.page.locator("body").innerText();
+  // The stat label is CSS-uppercased, so innerText reads "UGC FEES".
   log({
-    ok: /UGC fees/.test(earnings) && /UGC license fee/.test(earnings),
+    ok: /ugc fees/i.test(earnings) && /ugc license fee/i.test(earnings) && earnings.includes(briefTitle),
     step: "dual income shows UGC fee",
-    detail: earnings.includes("UGC fees") ? "visible" : "missing",
+    detail: earnings.includes(briefTitle) ? "visible" : "missing",
   });
   await shot(creator3.page, "05-earnings");
   await creator3.context.close();
 
-  const admin3 = await login(browser, "admin@fweta.test");
+  const admin3 = await login(browser, ADMIN_EMAIL);
   await admin3.page.goto(`${BASE}/dashboard/admin/directory`, { waitUntil: "domcontentloaded" });
   const reviewCard = admin3.page.locator("li", { hasText: "The coffee was excellent" }).first();
   await reviewCard.getByRole("button", { name: "Publish" }).click();

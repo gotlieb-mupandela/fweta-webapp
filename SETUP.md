@@ -181,12 +181,10 @@ Data file: `data/store.json` (local only, gitignored).
 
 Local health check: `http://localhost:3000/api/health/store` should return `"ok": true` and `"mode": "local"` after the first page load.
 
-E2E scripts (with dev server running):
+E2E scripts use the local file store and the `*@fweta.test` accounts. `BASE_URL` defaults to `http://localhost:3000`. Do not point it at app.fweta.com. With `npm run dev` or `next start` already running:
 
 ```bash
-node scripts/e2e-brand-dashboard.mjs
-node scripts/e2e-other-dashboards.mjs
-node scripts/e2e-full-flow.mjs
+npm run e2e
 ```
 
 ---
