@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getMyInfluencerProfile } from "@/app/actions/influencer";
 import { InfluencerProfileForm } from "@/components/forms/influencer-profile-form";
 import { PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
+
+export const metadata: Metadata = {
+  title: "Public profile",
+  description: "The profile brands see when they book you.",
+};
 
 export default async function InfluencerProfilePage() {
   const session = await getSession();

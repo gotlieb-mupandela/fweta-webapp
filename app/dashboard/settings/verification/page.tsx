@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { VerificationRequestButton } from "@/components/forms/verification-request-button";
 import { Badge, Card, PageHeader } from "@/components/ui/card";
 import { getProfileById, getSession } from "@/lib/auth/session";
+
+export const metadata: Metadata = {
+  title: "Verification",
+  description: "Identity check for payouts.",
+};
 
 export default async function VerificationSettingsPage() {
   const session = await getSession();

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,11 @@ import { Badge, PageHeader, SectionHeader } from "@/components/ui/card";
 import { ContextHelp } from "@/components/onboarding/context-help";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+
+export const metadata: Metadata = {
+  title: "Business page",
+  description: "Your public business page.",
+};
 
 export default async function BrandDirectoryPage() {
   const session = await getSession();

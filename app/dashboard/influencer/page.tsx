@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -17,6 +18,11 @@ import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
 import type { SocialPlatform } from "@/types/enums";
+
+export const metadata: Metadata = {
+  title: "Influencer overview",
+  description: "Bookings, rate card, and earnings.",
+};
 
 export default async function InfluencerDashboardPage() {
   const session = await getSession();

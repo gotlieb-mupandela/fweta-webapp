@@ -24,7 +24,7 @@ export default async function CampaignsPage({
   return (
     <PublicChrome
       title="Open campaigns"
-      description="Browse content rewards campaigns and start earning."
+      description="Browse open campaigns and start earning."
     >
       <PlatformPicker basePath="/campaigns" params={params} />
       {isSocialPlatform(params.platform) ? (

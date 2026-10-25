@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -14,6 +15,11 @@ import { Badge, Card, EmptyState, PageHeader, SectionHeader } from "@/components
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Withdraw",
+  description: "Request a payout from your wallet.",
+};
 
 export default async function SettingsWithdrawPage() {
   const session = await getSession();

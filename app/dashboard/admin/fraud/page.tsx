@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -7,6 +8,11 @@ import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { FRAUD_CATEGORY_LABEL } from "@/lib/marketplace/growth";
+
+export const metadata: Metadata = {
+  title: "Fraud review",
+  description: "Review flagged clips.",
+};
 
 export default async function AdminFraudPage() {
   const session = await getSession();

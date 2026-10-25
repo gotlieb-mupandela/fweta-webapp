@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -10,6 +11,11 @@ import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney, formatNumber } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Submission queue",
+  description: "Review clips submitted to this campaign.",
+};
 
 export default async function CampaignSubmissionsPage({
   params,

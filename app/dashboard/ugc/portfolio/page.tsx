@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { PortfolioForm } from "@/components/forms/licensing-forms";
@@ -5,6 +6,11 @@ import { PageHeader } from "@/components/ui/card";
 import { ContextHelp } from "@/components/onboarding/context-help";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+
+export const metadata: Metadata = {
+  title: "UGC portfolio",
+  description: "Samples brands can review.",
+};
 
 export default async function PortfolioPage() {
   const session = await getSession();

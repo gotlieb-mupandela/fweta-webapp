@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,26 @@ import { EmptyState } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { loadAdminUserDossier } from "@/lib/admin/user-profile";
 import { getSession } from "@/lib/auth/session";
+import { readStore } from "@/lib/db/store";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  try {
+    const store = await readStore();
+    const profile = store.profiles.find((row) => row.id === id);
+    if (!profile) return { title: "User" };
+    return {
+      title: profile.displayName,
+      description: "Account, clips, and payout details.",
+    };
+  } catch {
+    return { title: "User" };
+  }
+}
 
 export default async function AdminUserProfilePage({
   params,

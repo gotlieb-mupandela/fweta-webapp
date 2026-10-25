@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 
@@ -12,7 +14,6 @@ export default function DashboardError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[fweta] dashboard error:", error);
     void fetch("/api/observability", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -26,17 +27,29 @@ export default function DashboardError({
 
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center px-6 text-center">
-      <h1 className="font-display text-3xl tracking-tight text-foreground">Dashboard unavailable</h1>
+      <Link href="/" className="inline-flex items-center gap-2" aria-label="fweta">
+        <Image
+          src="/brand/fweta-mark.png"
+          alt=""
+          width={29}
+          height={32}
+          className="shrink-0 object-contain"
+          aria-hidden
+        />
+        <span className="text-[1.05rem] font-semibold tracking-tight text-foreground">fweta</span>
+      </Link>
+      <h1 className="mt-6 font-display text-3xl tracking-tight text-foreground">This page did not load</h1>
       <p className="mt-3 max-w-md text-sm leading-relaxed text-muted">
-        A server error occurred while loading this page. This is often caused by Supabase
-        configuration. Confirm migrations are applied and Vercel env vars are set.
+        fweta could not open this part of your workspace. Try again, or go back home.
       </p>
-      {error.digest ? (
-        <p className="mt-2 text-xs text-muted-light">Error ID: {error.digest}</p>
-      ) : null}
-      <Button type="button" onClick={() => reset()} className="mt-6">
-        Try again
-      </Button>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <Button type="button" onClick={() => reset()}>
+          Try again
+        </Button>
+        <Link href="/">
+          <Button variant="secondary">Back home</Button>
+        </Link>
+      </div>
     </div>
   );
 }

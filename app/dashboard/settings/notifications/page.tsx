@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { NotificationsForm } from "@/components/forms/notifications-form";
 import { PageHeader } from "@/components/ui/card";
 import { getProfileById, getSession } from "@/lib/auth/session";
+
+export const metadata: Metadata = {
+  title: "Notifications",
+  description: "Choose which emails fweta sends.",
+};
 
 export default async function SettingsNotificationsPage() {
   const session = await getSession();

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { ContextHelp } from "@/components/onboarding/context-help";
@@ -13,6 +14,11 @@ import {
   pendingInvitesForEmail,
   workspaceName,
 } from "@/lib/onboarding/workspaces";
+
+export const metadata: Metadata = {
+  title: "Team",
+  description: "People who can access this brand.",
+};
 
 export default async function BrandTeamPage() {
   const session = await getSession();

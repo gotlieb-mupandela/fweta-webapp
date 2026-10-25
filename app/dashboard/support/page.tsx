@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { NewTicketForm, TicketReplyForm } from "@/components/forms/support-forms";
 import { Badge, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+
+export const metadata: Metadata = {
+  title: "Support",
+  description: "Write to the fweta team from inside the app.",
+};
 
 export default async function SupportPage() {
   const session = await getSession();

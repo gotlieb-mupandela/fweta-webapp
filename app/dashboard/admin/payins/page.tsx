@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { ConfirmPayInButton } from "@/components/onboarding/payin-form";
@@ -6,6 +7,11 @@ import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Pay-ins",
+  description: "Confirm wallet credits.",
+};
 
 export default async function AdminPayinsPage() {
   const session = await getSession();

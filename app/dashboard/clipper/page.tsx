@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -11,6 +12,11 @@ import { Badge, PageHeader, SectionHeader, Stat, StatGrid } from "@/components/u
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney, formatNumber } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Overview",
+  description: "Your clips, earnings, and next step.",
+};
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Pending",

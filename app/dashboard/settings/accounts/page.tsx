@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { listMyLinkedAccounts } from "@/app/actions/submissions";
@@ -8,6 +9,11 @@ import { Card, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { accountsForUser, statsByAccount } from "@/lib/onboarding/accounts";
+
+export const metadata: Metadata = {
+  title: "Connected accounts",
+  description: "Social accounts linked to fweta.",
+};
 
 export default async function SocialAccountsPage() {
   const session = await getSession();

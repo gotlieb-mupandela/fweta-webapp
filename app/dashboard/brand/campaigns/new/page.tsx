@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,11 @@ import { CampaignForm } from "@/components/forms/campaign-form";
 import { Card, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "New campaign",
+  description: "Set budget, CPM, and platform rules.",
+};
 
 export default async function NewCampaignPage() {
   const session = await getSession();

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,11 @@ import { PageHeader, Stat, StatGrid } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Wallet",
+  description: "Available and pending balance.",
+};
 
 export default async function SettingsWalletPage() {
   const session = await getSession();

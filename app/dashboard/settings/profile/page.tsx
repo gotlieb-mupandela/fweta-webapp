@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { ProfileSettingsForm } from "@/components/forms/profile-settings-form";
 import { PageHeader } from "@/components/ui/card";
 import { getProfileById, getSession } from "@/lib/auth/session";
+
+export const metadata: Metadata = {
+  title: "Profile",
+  description: "Your display name and bio.",
+};
 
 export default async function SettingsProfilePage() {
   const session = await getSession();

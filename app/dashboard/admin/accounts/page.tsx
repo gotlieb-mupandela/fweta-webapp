@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AccountReviewActions, AdminAccountActions } from "@/components/onboarding/admin-account-actions";
@@ -8,6 +9,11 @@ import { readStore } from "@/lib/db/store";
 import { bioHintLabel, statsByAccount } from "@/lib/onboarding/accounts";
 import { PLATFORM_LABEL, publicProfileUrl } from "@/lib/onboarding/model";
 import { formatMoney, formatNumber } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Account verification",
+  description: "Review connected social accounts.",
+};
 
 export default async function AdminAccountsPage() {
   const session = await getSession();

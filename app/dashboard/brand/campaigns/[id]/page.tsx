@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -20,6 +21,26 @@ import {
   remainingBudgetCents,
 } from "@/lib/rewards/content-rewards";
 import { formatMoney, formatNumber } from "@/lib/utils";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  try {
+    const store = await readStore();
+    const campaign = store.campaigns.find((row) => row.id === id);
+    if (!campaign) return { title: "Campaign" };
+    const description = campaign.description.replace(/\s+/g, " ").trim().slice(0, 160);
+    return {
+      title: campaign.title,
+      description: description || "Campaign details, budget, and submissions.",
+    };
+  } catch {
+    return { title: "Campaign" };
+  }
+}
 
 export default async function CampaignDetailPage({
   params,
