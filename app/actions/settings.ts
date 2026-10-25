@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 
+import { bumpCredentialVersion, sameRoles } from "@/lib/auth/live-session";
 import {
   getProfileById,
   refreshSessionFromProfile,
@@ -56,8 +57,10 @@ export async function updateRolesAction(raw: unknown) {
     const next: UserRole[] = session.roles.includes("admin")
       ? Array.from(new Set<UserRole>([...roles, "admin"]))
       : roles;
+    const changed = !sameRoles(p.roles, next) || p.primaryRole !== primaryRole;
     p.roles = next;
     p.primaryRole = primaryRole;
+    if (changed) bumpCredentialVersion(p);
     p.updatedAt = nowIso();
   });
   const updated = await getProfileById(session.id);
@@ -135,8 +138,9 @@ export async function adminSetUserSuspended(userId: string, suspended: boolean) 
   if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
   await updateStore((s) => {
     const p = s.profiles.find((x) => x.id === userId);
-    if (!p) return;
+    if (!p || p.suspended === suspended) return;
     p.suspended = suspended;
+    bumpCredentialVersion(p);
     p.updatedAt = nowIso();
   });
   revalidatePath("/dashboard/admin/users");
@@ -150,9 +154,13 @@ export async function adminAssignRole(userId: string, role: UserRole, enable: bo
   await updateStore((s) => {
     const p = s.profiles.find((x) => x.id === userId);
     if (!p) return;
+    const beforeRoles = [...p.roles];
+    const beforePrimary = p.primaryRole;
     if (enable && !p.roles.includes(role)) p.roles.push(role);
     if (!enable) p.roles = p.roles.filter((r) => r !== role);
     if (!p.roles.includes(p.primaryRole)) p.primaryRole = p.roles[0] || "clipper";
+    if (sameRoles(beforeRoles, p.roles) && p.primaryRole === beforePrimary) return;
+    bumpCredentialVersion(p);
     p.updatedAt = nowIso();
   });
   revalidatePath("/dashboard/admin/users");

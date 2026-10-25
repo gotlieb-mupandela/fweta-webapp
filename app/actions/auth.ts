@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 
+import { bumpCredentialVersion } from "@/lib/auth/live-session";
 import {
   login,
   logout,
@@ -62,14 +63,15 @@ export async function logoutAction() {
 export async function switchPrimaryRoleAction(role: UserRole) {
   const session = await getSession();
   if (!session) return { ok: false as const, error: "Unauthorized" };
-  const profile = await getProfileById(session.id);
-  if (!profile || !profile.roles.includes(role)) {
+  if (!session.roles.includes(role)) {
     return { ok: false as const, error: "Role not enabled on this account." };
   }
+  if (session.primaryRole === role) return { ok: true as const };
   await updateStore((s) => {
     const p = s.profiles.find((x) => x.id === session.id);
-    if (!p) return;
+    if (!p || !p.roles.includes(role) || p.primaryRole === role) return;
     p.primaryRole = role;
+    bumpCredentialVersion(p);
     p.updatedAt = nowIso();
   });
   const updated = await getProfileById(session.id);

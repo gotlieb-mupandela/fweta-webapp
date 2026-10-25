@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { bumpCredentialVersion } from "@/lib/auth/live-session";
 import { getProfileById, refreshSessionFromProfile, requireSession } from "@/lib/auth/session";
 import { newId, nowIso, updateStore } from "@/lib/db/store";
 import { pushNotification } from "@/lib/notifications/inbox";
@@ -171,7 +172,10 @@ export async function acceptInviteAction(memberId: string) {
       member.userId = profile.id;
       member.status = "active";
       member.updatedAt = now;
-      if (!profile.roles.includes("brand")) profile.roles = [...profile.roles, "brand"];
+      if (!profile.roles.includes("brand")) {
+        profile.roles = [...profile.roles, "brand"];
+        bumpCredentialVersion(profile);
+      }
       profile.activeWorkspaceId = member.workspaceId;
       profile.updatedAt = now;
     });

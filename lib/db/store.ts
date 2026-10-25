@@ -21,11 +21,18 @@ import { commitStoreToSupabase, loadStoreFromSupabase, StorePersistError } from 
  * A failed Supabase load serves an empty view for that request and does not
  * write it back. See lib/db/adapter.ts.
  */
-const DATA_DIR =
-  process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
-    ? path.join("/tmp", "fweta-data")
-    : path.join(process.cwd(), "data");
-const STORE_PATH = path.join(DATA_DIR, "store.json");
+function dataDir(): string {
+  const override = process.env.FWETA_DATA_DIR?.trim();
+  if (override) return override;
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return path.join("/tmp", "fweta-data");
+  }
+  return path.join(process.cwd(), "data");
+}
+
+function storePath(): string {
+  return path.join(dataDir(), "store.json");
+}
 
 const emptyStore = (): DatabaseStore => ({
   profiles: [],
@@ -81,7 +88,7 @@ function cloneStore(store: DatabaseStore): DatabaseStore {
 async function loadFromDisk(): Promise<DatabaseStore | null> {
   let raw: string;
   try {
-    raw = await fs.readFile(STORE_PATH, "utf8");
+    raw = await fs.readFile(storePath(), "utf8");
   } catch {
     return null;
   }
@@ -90,8 +97,8 @@ async function loadFromDisk(): Promise<DatabaseStore | null> {
   } catch (err) {
     // Corrupted JSON: back it up instead of silently overwriting and losing data.
     try {
-      await fs.mkdir(DATA_DIR, { recursive: true });
-      const backup = path.join(DATA_DIR, `store.corrupt-${Date.now()}.json`);
+      await fs.mkdir(dataDir(), { recursive: true });
+      const backup = path.join(dataDir(), `store.corrupt-${Date.now()}.json`);
       await fs.writeFile(backup, raw, "utf8");
       console.warn(`[fweta] store.json corrupt, backed up to ${backup}`);
     } catch {
@@ -107,11 +114,12 @@ async function loadFromDisk(): Promise<DatabaseStore | null> {
 
 async function persist(store: DatabaseStore) {
   try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.mkdir(dataDir(), { recursive: true });
     // Atomic write: tmp + rename so a crash never leaves half-written JSON.
-    const tmp = `${STORE_PATH}.${process.pid}.tmp`;
+    const file = storePath();
+    const tmp = `${file}.${process.pid}.tmp`;
     await fs.writeFile(tmp, JSON.stringify(store, null, 2), "utf8");
-    await fs.rename(tmp, STORE_PATH);
+    await fs.rename(tmp, file);
   } catch (err) {
     // Never crash the request if disk is unavailable. The memory store still works.
     console.warn("[fweta] persist skipped:", err instanceof Error ? err.message : err);
@@ -240,7 +248,7 @@ export async function diagnoseLocalStore() {
   const store = await readStore();
   let persisted = false;
   try {
-    await fs.access(STORE_PATH);
+    await fs.access(storePath());
     persisted = true;
   } catch {
     persisted = false;
