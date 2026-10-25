@@ -1,5 +1,30 @@
 -- Rollback for 20261026120000_revoke_client_table_grants.sql
 --
+-- The live anon, authenticated, and public grants are not in the repo
+-- migrations, so this file cannot invent them. Save them first with the
+-- read only snapshot, from the repo root, BEFORE applying the forward file:
+--
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+--     -f scripts/ops/snapshot-client-grants.sql \
+--     -o /tmp/fweta-client-grants.snapshot.sql
+--
+-- Replay that saved file through this rollback:
+--
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+--     -v snapshot=/tmp/fweta-client-grants.snapshot.sql \
+--     -c 'begin' \
+--     -f supabase/rollbacks/20261026120000_revoke_client_table_grants.down.sql \
+--     -c 'commit'
+--
+-- The same snapshot is used for the file 2 and file 3 rollbacks.
+-- If the psql variable snapshot is not set, the fallback below runs instead.
+-- That fallback does not restore the live catalog.
+
+\if :{?snapshot}
+\echo 'Replaying client grant snapshot:' :snapshot
+\ir :snapshot
+\else
+
 -- Re-granting anon or authenticated access re-opens the exposure. This file
 -- does not do that.
 --
@@ -78,3 +103,5 @@ $json_store_set_down$;
 -- There is no repo migration for device_locations and nothing in main uses it.
 --
 -- grant select on table public.device_locations to anon;
+
+\endif

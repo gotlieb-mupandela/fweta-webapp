@@ -1,5 +1,30 @@
 -- Rollback for 20261026120100_revoke_unprefixed_client_grants.sql
 --
+-- The live grants on the unprefixed tables are not in the repo migrations,
+-- so this file cannot invent them. Save them first with the read only
+-- snapshot, from the repo root, BEFORE applying the forward file:
+--
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+--     -f scripts/ops/snapshot-client-grants.sql \
+--     -o /tmp/fweta-client-grants.snapshot.sql
+--
+-- Replay that saved file through this rollback:
+--
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+--     -v snapshot=/tmp/fweta-client-grants.snapshot.sql \
+--     -c 'begin' \
+--     -f supabase/rollbacks/20261026120100_revoke_unprefixed_client_grants.down.sql \
+--     -c 'commit'
+--
+-- The same snapshot is used for the file 1 and file 3 rollbacks.
+-- If the psql variable snapshot is not set, the fallback below runs instead.
+-- That fallback does not restore the live catalog.
+
+\if :{?snapshot}
+\echo 'Replaying client grant snapshot:' :snapshot
+\ir :snapshot
+\else
+
 -- Re-granting these privileges re-opens the exposure. This file does not
 -- grant them.
 --
@@ -21,3 +46,5 @@ begin
   raise notice 'No anon or authenticated grants from repo migrations to restore on the unprefixed list.';
 end
 $unprefixed_down$;
+
+\endif

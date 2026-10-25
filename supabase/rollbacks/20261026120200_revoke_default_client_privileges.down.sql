@@ -1,5 +1,31 @@
 -- Rollback for 20261026120200_revoke_default_client_privileges.sql
 --
+-- Live default privileges can differ from the platform defaults this
+-- fallback puts back. Save the real defaults first with the read only
+-- snapshot, from the repo root, BEFORE applying the forward file:
+--
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+--     -f scripts/ops/snapshot-client-grants.sql \
+--     -o /tmp/fweta-client-grants.snapshot.sql
+--
+-- Replay that saved file through this rollback:
+--
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+--     -v snapshot=/tmp/fweta-client-grants.snapshot.sql \
+--     -c 'begin' \
+--     -f supabase/rollbacks/20261026120200_revoke_default_client_privileges.down.sql \
+--     -c 'commit'
+--
+-- The same snapshot is used for the file 1 and file 2 rollbacks.
+-- If the psql variable snapshot is not set, the fallback below runs instead.
+-- That fallback restores the platform defaults the forward file removes.
+-- It does not restore a custom live default ACL.
+
+\if :{?snapshot}
+\echo 'Replaying client grant snapshot:' :snapshot
+\ir :snapshot
+\else
+
 -- This re-opens the exposure. Future tables, sequences, and functions created
 -- in public by postgres or supabase_admin would again be granted to anon and
 -- authenticated, and future functions would again be executable by public.
@@ -54,3 +80,5 @@ begin
   end loop;
 end
 $default_down$;
+
+\endif
