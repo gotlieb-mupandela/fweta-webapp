@@ -47,6 +47,8 @@ Do not apply these from the app. Paste them in the Supabase SQL editor for the p
 
 Store revision is a separate sequence in `docs/apply-plan-store-revision.md`. Do not paste the revoke file with the list above. Live must never execute `20261021165036_fweta_app_store_revision.sql`. That file is deleted. If live migration history has no row for it, no repair is needed. If the version was recorded as applied, leave the record and do not run the SQL.
 
+Never apply the PR 28 migration after the client-grant revoke File 1 of PR 41. PR 28 is `supabase/migrations/20261021100752_security_lockdown.sql`. File 1 of PR 41 is `supabase/migrations/20261026120000_revoke_client_table_grants.sql`. The PR 28 migration grants `authenticated` access back on `fweta_` tables.
+
 After running #1, verify:
 
 ```sql

@@ -18,6 +18,33 @@ If live's migration history has no row for `20261021165036`, no repair is needed
 
 6. Later, you may drop `fweta_json_store_set` if it is still present. Step 4 already revokes execute when the function exists.
 
+7. Never apply the PR 28 migration after the client-grant revoke File 1 of PR 41. PR 28 is `supabase/migrations/20261021100752_security_lockdown.sql`. File 1 of PR 41 is `supabase/migrations/20261026120000_revoke_client_table_grants.sql`. The PR 28 migration grants `authenticated` access back on `fweta_` tables. The same file grants all privileges on `public.fweta_app_store` to `service_role`, so applying it after step 4 hands direct table writes back.
+
+## Writers of `public.fweta_app_store`
+
+Searched `lib`, `app`, `scripts`, `supabase/migrations`, and SQL functions for `fweta_app_store`, `upsert`, `.from('fweta_app_store')`, `fweta_save_store`, `fweta_json_store_set`, and any function that updates the table. No app path writes the table without the revision check, so application code is unchanged.
+
+| Path | What it writes | Checks revision |
+| --- | --- | --- |
+| `lib/db/supabase-store.ts` `compareAndSwap`, used by `commitStoreToSupabase` | Calls `fweta_cas_save_store`. That function inserts or updates the `default` row. | yes |
+| `lib/db/supabase-store.ts` `diagnoseSupabaseStore` when `probe` is set | Calls `fweta_cas_save_store` with `expected_revision` `-1`. The function rejects that value and does not write. | yes |
+| `supabase/migrations/20261026130000_store_revision_additive.sql` `fweta_cas_save_store` | Inserts or updates `public.fweta_app_store` where `id = 'default'`. | yes |
+| `supabase/migrations/20261026130000_store_revision_additive.sql` `fweta_app_store_bump_revision` | Trigger. Sets `NEW.revision` on insert and when `data` changes. It does not compare an expected revision. | no |
+| `public.fweta_json_store_set(jsonb)` | Not defined in this repo. The live function, and the rehearsal stand-in, update `data` with no revision argument. | no |
+| `scripts/rehearsal/sql/*.sql` | Test inserts, updates, and deletes. Not an app path. | no |
+
+`lib/db/supabase-store.ts` `loadJsonBlob` and the health check select `data` and `revision` only. There is no `.upsert(` and no `.from("fweta_app_store")` write in `app`, `lib`, or `scripts`.
+
+`fweta_save_store(jsonb)` in `lib/db/supabase-store.ts` `saveRelationalStore`, `scripts/relational-roundtrip.sql`, and the copies in `supabase/migrations` replaces relational `fweta_*` rows. Those function bodies do not insert, update, or delete `public.fweta_app_store`.
+
+After `supabase/migrations/20261026140000_store_revision_revoke_writes.sql` removes direct table writes from `service_role`:
+
+- `compareAndSwap`, `commitStoreToSupabase`, and the health probe keep working. `fweta_cas_save_store` is security definer and writes as its owner. `select` on the table stays granted.
+- `fweta_save_store` keeps working. This file does not change its grants, and it does not write `public.fweta_app_store`.
+- A `service_role` insert, update, delete, or upsert of `public.fweta_app_store` fails. This repo has no such call. An older build that upserts `id`, `data`, and `updated_at` fails every save. That is why the revoke waits until the new build is deployed.
+- A `service_role` call to `public.fweta_json_store_set(jsonb)` fails with permission denied and does not write. This repo does not call it. A caller outside this repo that still uses the service role on that function breaks.
+- The bump trigger still runs for writes made by `fweta_cas_save_store`. Execute on the bump function is already revoked from `service_role`. PostgreSQL still runs an existing trigger without that grant.
+
 ## Rollback
 
 Roll back the revoke (`supabase/rollbacks/20261026140000_store_revision_revoke_writes_rollback.sql`), then roll back the additive step (`supabase/rollbacks/20261026130000_store_revision_additive_rollback.sql`), then redeploy the old build.
