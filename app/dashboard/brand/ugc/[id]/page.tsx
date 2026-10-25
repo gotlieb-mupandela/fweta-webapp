@@ -15,18 +15,10 @@ import { readStore } from "@/lib/db/store";
 import { formatLabel, platformLabel, usageLabel } from "@/lib/licensing/hub";
 import { formatMoney } from "@/lib/utils";
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const { id } = await params;
-  try {
-    const store = await readStore();
-    const brief = store.ugcBriefs.find((item) => item.id === id);
-    if (!brief) return { title: "UGC brief" };
-    const description = brief.summary.replace(/\s+/g, " ").trim().slice(0, 160);
-    return { title: brief.title, description: description || "UGC brief." };
-  } catch {
-    return { title: "UGC brief" };
-  }
-}
+export const metadata: Metadata = {
+  title: "UGC brief",
+  description: "Brief, applications, and deliveries.",
+};
 
 export default async function BrandUgcDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
