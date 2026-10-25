@@ -276,3 +276,58 @@ test("one admin credit request key credits once for a double submit and six conc
     assert.equal(after.wallets.find((row) => row.userId === userId)?.availableCents, amountCents);
   });
 });
+
+test("a reused admin credit key returns the conflict to the form and credits nothing", async () => {
+  await solo(async () => {
+    activeSession = admin;
+    const wallet = await import("../../app/actions/wallet");
+    const { readStore } = await import("../../lib/db/store");
+    const requestKey = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+    const otherUserId = "99999999-9999-4999-8999-999999999999";
+    const otherAdmin = {
+      ...admin,
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      email: "other-admin@fweta.test",
+    };
+    const amountCents = 20_000;
+    const reason = "EFT received 14 Oct";
+    const conflict = {
+      ok: false as const,
+      error: "This request key was already used for a different credit.",
+    };
+
+    const store = emptyStore();
+    store.profiles.push(profile(userId, "brand@fweta.test"), profile(otherUserId, "other@fweta.test"));
+    store.wallets.push(
+      { userId, availableCents: 0, pendingCents: 0, updatedAt: at },
+      { userId: otherUserId, availableCents: 0, pendingCents: 0, updatedAt: at },
+    );
+    setStore(store);
+
+    const first = await wallet.adminCreditWalletAction(userId, amountCents, reason, requestKey);
+    assert.equal(first.ok, true);
+
+    const mismatches = [
+      { userId: otherUserId, amountCents, session: admin },
+      { userId, amountCents: amountCents + 100, session: admin },
+      { userId, amountCents, session: otherAdmin },
+    ];
+    for (const mismatch of mismatches) {
+      activeSession = mismatch.session;
+      const result = await wallet.adminCreditWalletAction(mismatch.userId, mismatch.amountCents, reason, requestKey);
+      assert.deepEqual(result, conflict);
+    }
+
+    const after = await readStore();
+    assert.equal(after.ledgerEntries.length, 1);
+    assert.equal(after.ledgerEntries[0]?.requestKey, requestKey);
+    assert.equal(after.wallets.find((row) => row.userId === userId)?.availableCents, amountCents);
+    assert.equal(after.wallets.find((row) => row.userId === otherUserId)?.availableCents, 0);
+    assert.equal(after.auditLog.filter((row) => row.action === "wallet.admin_credit").length, 1);
+
+    activeSession = admin;
+    const same = await wallet.adminCreditWalletAction(userId, amountCents, reason, requestKey);
+    assert.equal(same.ok, true);
+    if (same.ok && first.ok) assert.equal(same.entryId, first.entryId);
+  });
+});

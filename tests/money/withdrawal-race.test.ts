@@ -340,6 +340,74 @@ test("admin credit is bounded, requires a reason, and records the acting admin",
   assert.equal(missing.auditLog.length, 0);
 });
 
+test("the same admin credit key rejects a different user, amount, or admin", () => {
+  const requestKey = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+  const otherUserId = "99999999-9999-4999-8999-999999999999";
+  const otherAdminId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const reason = "EFT received 14 Oct";
+  const store = emptyStore();
+  store.profiles.push(profile(userId, "brand@fweta.test"), profile(otherUserId, "other@fweta.test"));
+  store.wallets.push(
+    { userId, availableCents: 0, pendingCents: 0, updatedAt: at },
+    { userId: otherUserId, availableCents: 0, pendingCents: 0, updatedAt: at },
+  );
+
+  const first = creditWalletInStore(store, {
+    adminId,
+    adminEmail,
+    userId,
+    amountCents: 25_000,
+    reason,
+    requestKey,
+  });
+  assert.equal(first.ok, true);
+  if (!first.ok) return;
+  const credited = structuredClone(store);
+
+  const mismatches = [
+    {
+      label: "user",
+      input: { adminId, adminEmail, userId: otherUserId, amountCents: 25_000, reason, requestKey },
+    },
+    {
+      label: "amount",
+      input: { adminId, adminEmail, userId, amountCents: 26_000, reason, requestKey },
+    },
+    {
+      label: "admin",
+      input: {
+        adminId: otherAdminId,
+        adminEmail: "other-admin@fweta.test",
+        userId,
+        amountCents: 25_000,
+        reason,
+        requestKey,
+      },
+    },
+  ];
+
+  for (const mismatch of mismatches) {
+    const result = creditWalletInStore(store, mismatch.input);
+    assert.deepEqual(
+      result,
+      { ok: false, error: "This request key was already used for a different credit." },
+      mismatch.label,
+    );
+    assert.deepEqual(store, credited, mismatch.label);
+  }
+
+  const same = creditWalletInStore(store, {
+    adminId,
+    adminEmail,
+    userId,
+    amountCents: 25_000,
+    reason,
+    requestKey,
+  });
+  assert.deepEqual(same, first);
+  assert.deepEqual(store, credited);
+});
+
 test("money actions decide the transition inside the write", () => {
   const wallet = readFileSync(new URL("../../app/actions/wallet.ts", import.meta.url), "utf8");
   const paidStart = wallet.indexOf("export async function markWithdrawalPaidAction");

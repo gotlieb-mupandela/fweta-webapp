@@ -19,13 +19,22 @@ export type AdminCreditResult =
 /**
  * Credit a wallet and record the acting admin. Must run inside updateStore
  * so the ledger row and the audit row commit together, or not at all.
- * A request key already stored on a ledger row returns that first credit.
+ * A request key already stored on a ledger row returns that first credit
+ * when the user, amount, and acting admin match. Any difference credits
+ * nothing.
  */
 export function creditWalletInStore(store: DatabaseStore, input: AdminCreditWrite): AdminCreditResult {
   const existing = store.ledgerEntries.find(
     (entry) => entry.referenceType === "admin_credit" && entry.requestKey === input.requestKey,
   );
   if (existing) {
+    const sameCredit =
+      existing.userId === input.userId &&
+      existing.amountCents === input.amountCents &&
+      existing.actorId === input.adminId;
+    if (!sameCredit) {
+      return { ok: false, error: "This request key was already used for a different credit." };
+    }
     return {
       ok: true,
       availableCents: existing.balanceAfterAvailableCents,
