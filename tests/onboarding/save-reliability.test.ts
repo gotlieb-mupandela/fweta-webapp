@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { StorePersistError } from "@/lib/db/supabase-store";
 import type { DatabaseStore, Profile } from "@/lib/db/types";
+import { BRANCH_CODE_PATTERN, branchCodeFieldError } from "@/lib/onboarding/branch-code";
 import { clientErrorFromUnknown } from "@/lib/onboarding/errors";
 import { createDraft } from "@/lib/onboarding/model";
 import { getOnboardingSteps } from "@/lib/onboarding/steps";
@@ -190,6 +191,15 @@ test("answers stay in session storage for this user", () => {
   writeOnboardingSession(storage, snapshot);
   assert.deepEqual(readOnboardingSession(storage, "user-1"), snapshot);
   assert.equal(readOnboardingSession(storage, "someone-else"), null);
+});
+
+test("a branch code accepts six digits and rejects the letter d", () => {
+  assert.equal(BRANCH_CODE_PATTERN, "[0-9]{6}");
+  assert.equal(new RegExp(`^${BRANCH_CODE_PATTERN}$`).test("461266"), true);
+  assert.equal(new RegExp(`^${BRANCH_CODE_PATTERN}$`).test("dddddd"), false);
+  assert.equal(branchCodeFieldError(""), "Branch code must be 6 digits.");
+  assert.equal(branchCodeFieldError("46126"), "Branch code must be 6 digits.");
+  assert.equal(branchCodeFieldError("461266"), null);
 });
 
 test("a submit stops waiting after the client timeout", async (t) => {

@@ -8,6 +8,7 @@ import {
   StoreConflictError,
   StoreDeadlineError,
 } from "@/lib/db/store-commit";
+import { fetchWithStoreTimeout, STORE_FETCH_TIMEOUT_MS } from "@/lib/db/supabase-store";
 
 test("conflict backoff grows and stays jittered", () => {
   const low = conflictBackoffMs(1, () => 0);
@@ -21,6 +22,9 @@ test("conflict backoff grows and stays jittered", () => {
 
 test("a conflict retry waits for backoff before the next save", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+  t.after(() => {
+    t.mock.timers.reset();
+  });
   let saves = 0;
   const pending = commitLoadedMutation({
     maxAttempts: 2,
@@ -45,11 +49,13 @@ test("a conflict retry waits for backoff before the next save", async (t) => {
   t.mock.timers.tick(1);
   await pending;
   assert.equal(saves, 2);
-  t.mock.timers.reset();
 });
 
 test("a hung save hits the overall deadline", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+  t.after(() => {
+    t.mock.timers.reset();
+  });
   let loads = 0;
   const pending = commitLoadedMutation({
     load: (): Promise<{ store: { n: number }; revision: number }> => {
@@ -71,7 +77,6 @@ test("a hung save hits the overall deadline", async (t) => {
   assert.equal(/supabase/i.test(error instanceof Error ? error.message : ""), false);
   assert.equal(loads, 1);
   assert.ok(loads < 8);
-  t.mock.timers.reset();
 });
 
 test("exhausted conflicts still throw after the retries", async () => {
@@ -97,46 +102,37 @@ test("exhausted conflicts still throw after the retries", async () => {
 });
 
 test("the service client fetch aborts when its timeout signal fires", async () => {
-  const { spawn } = await import("node:child_process");
-  const script = [
-    'import { fetchWithStoreTimeout, STORE_FETCH_TIMEOUT_MS } from "./lib/db/supabase-store.ts";',
-    'if (STORE_FETCH_TIMEOUT_MS !== 15000) throw new Error("expected 15s");',
-    "globalThis.fetch = ((_input, init) => new Promise((_resolve, reject) => {",
-    '  const signal = init?.signal;',
-    '  if (!signal) reject(new Error("missing signal"));',
-    '  else signal.addEventListener("abort", () => reject(new Error("aborted")));',
-    "}));",
-    "const started = Date.now();",
-    "const keepAlive = setTimeout(() => undefined, 5000);",
-    'try { await fetchWithStoreTimeout("https://example.invalid/store", undefined, 40); throw new Error("should abort"); }',
-    'catch (error) { if (!(error instanceof Error) || !error.message.toLowerCase().includes("aborted")) throw error; }',
-    "finally { clearTimeout(keepAlive); }",
-    'if (Date.now() - started > 2000) throw new Error("too slow");',
-    'console.log("ok");',
-  ].join("\n");
+  assert.equal(STORE_FETCH_TIMEOUT_MS, 15_000);
+  const original = globalThis.fetch;
+  globalThis.fetch = ((_input: RequestInfo | URL, init?: RequestInit) => {
+    return new Promise((_resolve, reject) => {
+      const signal = init?.signal;
+      if (!signal) {
+        reject(new Error("missing signal"));
+        return;
+      }
+      const fail = () => reject(new Error("aborted"));
+      if (signal.aborted) {
+        fail();
+        return;
+      }
+      signal.addEventListener("abort", fail, { once: true });
+    });
+  }) as typeof fetch;
 
-  const output = await new Promise<string>((resolve, reject) => {
-    const child = spawn("npx", ["tsx", "--input-type=module", "-e", script], {
-      cwd: "/workspace",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk;
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk;
-    });
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code === 0 && stdout.includes("ok")) resolve(stdout);
-      else reject(new Error(stderr || stdout || `exit ${code}`));
-    });
-  });
-  assert.match(output, /ok/);
+  const keepAlive = setTimeout(() => undefined, 5_000);
+  const started = Date.now();
+  try {
+    await assert.rejects(
+      () => fetchWithStoreTimeout("https://example.invalid/store", undefined, 40),
+      (error: unknown) =>
+        error instanceof Error && error.message.toLowerCase().includes("aborted"),
+    );
+    assert.ok(Date.now() - started < 2_000);
+  } finally {
+    clearTimeout(keepAlive);
+    globalThis.fetch = original;
+  }
 });
 
 async function flush() {
