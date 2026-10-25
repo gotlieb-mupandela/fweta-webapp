@@ -5,8 +5,7 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { DashboardOnboarding } from "@/components/onboarding/dashboard-chrome";
 import { PendingInvites } from "@/components/onboarding/pending-invites";
-import { sessionGate } from "@/lib/auth/session-gate";
-import { getProfileById, getSession } from "@/lib/auth/session";
+import { getProfileById, readSessionAccess } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { countUnreadNotifications } from "@/lib/notifications/queries";
 import { needsOnboarding } from "@/lib/onboarding/steps";
@@ -21,23 +20,25 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getSession();
-  if (!session) redirect("/login");
-
-  const profile = await getProfileById(session.id);
-  const gate = sessionGate(session, profile);
-  if (gate === "suspended" || gate === "expired") {
-    redirect(`/api/auth/end-session?reason=${gate}`);
+  const access = await readSessionAccess();
+  if (access.status === "suspended" || access.status === "expired") {
+    redirect(`/api/auth/end-session?reason=${access.status}`);
   }
+  if (access.status !== "ok") redirect("/login");
+  const session = access.session;
+
+  const [profile, unreadCount, store] = await Promise.all([
+    getProfileById(session.id),
+    countUnreadNotifications(session.id),
+    readStore(),
+  ]);
   if (profile && needsOnboarding(profile)) {
     redirect("/onboarding");
   }
 
-  const role =
-    session.roles.includes(session.primaryRole) ? session.primaryRole : session.roles[0] ?? "clipper";
-  const unreadCount = await countUnreadNotifications(session.id);
-
-  const store = await readStore();
+  const role = session.roles.includes(session.primaryRole)
+    ? session.primaryRole
+    : (session.roles[0] ?? "clipper");
   const workspaces = activeMemberships(store, session.id).map((member) => ({
     id: member.workspaceId,
     name: workspaceName(store, member.workspaceId),
