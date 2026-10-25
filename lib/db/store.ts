@@ -12,6 +12,7 @@ import { commitStoreToSupabase, loadStoreFromSupabase, StorePersistError } from 
 /**
  * Store adapter.
  * - Local dev (no Supabase keys, or FWETA_STORE=file): data/store.json
+ *   Development and tests may set FWETA_DATA_DIR. Production ignores it.
  * - Production (Supabase URL + service role key): Postgres JSON document.
  *   Writes reload that document and compare-and-swap on its revision.
  *   The in-memory copy is a read cache only. It is not the base for a save,
@@ -20,11 +21,40 @@ import { commitStoreToSupabase, loadStoreFromSupabase, StorePersistError } from 
  * A failed Supabase load serves an empty view for that request and does not
  * write it back. See lib/db/adapter.ts.
  */
+type StoreDirEnv = {
+  NODE_ENV?: string;
+  FWETA_DATA_DIR?: string;
+  VERCEL?: string;
+  AWS_LAMBDA_FUNCTION_NAME?: string;
+};
+
 const DATA_DIR =
   process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
     ? path.join("/tmp", "fweta-data")
     : path.join(process.cwd(), "data");
 const STORE_PATH = path.join(DATA_DIR, "store.json");
+
+/**
+ * Local JSON directory. FWETA_DATA_DIR overrides the default in development
+ * and tests. Production ignores that variable.
+ */
+export function resolveStoreDataDir(env: StoreDirEnv = process.env): string {
+  if (env.NODE_ENV !== "production") {
+    const override = env.FWETA_DATA_DIR?.trim();
+    if (override) return path.resolve(override);
+  }
+  if (env.VERCEL || env.AWS_LAMBDA_FUNCTION_NAME) {
+    return path.join("/tmp", "fweta-data");
+  }
+  return path.join(process.cwd(), "data");
+}
+
+/** Set only outside production. Production file access stays on STORE_PATH. */
+function devDataDirOverride(): string | null {
+  if (process.env.NODE_ENV === "production") return null;
+  const override = process.env.FWETA_DATA_DIR?.trim();
+  return override ? path.resolve(override) : null;
+}
 
 const emptyStore = (): DatabaseStore => ({
   profiles: [],
@@ -77,21 +107,33 @@ function cloneStore(store: DatabaseStore): DatabaseStore {
   return hydrateStoreCampaigns(structuredClone(store));
 }
 
-async function loadFromDisk(): Promise<DatabaseStore | null> {
-  let raw: string;
+async function readStoreText(file: string, dynamic: boolean): Promise<string | null> {
   try {
-    raw = await fs.readFile(STORE_PATH, "utf8");
+    if (dynamic) return await fs.readFile(/*turbopackIgnore: true*/ file, "utf8");
+    return await fs.readFile(STORE_PATH, "utf8");
   } catch {
     return null;
   }
+}
+
+async function loadFromDisk(): Promise<DatabaseStore | null> {
+  const override = devDataDirOverride();
+  const raw = await readStoreText(override ? path.join(override, "store.json") : STORE_PATH, override != null);
+  if (raw == null) return null;
   try {
     return { ...emptyStore(), ...JSON.parse(raw) } as DatabaseStore;
   } catch (err) {
     // Corrupted JSON: back it up instead of silently overwriting and losing data.
     try {
-      await fs.mkdir(DATA_DIR, { recursive: true });
-      const backup = path.join(DATA_DIR, `store.corrupt-${Date.now()}.json`);
-      await fs.writeFile(backup, raw, "utf8");
+      const backupName = `store.corrupt-${Date.now()}.json`;
+      const backup = override ? path.join(override, backupName) : path.join(DATA_DIR, backupName);
+      if (override) {
+        await fs.mkdir(/*turbopackIgnore: true*/ override, { recursive: true });
+        await fs.writeFile(/*turbopackIgnore: true*/ backup, raw, "utf8");
+      } else {
+        await fs.mkdir(DATA_DIR, { recursive: true });
+        await fs.writeFile(path.join(DATA_DIR, backupName), raw, "utf8");
+      }
       console.warn(`[fweta] store.json corrupt, backed up to ${backup}`);
     } catch {
       // best-effort backup only
@@ -106,10 +148,20 @@ async function loadFromDisk(): Promise<DatabaseStore | null> {
 
 async function persist(store: DatabaseStore) {
   try {
+    const body = JSON.stringify(store, null, 2);
+    const override = devDataDirOverride();
+    if (override) {
+      const file = path.join(override, "store.json");
+      const tmp = `${file}.${process.pid}.tmp`;
+      await fs.mkdir(/*turbopackIgnore: true*/ override, { recursive: true });
+      await fs.writeFile(/*turbopackIgnore: true*/ tmp, body, "utf8");
+      await fs.rename(/*turbopackIgnore: true*/ tmp, file);
+      return;
+    }
     await fs.mkdir(DATA_DIR, { recursive: true });
     // Atomic write: tmp + rename so a crash never leaves half-written JSON.
     const tmp = `${STORE_PATH}.${process.pid}.tmp`;
-    await fs.writeFile(tmp, JSON.stringify(store, null, 2), "utf8");
+    await fs.writeFile(tmp, body, "utf8");
     await fs.rename(tmp, STORE_PATH);
   } catch (err) {
     // Never crash the request if disk is unavailable. The memory store still works.
@@ -217,7 +269,9 @@ export async function diagnoseLocalStore() {
   const store = await readStore();
   let persisted = false;
   try {
-    await fs.access(STORE_PATH);
+    const override = devDataDirOverride();
+    if (override) await fs.access(/*turbopackIgnore: true*/ path.join(override, "store.json"));
+    else await fs.access(STORE_PATH);
     persisted = true;
   } catch {
     persisted = false;

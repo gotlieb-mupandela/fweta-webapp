@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { pollSubmissionViewsJob } from "@/app/actions/jobs";
+import { pollSubmissionViewsJob } from "@/lib/jobs/submission-jobs";
 import { authorizeCron } from "@/lib/security/cron";
 import { isApifyConfigured } from "@/lib/social/apify";
 

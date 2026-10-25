@@ -1,11 +1,9 @@
-"use server";
-
 import { revalidatePath } from "next/cache";
 
+import { creditSubmissionEarnings } from "@/lib/campaigns/earnings";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { ViewSnapshot } from "@/lib/db/types";
 import { fetchVideoViewsFromApify, isApifyConfigured } from "@/lib/social/apify";
-import { creditSubmissionEarnings } from "@/lib/campaigns/earnings";
 
 function confirmedSnapshot(submissionId: string, views: number, at: string, source: ViewSnapshot["source"]): ViewSnapshot {
   return {
@@ -24,8 +22,8 @@ function confirmedSnapshot(submissionId: string, views: number, at: string, sour
 }
 
 /**
- * Phase 7 automation — callable via /api/jobs/poll-views or cron.
- * Uses Apify when APIFY_API_TOKEN is set; otherwise simulates view growth.
+ * Poll approved submissions. The cron route /api/jobs/poll-views calls this.
+ * Uses Apify when APIFY_API_TOKEN is set. Otherwise simulates view growth.
  */
 export async function pollSubmissionViewsJob() {
   const store = await readStore();
@@ -67,8 +65,8 @@ export async function pollSubmissionViewsJob() {
     }
   }
 
-  // Phase 2: single atomic write for all view updates (was N sequential writes,
-  // each triggering a full Supabase save — slow and timeout-prone).
+  // Phase 2: one write for every view update. Separate writes each saved the
+  // whole store and timed out.
   let updated = 0;
   if (pending.size > 0) {
     const at = nowIso();

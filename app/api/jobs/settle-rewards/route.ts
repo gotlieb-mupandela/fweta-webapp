@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-import { settleRewardsJob } from "@/app/actions/jobs";
+import { settleRewardsJob } from "@/lib/jobs/submission-jobs";
 import { authorizeCron } from "@/lib/security/cron";
 
 export const maxDuration = 60;
