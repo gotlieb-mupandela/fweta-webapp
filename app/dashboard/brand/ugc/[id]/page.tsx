@@ -44,6 +44,7 @@ export default async function BrandUgcDetailPage({ params }: { params: Promise<{
         <p className="mt-2 text-xs text-muted">
           Platforms: {brief.platforms.map(platformLabel).join(", ")}. Raw files: {brief.rawFiles ? "yes" : "no"}. Revisions: {brief.revisionLimit}.
         </p>
+        <p className="mt-2 text-xs text-muted">Any unspent budget is returned to your wallet when the campaign closes.</p>
         <div className="mt-4">
           <BriefLifecycle briefId={brief.id} status={brief.status} />
         </div>

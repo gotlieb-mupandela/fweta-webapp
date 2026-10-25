@@ -132,7 +132,7 @@ export async function notifyWelcome(profile: Profile) {
       user: profile,
       dedupeKey: `welcome:${profile.id}`,
       kind: "welcome",
-      title: "Welcome to fweta",
+      title: "Welcome to Fweta",
       body: welcomeBody(profile),
       href: welcomeHref(profile),
       email: {
@@ -181,7 +181,7 @@ export async function notifyCampaignLive(campaignId: string) {
       dedupeKey: `campaign.live:${campaign.id}:${user.id}`,
       kind: "campaign_live" as const,
       title: campaign.title,
-      body: `${brandName} posted a ${typeLabel(campaign.type).toLowerCase()} campaign. Budget ${formatMoney(campaign.budgetTotalCents)}, CPM ${formatMoney(campaign.cpmCents)}.${
+      body: `${brandName} posted a ${typeLabel(campaign.type).toLowerCase()} campaign. Budget ${formatMoney(campaign.budgetTotalCents)}, rate per 1,000 views ${formatMoney(campaign.cpmCents)}.${
         campaignMatchesCreator(user, campaign, store.savedCampaigns ?? [], store.campaigns)
           ? " It matches a campaign you saved or a country you listed."
           : ""

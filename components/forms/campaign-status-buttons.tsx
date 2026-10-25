@@ -62,7 +62,7 @@ export function CampaignStatusButtons({
           onClick={() => {
             if (
               !window.confirm(
-                "Delete this campaign? Unused budget is returned to your wallet. Pending submissions will be removed.",
+                "Delete this campaign? Any unspent budget is returned to your wallet when the campaign closes. Pending submissions will be removed.",
               )
             ) {
               return;

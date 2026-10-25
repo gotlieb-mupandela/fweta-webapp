@@ -8,11 +8,11 @@ import { aggregateRating, directoryCategoryPath, publicBusinesses, publicReviews
 
 export const metadata: Metadata = {
   title: "Creator trust directory",
-  description: "Businesses in Namibia and SADC with reviews from verified fweta creators.",
+  description: "Businesses in Namibia and SADC with reviews from verified Fweta creators.",
   alternates: { canonical: "/directory" },
   openGraph: {
     title: "Creator trust directory",
-    description: "Businesses with reviews from verified fweta creators.",
+    description: "Businesses with reviews from verified Fweta creators.",
     url: "/directory",
   },
 };

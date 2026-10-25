@@ -119,6 +119,7 @@ export function UgcBriefForm() {
           {[
             ["tiktok", "TikTok"],
             ["instagram", "Instagram"],
+            ["facebook", "Facebook"],
             ["youtube", "YouTube"],
             ["x", "X"],
           ].map(([value, label]) => (

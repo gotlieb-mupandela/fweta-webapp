@@ -20,7 +20,7 @@ export default function NotFound() {
         Page not found
       </h1>
       <p className="mt-3 max-w-md text-sm leading-relaxed text-muted">
-        That link does not match a page in the fweta workspace.
+        That link does not match a page in the Fweta workspace.
       </p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <Link href="/login">

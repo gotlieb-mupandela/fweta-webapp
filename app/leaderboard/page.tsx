@@ -30,7 +30,7 @@ export default async function LeaderboardPage() {
   return (
     <PublicChrome
       title="Leaderboard"
-      description="Approved clips, ranked by checked views. Earnings follow the campaign CPM."
+      description="Approved clips, ranked by checked views. Earnings follow the campaign rate per 1,000 views."
     >
       {rows.length === 0 ? (
         <EmptyState

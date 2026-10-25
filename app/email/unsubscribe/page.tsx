@@ -15,7 +15,7 @@ export const metadata = {
 
 const COPY: Record<string, { title: string; body: string }> = {
   email: {
-    title: "Turn off all fweta emails?",
+    title: "Turn off all Fweta emails?",
     body: "You will stop receiving campaign, booking, payout, and account emails. In-app alerts in the bell stay on. You can turn email back on whenever you like.",
   },
   bookings: {
@@ -60,7 +60,7 @@ export default async function UnsubscribePage({
           <p className="mt-4 text-sm text-muted">We could not find that account.</p>
         ) : !token ? (
           <div className="mt-4 space-y-3 text-sm text-muted">
-            <p>Open the unsubscribe link from an fweta email.</p>
+            <p>Open the unsubscribe link from a Fweta email.</p>
             <Link href="/login?next=/dashboard/settings/notifications" className="font-medium text-foreground">
               Sign in to manage email
             </Link>
@@ -69,7 +69,7 @@ export default async function UnsubscribePage({
           <div className="mt-4 space-y-4 text-sm text-muted">
             <p>
               {scope === "email"
-                ? "All fweta emails are off for this account."
+                ? "All Fweta emails are off for this account."
                 : `${unsubscribeLabel(scope)} is done.`}{" "}
               Your dashboard notifications are unchanged.
             </p>

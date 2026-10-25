@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Terms of use",
-  description: "Terms for using the fweta workspace, campaigns, bookings, and manual payouts.",
+  description: "Terms for using the Fweta workspace, campaigns, bookings, and manual payouts.",
 };
 
 export default function TermsPage() {
@@ -13,9 +13,10 @@ export default function TermsPage() {
       <p className="text-xs uppercase tracking-[0.14em] text-muted-light">
         Draft for counsel review · Windhoek · Last updated 17 October 2026
       </p>
+      <p>Fweta Trading Enterprises CC, Reg. CC/2026/10254</p>
       <p>
-        These terms govern the fweta workspace at app.fweta.com, operated from Windhoek, Namibia.
-        fweta is a marketplace where brands fund creator distribution and creators earn for approved
+        These terms govern the Fweta workspace at app.fweta.com, operated from Windhoek, Namibia.
+        Fweta is a marketplace where brands fund creator distribution and creators earn for approved
         work. By creating an account you agree to these terms, the{" "}
         <Link href="/legal/privacy" className="text-foreground underline-offset-2 hover:underline">
           privacy notice
@@ -30,15 +31,15 @@ export default function TermsPage() {
       <p>
         You must provide a working email and keep your password confidential. One person may hold
         more than one role (brand, influencer, clipper). You may not create an admin account.
-        fweta may suspend an account that is used for fraud, abuse, or to move money that was not
+        Fweta may suspend an account that is used for fraud, abuse, or to move money that was not
         actually received.
       </p>
       <h2 className="font-display text-2xl text-foreground">Money</h2>
       <p>
-        Amounts are stored in cents and shown in Namibian dollars (NAD). Brand wallet credits in
+        Amounts are stored in cents and shown in Namibian dollars (N$). Brand wallet credits in
         this version are manual: a deposit is recorded in the app after funds are confirmed, and
         creator withdrawals are paid by manual EFT. There is no card or instant-payment gateway on
-        this version of the product. Minimum withdrawal is N$100. fweta may refuse a withdrawal
+        this version of the product. Minimum withdrawal is N$100. All N$ prices exclude VAT. Fweta may refuse a withdrawal
         that fails a fraud or identity check.
       </p>
       <p>
@@ -49,7 +50,7 @@ export default function TermsPage() {
       <h2 className="font-display text-2xl text-foreground">Campaigns and bookings</h2>
       <p>
         Brands set the price on open campaigns. Influencers set the price on rate cards. Bookings
-        are request and accept, not instant purchase. fweta does not guarantee views, approvals, or
+        are request and accept, not instant purchase. Fweta does not guarantee views, approvals, or
         that a campaign budget will last until the end date.
       </p>
       <h2 className="font-display text-2xl text-foreground">Acceptable use</h2>
@@ -61,12 +62,12 @@ export default function TermsPage() {
       </p>
       <h2 className="font-display text-2xl text-foreground">Liability</h2>
       <p>
-        The workspace is provided as available software. fweta is not liable for social-network
+        The workspace is provided as available software. Fweta is not liable for social-network
         outages, delayed view counts, or a bank transfer that fails because the payout details were
         wrong. Nothing here limits liability that Namibian law does not allow to be limited.
       </p>
       <p>
-        Questions: use the contact address published on fweta.com. These terms are a working draft
+        Questions: email hello@fweta.com. These terms are a working draft
         until a lawyer instructed by the operator signs off.
       </p>
     </article>

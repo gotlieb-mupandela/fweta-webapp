@@ -37,7 +37,7 @@ export default async function CampaignSubmissionsPage({
     <div className="dash-stack">
       <PageHeader
         title="Submission queue"
-        description={`Review clips for ${campaign.title}. Enter the view count you checked, then approve. Earnings use the campaign CPM.`}
+        description={`Review clips for ${campaign.title}. Enter the view count you checked, then approve. Earnings use the campaign rate per 1,000 views.`}
         action={
           <Link href={`/dashboard/brand/campaigns/${id}`}>
             <Button size="sm" variant="secondary">

@@ -38,7 +38,7 @@ export async function adminCreditWalletAction(userId: string, amountCents: numbe
   if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
   const cents = nadToCents(amountCents / 100);
   if (cents == null || cents !== amountCents) {
-    return { ok: false as const, error: "Enter a valid amount in NAD." };
+    return { ok: false as const, error: "Enter a valid amount in N$." };
   }
 
   const store = await readStore();
@@ -290,7 +290,7 @@ export async function brandDepositAction(amountCents: number, note?: string) {
   if (!session.roles.includes("brand")) return { ok: false as const, error: "Brand only." };
   const cents = nadToCents(amountCents / 100);
   if (cents == null || cents !== amountCents) {
-    return { ok: false as const, error: "Enter a valid amount in NAD." };
+    return { ok: false as const, error: "Enter a valid amount in N$." };
   }
 
   const id = newId();

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Influencers",
-  description: "Browse fweta creator profiles and book at the rates they publish.",
+  description: "Browse Fweta creator profiles and book at the rates they publish.",
   openGraph: {
     title: "Influencers · fweta",
     description: "Browse creator profiles and book at listed rates.",

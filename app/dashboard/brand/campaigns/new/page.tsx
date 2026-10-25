@@ -17,7 +17,7 @@ export default async function NewCampaignPage() {
 
   return (
     <div className="dash-stack">
-      <PageHeader title="New campaign" description="Set budget, CPM, and platform rules." />
+      <PageHeader title="New campaign" description="Set budget, the rate per 1,000 views, and platform rules." />
       <Card className="max-w-2xl panel-interactive">
         <p className="text-sm text-muted">
           Wallet balance:{" "}

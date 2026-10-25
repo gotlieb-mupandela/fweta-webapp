@@ -54,7 +54,7 @@ export function welcomeEmail(input: {
     (input.profile.roles.includes("influencer") || input.profile.roles.includes("clipper"));
 
   const shared = {
-    subject: "Welcome to fweta",
+    subject: "Welcome to Fweta",
     preheader: "You are in. Stay close for campaigns and brand deals.",
     eyebrow: "You're in",
     ...linksFor("email", input.links),
@@ -72,11 +72,11 @@ function welcomeBody(
 ): Pick<EmailDocument, "headline" | "kicker" | "paragraphs" | "steps" | "actions"> {
   if (variant === "brand") {
     return {
-      headline: "Welcome to fweta.",
+      headline: "Welcome to Fweta.",
       kicker: "Your campaigns, your creators, one wallet.",
       paragraphs: [
         hello,
-        "fweta is where brands pay for distribution and creators set the terms. You are on the brand side: choose a budget, set a CPM, and let clippers and influencers carry the work.",
+        "Fweta is where brands pay for distribution and creators set the terms. You are on the brand side: choose a budget, set a rate per 1,000 views, and let clippers and influencers carry the work.",
         "Stay close. New creators, campaign results, and brand deals all show up here.",
         alsoCreator
           ? "This same account can also clip campaigns and take bookings. Switch roles whenever you like."
@@ -190,12 +190,12 @@ export function campaignLiveEmail(input: {
       { label: "Brand", value: input.brandName },
       { label: "Type", value: input.typeLabel },
       { label: "Budget", value: formatMoney(input.budgetCents) },
-      { label: "CPM", value: `${formatMoney(input.cpmCents)} / 1,000 views` },
+      { label: "Rate per 1,000 views", value: `${formatMoney(input.cpmCents)} / 1,000 views` },
       { label: "Per video cap", value: formatMoney(input.capCents) },
       { label: "Platforms", value: platforms || "See the brief" },
     ],
     actions: [{ label: "View campaign", href: absolute(input.campaignPath) }],
-    footnote: "You are receiving this because you create on fweta.",
+    footnote: "You are receiving this because you create on Fweta.",
     ...linksFor("email", input.links),
   };
 }
@@ -257,7 +257,7 @@ export function submissionDecisionEmail(input: {
       kicker: input.campaignTitle,
       paragraphs: [
         `${input.brandName} approved your post on ${input.campaignTitle}.`,
-        "Verified views now count toward earnings at the campaign CPM, up to the per-video cap.",
+        "Verified views now count toward earnings at the campaign rate per 1,000 views, up to the per-video cap.",
         note ? `Note from the brand: ${note}` : "",
       ].filter(Boolean),
       actions: [{ label: "View your submissions", href: absolute("/dashboard/clipper/submissions") }],
@@ -376,7 +376,7 @@ export function bookingCompletedCreatorEmail(input: {
     kicker: input.offerTitle,
     paragraphs: [
       `${input.brandName} approved your delivery for ${input.offerTitle}.`,
-      `${formatMoney(input.amountCents)} is now in your fweta wallet. You can withdraw from N$100 whenever you are ready.`,
+      `${formatMoney(input.amountCents)} is now in your Fweta wallet. You can withdraw from N$100 whenever you are ready.`,
     ],
     actions: [{ label: "View wallet", href: absolute("/dashboard/settings/wallet") }],
     ...linksFor("bookings", input.links),
@@ -499,11 +499,11 @@ export function depositConfirmedEmail(input: {
   const showNote = Boolean(note && note !== "Manual deposit (v1)" && note !== "Brand deposit (manual)");
   return {
     subject: `Deposit confirmed: ${formatMoney(input.amountCents)}`,
-    preheader: `${formatMoney(input.amountCents)} is in your fweta wallet.`,
+    preheader: `${formatMoney(input.amountCents)} is in your Fweta wallet.`,
     eyebrow: "Wallet",
     headline: "Your deposit is in.",
     paragraphs: [
-      `${formatMoney(input.amountCents)} has been added to your fweta wallet.`,
+      `${formatMoney(input.amountCents)} has been added to your Fweta wallet.`,
       showNote ? `Note: ${note}` : "",
       "You can fund a campaign or book a creator whenever you are ready.",
     ].filter(Boolean),

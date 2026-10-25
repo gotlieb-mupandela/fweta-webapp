@@ -29,7 +29,7 @@ export default async function BrandDepositsPage() {
         <h2 className="font-display text-xl tracking-tight">Submit an EFT</h2>
         <p className="mt-1.5 text-sm text-muted">
           Available now: {formatMoney(wallet.availableCents)}. The wallet does not change until an
-          admin confirms the transfer. Manual EFT only.
+          admin confirms the transfer. Manual EFT only. All N$ prices exclude VAT.
         </p>
         <div className="mt-5">
           <BrandDepositForm />

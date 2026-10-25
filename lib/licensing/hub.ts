@@ -28,7 +28,7 @@ export type LicensingClock = {
 const FORMATS: UgcFormat[] = ["vertical", "square", "horizontal"];
 const USAGES: UgcUsage[] = ["organic", "paid", "organic_and_paid"];
 const TERMS: UgcTermMonths[] = [3, 6, 12];
-const PLATFORMS: SocialPlatform[] = ["tiktok", "instagram", "youtube", "x"];
+const PLATFORMS: SocialPlatform[] = ["tiktok", "instagram", "facebook", "youtube", "x"];
 
 export function usageLabel(usage: UgcUsage): string {
   if (usage === "organic") return "organic posts";
@@ -46,6 +46,7 @@ export function platformLabel(platform: SocialPlatform): string {
   if (platform === "tiktok") return "TikTok";
   if (platform === "instagram") return "Instagram";
   if (platform === "youtube") return "YouTube";
+  if (platform === "facebook") return "Facebook";
   return "X";
 }
 
@@ -71,7 +72,7 @@ export function buildLicenseSummary(license: Omit<ContentLicense, "summary">): s
   const platforms = license.platforms.map(platformLabel).join(", ");
   const raw = license.rawFiles ? "Raw files are included." : "Raw files are not included.";
   const lines = [
-    "fweta content license",
+    "Fweta content license",
     `License ${license.id}`,
     "",
     `${license.brandName} may use one approved video from ${license.creatorName}.`,

@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     default: "fweta",
     template: "%s · fweta",
   },
-  description: "fweta workspace for campaigns, bookings, and payouts for African creators.",
+  description: "Fweta workspace for campaigns, bookings, and payouts for African creators.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://app.fweta.com"),
   openGraph: {
     title: "fweta",

@@ -48,7 +48,7 @@ export function WithdrawalForm({
       }}
     >
       <div>
-        <Label htmlFor="amount">Amount (NAD)</Label>
+        <Label htmlFor="amount">Amount (N$)</Label>
         <Input
           id="amount"
           name="amount"

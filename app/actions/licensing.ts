@@ -46,7 +46,7 @@ function revalidateLicensing(briefId?: string) {
   }
 }
 
-const PLATFORMS: SocialPlatform[] = ["tiktok", "instagram", "youtube", "x"];
+const PLATFORMS: SocialPlatform[] = ["tiktok", "instagram", "facebook", "youtube", "x"];
 
 function centsFromNad(raw: string): number | null {
   const trimmed = raw.trim();
@@ -59,7 +59,7 @@ function centsFromNad(raw: string): number | null {
 
 function parseBrief(formData: FormData): { ok: true; data: Omit<CreateBriefInput, "workspaceId"> } | { ok: false; error: string } {
   const fee = centsFromNad(String(formData.get("feeNad") ?? ""));
-  if (fee == null) return { ok: false, error: "Enter the fee per video in Namibian dollars, such as 500 or 500.00." };
+  if (fee == null) return { ok: false, error: "Enter the fee per video in N$, such as 500 or 500.00." };
   const platforms = formData.getAll("platforms").map(String).filter((item): item is SocialPlatform => PLATFORMS.includes(item as SocialPlatform));
   const term = Number(formData.get("termMonths"));
   const format = String(formData.get("format") ?? "");
@@ -404,7 +404,7 @@ export async function savePortfolioAction(formData: FormData) {
   const session = await requireSession();
   const feeRaw = String(formData.get("feeNad") ?? "0").trim();
   const fee = feeRaw === "" || feeRaw === "0" ? 0 : centsFromNad(feeRaw);
-  if (fee == null) return { ok: false as const, error: "Enter a rate in Namibian dollars, or 0 to show rate on request." };
+  if (fee == null) return { ok: false as const, error: "Enter a rate in N$, or 0 to show rate on request." };
   const sampleUrls = String(formData.get("sampleUrls") ?? "")
     .split(/\n+/)
     .map((line) => line.trim())

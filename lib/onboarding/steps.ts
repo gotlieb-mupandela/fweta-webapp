@@ -29,7 +29,7 @@ const CORE: OnboardingStep[] = [
   {
     id: "firstName",
     title: "What's your first name?",
-    subtitle: "We'll use this across your fweta profile.",
+    subtitle: "We'll use this across your Fweta profile.",
     xp: 10,
     placeholder: "Amara",
   },

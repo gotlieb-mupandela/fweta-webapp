@@ -164,7 +164,7 @@ export const JOURNEY_MOMENTS: JourneyMoment[] = [
     steps: [
       "Open View checks.",
       "Pick an approved clip and enter the view count.",
-      "Save. The creator wallet updates from the CPM math.",
+      "Save. The creator wallet updates from the rate per 1,000 views.",
     ],
     href: "/dashboard/admin/views",
     cta: "Record views",

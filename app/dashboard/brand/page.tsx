@@ -60,6 +60,18 @@ export default async function BrandDashboardPage() {
         <Stat label="Wallet" value={formatMoney(wallet.availableCents)} hint="For bookings & deposits" />
       </StatGrid>
 
+      <section className="panel px-4 py-3 sm:px-5">
+        <p className="text-sm text-muted">
+          Want help running a campaign?{" "}
+          <a
+            href="mailto:hello@fweta.com?subject=Managed%20Campaigns%20enquiry"
+            className="font-medium text-foreground underline-offset-2 hover:underline"
+          >
+            Ask about Managed Campaigns.
+          </a>
+        </p>
+      </section>
+
       <div className="dash-split">
         <section>
           <SectionHeader title="Recent campaigns" href="/dashboard/brand/campaigns" />

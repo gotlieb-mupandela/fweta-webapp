@@ -4,7 +4,7 @@ import { PublicChrome } from "@/components/public-chrome";
 
 export const metadata: Metadata = {
   title: "Legal",
-  description: "Terms, privacy, and creator terms for fweta.",
+  description: "Terms, privacy, and creator terms for Fweta.",
 };
 
 export default function LegalLayout({ children }: { children: React.ReactNode }) {

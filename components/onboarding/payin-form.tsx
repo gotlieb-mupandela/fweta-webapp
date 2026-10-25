@@ -39,7 +39,7 @@ export function PayInRequestForm() {
       }}
     >
       <div>
-        <Label htmlFor="amount">Amount (NAD)</Label>
+        <Label htmlFor="amount">Amount (N$)</Label>
         <Input id="amount" name="amount" type="number" step="0.01" min="0.01" required placeholder="1000.00" />
       </div>
       <div>

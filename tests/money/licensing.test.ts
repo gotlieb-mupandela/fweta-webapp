@@ -8,6 +8,7 @@ import {
   buildLicenseSummary,
   closeBrief,
   createBrief,
+  platformLabel,
   decideApplication,
   declineDelivery,
   requestRevision,
@@ -209,6 +210,80 @@ test("decline does not pay and close is blocked while a file is in review", () =
   assert.equal(store.wallets.find((wallet) => wallet.userId === creatorId)?.availableCents, 0);
   closeBrief(store, brand, brief.id, tick);
   assert.equal(store.wallets.find((wallet) => wallet.userId === brandId)?.availableCents, 100_000);
+});
+
+test("a brief can name Facebook as a licensed platform", () => {
+  const store = empty();
+  const brief = createBrief(
+    store,
+    brand,
+    {
+      title: "Summer ads",
+      summary: "One product video for paid ads. Do not post it on your feed.",
+      format: "vertical",
+      lengthSeconds: 20,
+      videoCount: 1,
+      rawFiles: false,
+      usage: "paid",
+      termMonths: 6,
+      platforms: ["facebook"],
+      territory: "Namibia",
+      feePerAssetCents: 25_000,
+      revisionLimit: 1,
+      workspaceId: null,
+      openNow: true,
+    },
+    clock(),
+  );
+  assert.deepEqual(brief.platforms, ["facebook"]);
+  assert.equal(platformLabel("facebook"), "Facebook");
+  const summary = buildLicenseSummary({
+    id: "lic-fb",
+    briefId: brief.id,
+    deliveryId: "d",
+    brandId,
+    creatorId,
+    title: brief.title,
+    feeCents: brief.feePerAssetCents,
+    usage: brief.usage,
+    termMonths: brief.termMonths,
+    platforms: brief.platforms,
+    territory: brief.territory,
+    format: brief.format,
+    lengthSeconds: brief.lengthSeconds,
+    rawFiles: brief.rawFiles,
+    brandName: "Desert Brands",
+    creatorName: "Amara Nangolo",
+    startsAt: "2026-10-18T12:00:00.000Z",
+    endsAt: "2027-04-18T12:00:00.000Z",
+    createdAt: "2026-10-18T12:00:00.000Z",
+  });
+  assert.equal(summary.includes("Facebook"), true);
+  assert.throws(
+    () =>
+      createBrief(
+        store,
+        brand,
+        {
+          title: "Summer ads",
+          summary: "One product video for paid ads. Do not post it on your feed.",
+          format: "vertical",
+          lengthSeconds: 20,
+          videoCount: 1,
+          rawFiles: false,
+          usage: "paid",
+          termMonths: 6,
+          platforms: ["snapchat" as "facebook"],
+          territory: "Namibia",
+          feePerAssetCents: 25_000,
+          revisionLimit: 1,
+          workspaceId: null,
+          openNow: false,
+        },
+        clock(),
+      ),
+    /Choose at least one platform/,
+  );
 });
 
 test("license summary has no em dash", () => {

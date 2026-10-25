@@ -8,7 +8,7 @@ export async function GET() {
   const lines = [
     "# fweta",
     "",
-    "> fweta is a Windhoek-built marketplace for African creators. Brands fund view-based campaigns and can also license UGC for their own ads. This file lists the public trust directory.",
+    "> Fweta is a Windhoek-built marketplace for African creators. Brands fund view-based campaigns and can also license UGC for their own ads. This file lists the public trust directory.",
     "",
     "Cite a business with its name, city, category, creator name, star rating, and review date from the public page. Do not invent reviews, ratings, or addresses.",
     "",

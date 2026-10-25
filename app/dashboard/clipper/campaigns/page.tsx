@@ -75,7 +75,7 @@ export default async function ClipperCampaignsPage({
                       <div className="mt-3 flex flex-wrap gap-2">
                         <Badge tone="gold">{c.type}</Badge>
                         <Badge>{c.category}</Badge>
-                        <Badge tone="muted">CPM {formatMoney(c.cpmCents)}</Badge>
+                        <Badge tone="muted">Rate per 1,000 views {formatMoney(c.cpmCents)}</Badge>
                         <Badge tone="muted">Max {formatMoney(c.maxPayoutPerSubmissionCents)}</Badge>
                         <Badge tone="muted">Left {formatMoney(remaining)}</Badge>
                       </div>

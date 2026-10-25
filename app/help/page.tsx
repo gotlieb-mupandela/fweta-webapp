@@ -22,7 +22,7 @@ export default function HelpPage() {
           </Link>
         </header>
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-deep">Help center</p>
-        <h1 className="mt-2 font-display text-4xl tracking-tight">How fweta works</h1>
+        <h1 className="mt-2 font-display text-4xl tracking-tight">How Fweta works</h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">
           Short answers for setup, campaigns, social accounts, brand teams, earnings, and the admin checks.
         </p>

@@ -80,7 +80,7 @@ export function SignupForm({ presetRole }: { presetRole?: string }) {
           </div>
 
           <h1 className="font-display text-[2.35rem] leading-none text-foreground md:text-5xl">
-            Join fweta
+            Join Fweta
           </h1>
           <p className="mt-3 text-sm text-muted">
             Choose one or more roles. A business account does not need a social profile.

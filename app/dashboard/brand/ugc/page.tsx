@@ -29,7 +29,7 @@ export default async function BrandUgcPage() {
       />
       <ContextHelp
         title="Budget is reserved from your wallet"
-        body="Opening a brief reserves the fee times the number of videos. Each approval pays that fee to the creator and writes a license. Closing the brief returns whatever is still reserved. Pay-in and payout stay manual EFT."
+        body="Opening a brief reserves the fee times the number of videos. Each approval pays that fee to the creator and writes a license. Any unspent budget is returned to your wallet when the campaign closes. Pay-in and payout stay manual EFT."
         hint="Drafts do not reserve money until you open them."
       />
       {briefs.length === 0 ? (

@@ -9,9 +9,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     id: "what-is-fweta",
     group: "Getting started",
-    question: "What is fweta?",
+    question: "What is Fweta?",
     answer:
-      "fweta is a marketplace for brands and creators. Brands fund campaigns and pay per 1,000 qualified views. Creators post clips and earn into a wallet. Payouts are sent manually by EFT.",
+      "Fweta is a marketplace for brands and creators. Brands fund campaigns and pay per 1,000 qualified views. Creators post clips and earn into a wallet. Payouts are sent manually by EFT.",
   },
   {
     id: "roles",
@@ -88,7 +88,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     group: "Earnings and payouts",
     question: "How do I get paid?",
     answer:
-      "Add your bank details, then request a withdrawal of at least N$100. An admin sends the EFT and marks the request paid. fweta does not pay out to a card.",
+      "Add your bank details, then request a withdrawal of at least N$100. An admin sends the EFT and marks the request paid. Fweta does not pay out to a card.",
   },
   {
     id: "admin",
@@ -109,7 +109,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     group: "UGC for ads",
     question: "When does a licensed video get paid?",
     answer:
-      "Apply, or accept an invite, then upload the file. The brand can request revisions up to the limit on the brief, or approve the file. Approval pays the fixed fee into the creator wallet and stores a license with the terms. Download the license summary from the brief. Closing a brief returns any fee that was reserved but not paid. Payout from the wallet is still a manual EFT.",
+      "Apply, or accept an invite, then upload the file. The brand can request revisions up to the limit on the brief, or approve the file. Approval pays the fixed fee into the creator wallet and stores a license with the terms. Download the license summary from the brief. Any unspent budget is returned to your wallet when the campaign closes. Payout from the wallet is still a manual EFT.",
   },
   {
     id: "ugc-income",

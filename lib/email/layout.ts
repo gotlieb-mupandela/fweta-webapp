@@ -186,10 +186,10 @@ export function renderEmail(doc: EmailDocument): RenderedEmail {
           <tr>
             <td class="foot" style="padding:8px 40px 32px;">
               <p style="margin:0;font-family:'Karla',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#6f6b63;">
-                You are receiving this because you have a fweta account.<br />
+                You are receiving this because you have a Fweta account.<br />
                 <a href="${safeHref(doc.preferencesHref)}" style="color:#6f6b63;text-decoration:underline;">Email preferences</a>${unsub}
               </p>
-              <p style="margin:14px 0 0;font-family:'Karla',Helvetica,Arial,sans-serif;font-size:12px;color:#9a958c;">fweta &middot; Windhoek</p>
+              <p style="margin:14px 0 0;font-family:'Karla',Helvetica,Arial,sans-serif;font-size:12px;color:#9a958c;">Fweta &middot; Windhoek</p>
             </td>
           </tr>
         </table>
@@ -229,7 +229,7 @@ export function renderEmail(doc: EmailDocument): RenderedEmail {
     textParts.push(`${doc.unsubscribeLabel || "Unsubscribe"}: ${doc.unsubscribeHref}`);
   }
   textParts.push("");
-  textParts.push("fweta, Windhoek");
+  textParts.push("Fweta, Windhoek");
 
   return {
     subject,
