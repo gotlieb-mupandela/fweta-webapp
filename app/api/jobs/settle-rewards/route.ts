@@ -2,17 +2,11 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { settleRewardsJob } from "@/app/actions/jobs";
+import { authorizeCron } from "@/lib/security/cron";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-function authorizeCron(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret) return process.env.NODE_ENV !== "production";
-  const header = request.headers.get("authorization") ?? "";
-  return header === `Bearer ${secret}`;
-}
 
 async function run(asOf?: string) {
   try {

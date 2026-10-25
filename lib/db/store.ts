@@ -1,8 +1,7 @@
-import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
 
-import { getPayoutSecret } from "@/lib/auth/secret";
+import { decryptSecret, encryptSecret, reencryptStoreSecrets } from "@/lib/security/payout-cipher";
 
 import { hydrateStoreCampaigns } from "@/lib/rewards/content-rewards";
 
@@ -194,6 +193,7 @@ export async function updateStore(
     // cloneStore already hydrates campaigns saved before content-rewards fields.
     const draft = cloneStore(current);
     await mutator(draft);
+    reencryptStoreSecrets(draft);
     globalThis.__fwetaStore = draft;
     await persist(draft);
   });
@@ -203,30 +203,7 @@ export async function updateStore(
   return ensureStore();
 }
 
-/** Simple reversible encryption for bank details at rest (local MVP). */
-function deriveKey() {
-  // Same scrypt parameters as before so existing local ciphertext still decrypts.
-  return scryptSync(getPayoutSecret(), "fweta-payout-salt", 32);
-}
-
-export function encryptSecret(plain: string): string {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", deriveKey(), iv);
-  const enc = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return Buffer.concat([iv, tag, enc]).toString("base64");
-}
-
-export function decryptSecret(payload: string): string {
-  const buf = Buffer.from(payload, "base64");
-  if (buf.length < 28) throw new Error("Invalid encrypted payload.");
-  const iv = buf.subarray(0, 12);
-  const tag = buf.subarray(12, 28);
-  const data = buf.subarray(28);
-  const decipher = createDecipheriv("aes-256-gcm", deriveKey(), iv);
-  decipher.setAuthTag(tag);
-  return Buffer.concat([decipher.update(data), decipher.final()]).toString("utf8");
-}
+export { decryptSecret, encryptSecret };
 
 export function newId(): string {
   return crypto.randomUUID();

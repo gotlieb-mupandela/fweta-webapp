@@ -25,7 +25,7 @@ Use this as your single checklist. Tick items in order.
 | Official TikTok / Meta view APIs | Not enabled | Later, after developer apps are approved. Apify is optional. |
 
 **Production health check:** `https://app.fweta.com/api/health/store`  
-You want `"ok": true` and `"profileCount" >= 4` after first login.
+A public request returns `"ok": true`, `"mode": "supabase"`, and `"load": "ok"`. It does not include counts. Counts, save checks, and `?probe=1` need `Authorization: Bearer CRON_SECRET`.
 
 ---
 
@@ -42,6 +42,27 @@ Run **in order**, paste full file contents:
 3. `supabase/migrations/20260830153000_fweta_app_store_grants.sql` — service role grants
 4. `supabase/migrations/20260913140000_avatars_bucket.sql` — avatar storage
 5. `supabase/migrations/20261017160000_production_hardening.sql` — profile columns, campaign `settled_at`, ledger checks, revoke anon access to the store functions
+6. `supabase/migrations/20261021165036_fweta_app_store_revision.sql`: revision column, bump trigger, and `fweta_cas_save_store`. The JSON store cannot save until this is applied. Do not re-run `20260830153000_fweta_app_store_grants.sql` after it. That grants table writes back to `service_role`.
+
+Verify the revision column and the compare-and-swap function:
+
+```sql
+select column_name
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'fweta_app_store'
+  and column_name = 'revision';
+
+select p.proname
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname = 'fweta_cas_save_store';
+```
+
+Both queries should return one row. If either is empty, run `20261021165036_fweta_app_store_revision.sql`.
+
+The other migrations after `20261017160000_production_hardening.sql` are not required for the JSON store to save. They change relational tables: `20261017160000_content_rewards_campaign_fields.sql`, `20261017170000_content_rewards_settlement.sql`, `20261017180000_platform_collections.sql`, `20261017190000_marketplace_growth.sql`, `20261018090000_account_verification.sql`, `20261020120000_profile_onboarding_columns.sql`, and `20261021120000_facebook_and_deposit_audit.sql`.
 
 Do not apply these from the app. Paste them in the Supabase SQL editor for the project you create. The hardening migration refuses to replace a populated relational store with an empty profile list, and it revokes `anon` / `authenticated` execute on `fweta_load_store` and `fweta_save_store`.
 
@@ -81,7 +102,7 @@ Default (unset) = JSON blob only — safer for MVP.
 | Variable | Type | How to get |
 |----------|------|------------|
 | `AUTH_SECRET` | Secret | `openssl rand -base64 32` |
-| `PAYOUT_ENCRYPTION_KEY` | Secret | `openssl rand -base64 32` |
+| `PAYOUT_ENCRYPTION_KEY` | Secret | `openssl rand -base64 32`. Required on Vercel before deploy. At least 32 characters and different from `AUTH_SECRET`. |
 | `ADMIN_EMAIL` | Plain | Admin login email. Seeded on the login page. |
 | `ADMIN_PASSWORD` | **Secret** | Admin password (8+ characters). Bcrypt-hashed at seed time. |
 | `NEXT_PUBLIC_SUPABASE_URL` | Plain | Supabase project URL |
@@ -94,6 +115,8 @@ Default (unset) = JSON blob only — safer for MVP.
 | `APIFY_API_TOKEN` | Secret | Optional. Leave unset and an admin enters view counts. |
 
 **Not needed yet:** `TRIGGER_SECRET_KEY`. Housekeeping uses Vercel Cron. Leave payment gateway keys unset.
+
+Set `PAYOUT_ENCRYPTION_KEY` in Vercel Production and Preview before deploying. A hosted process will not start without it. Bank details that were encrypted with the old `AUTH_SECRET` fallback still decrypt. The next store write re-encrypts them with `PAYOUT_ENCRYPTION_KEY`. Replacing `PAYOUT_ENCRYPTION_KEY` later leaves ciphertext from the previous payout key unreadable.
 
 After changing env vars → **Redeploy** (Deployments → … → Redeploy).
 
@@ -132,7 +155,7 @@ curl -X POST "https://app.fweta.com/api/jobs/housekeeping" \
 
 ## 4. Demo logins (local only)
 
-These accounts are seeded on the login page **outside production**. Production does not create them unless `FWETA_SEED_DEMO=true`.
+These accounts are off by default. They are created only when `FWETA_SEED_DEMO` is exactly `true` and the process is not production. `NODE_ENV=production` and `VERCEL_ENV=production` each refuse the seed, even when the flag is `true`. Seeding runs once at server start, not on `/login`.
 
 | Email | Role | Password |
 |-------|------|----------|
@@ -147,8 +170,11 @@ Admin login is **not** a shared password. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD`
 ## 5. Verify production (5 minutes)
 
 1. Open `https://app.fweta.com/api/health/store`  
-   - Expect `"ok": true`, `"mode": "supabase"`, `"checks.jsonBlobLoad": "ok"`
-   - The public check does not write. A save probe is `?probe=1` with `Authorization: Bearer CRON_SECRET`
+   - Expect `"ok": true`, `"mode": "supabase"`, and `"load": "ok"`. The body has no counts and no save hint.
+   - Detailed checks, including `"checks.jsonBlobLoad": "ok"`, need `Authorization: Bearer CRON_SECRET`.
+   - The public check does not write. A save probe is `?probe=1` with the same bearer. It does not write a store row.
+   - The probe reports whether `fweta_app_store.revision` and `fweta_cas_save_store` exist. If not, apply `supabase/migrations/20261021165036_fweta_app_store_revision.sql`.
+   - `POST /api/webhooks` returns 404. Gateway posts are rejected.
 2. Log in with `ADMIN_EMAIL`
 3. As a brand (or a brand you create), **Deposits** → record a manual amount
 4. Log out, log in again → the wallet should still show that credit  
@@ -179,7 +205,9 @@ npm run dev
 
 Data file: `data/store.json` (local only, gitignored).
 
-Local health check: `http://localhost:3000/api/health/store` should return `"ok": true` and `"mode": "local"` after the first page load.
+Local health check: `http://localhost:3000/api/health/store` should return `"ok": true`, `"mode": "local"`, and `"load": "ok"` after the first page load. Counts need `Authorization: Bearer CRON_SECRET`.
+
+E2E scripts expect the demo accounts. Set `FWETA_SEED_DEMO=true` in `.env.local` and restart the dev server before running them. Do not set that flag on Vercel production.
 
 E2E scripts (with dev server running):
 

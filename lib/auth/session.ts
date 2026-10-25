@@ -242,54 +242,6 @@ export async function refreshSessionFromProfile(profile: Profile) {
   await setSessionCookie(token);
 }
 
-const DEMO_ACCOUNTS: Array<Omit<Profile, "passwordHash" | "id">> = [
-  {
-    email: "brand@fweta.test",
-    displayName: "Desert Brands",
-    bio: "Namibian DTC brand running creator campaigns.",
-    avatarUrl: null,
-    roles: ["brand"],
-    primaryRole: "brand",
-    notifyEmail: true,
-    notifyWithdrawals: true,
-    notifyBookings: true,
-    createdAt: "",
-    updatedAt: "",
-    suspended: false,
-    onboardingCompletedAt: "seeded",
-  },
-  {
-    email: "creator@fweta.test",
-    displayName: "Amara Nangolo",
-    bio: "Windhoek creator · lifestyle & short-form.",
-    avatarUrl: null,
-    roles: ["clipper", "influencer"],
-    primaryRole: "influencer",
-    notifyEmail: true,
-    notifyWithdrawals: true,
-    notifyBookings: true,
-    createdAt: "",
-    updatedAt: "",
-    suspended: false,
-    onboardingCompletedAt: "seeded",
-  },
-  {
-    email: "clipper@fweta.test",
-    displayName: "Kai Clips",
-    bio: "Clipping specialist across TikTok & Reels.",
-    avatarUrl: null,
-    roles: ["clipper"],
-    primaryRole: "clipper",
-    notifyEmail: true,
-    notifyWithdrawals: true,
-    notifyBookings: true,
-    createdAt: "",
-    updatedAt: "",
-    suspended: false,
-    onboardingCompletedAt: "seeded",
-  },
-];
-
 /** Previous local admin address, migrated onto ADMIN_EMAIL when that env is set. */
 const LEGACY_ADMIN_EMAIL = "admin@fweta.test";
 
@@ -297,9 +249,6 @@ let seedInFlight: Promise<{ seeded: boolean }> | null = null;
 let adminEnvWarningShown = false;
 /** Avoid re-hashing when this process already synced the current env admin. */
 let syncedAdminKey: string | null = null;
-
-/** Precomputed bcrypt hash for demo password `password123` — avoids hashing on every cold start. */
-const DEMO_PASSWORD_HASH = "$2b$10$zG4dij3FDqNB0B41xbteQ.MqWV4oXM5XqSmLk96dYyuha0hGOxirW";
 
 type AdminSeed = { email: string; password: string };
 
@@ -310,9 +259,7 @@ function readAdminSeed(): AdminSeed | null {
     if (!adminEnvWarningShown) {
       adminEnvWarningShown = true;
       console.warn(
-        process.env.NODE_ENV === "production"
-          ? "[fweta] ADMIN_EMAIL and ADMIN_PASSWORD are unset. Seeding skipped."
-          : "[fweta] ADMIN_EMAIL and ADMIN_PASSWORD are unset. Demo accounts still seed; the admin account does not.",
+        "[fweta] ADMIN_EMAIL and ADMIN_PASSWORD are unset. Admin account was not seeded.",
       );
     }
     return null;
@@ -339,16 +286,10 @@ function findSeedAdmin(profiles: Profile[], email: string): Profile | undefined 
   return undefined;
 }
 
-async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
+async function ensureAdminOnce(): Promise<{ seeded: boolean }> {
   try {
     const adminSeed = readAdminSeed();
-    if (
-      !adminSeed &&
-      process.env.NODE_ENV === "production" &&
-      process.env.FWETA_SEED_DEMO !== "true"
-    ) {
-      return { seeded: false };
-    }
+    if (!adminSeed) return { seeded: false };
 
     const existing = await readStore();
     const seen = new Set<string>();
@@ -363,17 +304,6 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
     const adminKey = adminSeed
       ? createHash("sha256").update(`${adminSeed.email}\n${adminSeed.password}`).digest("hex")
       : null;
-
-    const seedDemoUsers =
-      process.env.FWETA_SEED_DEMO === "true" || process.env.NODE_ENV !== "production";
-    const missingAccounts = seedDemoUsers
-      ? DEMO_ACCOUNTS.filter(
-          (account) =>
-            !existing.profiles.some(
-              (p) => p.email.trim().toLowerCase() === account.email.trim().toLowerCase(),
-            ),
-        )
-      : [];
 
     let adminNeedsWrite = false;
     let adminHash: string | null = null;
@@ -404,7 +334,7 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
       }
     }
 
-    if (!needsDedupe && missingAccounts.length === 0 && !adminNeedsWrite) {
+    if (!needsDedupe && !adminNeedsWrite) {
       return { seeded: false };
     }
 
@@ -459,23 +389,6 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
         }
       }
 
-      for (const account of missingAccounts) {
-        const email = account.email.trim().toLowerCase();
-        if (adminSeed && email === adminSeed.email) continue;
-        if (s.profiles.some((p) => p.email.trim().toLowerCase() === email)) continue;
-
-        const profile: Profile = {
-          ...account,
-          id: newId(),
-          email,
-          createdAt: now,
-          updatedAt: now,
-          passwordHash: DEMO_PASSWORD_HASH,
-        };
-        s.profiles.push(profile);
-        ensureWallet(s, profile.id);
-        added += 1;
-      }
     });
 
     if (adminSeed && adminNeedsWrite && adminKey) {
@@ -484,14 +397,15 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
 
     return { seeded: added > 0 || needsDedupe || adminNeedsWrite };
   } catch (err) {
-    console.warn("[fweta] seedDemoAccounts failed:", err);
+    console.warn("[fweta] ensureAdminAccount failed:", err instanceof Error ? err.message : err);
     return { seeded: false };
   }
 }
 
-export async function seedDemoAccounts() {
+/** Create or update the env admin. Does not insert *@fweta.test demo accounts. */
+export async function ensureAdminAccount() {
   if (!seedInFlight) {
-    seedInFlight = seedDemoAccountsOnce().finally(() => {
+    seedInFlight = ensureAdminOnce().finally(() => {
       seedInFlight = null;
     });
   }
