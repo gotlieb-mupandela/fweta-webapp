@@ -315,6 +315,9 @@ export type LedgerEntry = {
   balanceAfterAvailableCents: number;
   balanceAfterPendingCents: number;
   createdAt: string;
+  /** Admin who recorded an admin_credit. Absent on other rows and older credits. */
+  actorId?: string | null;
+  actorEmail?: string | null;
 };
 
 export type PayoutMethod = {
@@ -488,6 +491,10 @@ export type AuditLogEntry = {
   targetType: string;
   targetId: string | null;
   createdAt: string;
+  /** Set for wallet.admin_credit. Never a bank account field. */
+  actorEmail?: string;
+  amountCents?: number;
+  note?: string;
 };
 
 export type PrizeAward = {

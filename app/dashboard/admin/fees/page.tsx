@@ -5,6 +5,7 @@ import { Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui/car
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { feeBpsFromStore } from "@/lib/rewards/content-rewards";
+import { formatMoney } from "@/lib/utils";
 
 export default async function AdminFeesPage() {
   const session = await getSession();
@@ -26,7 +27,7 @@ export default async function AdminFeesPage() {
       <section>
         <SectionHeader title="Admin audit log" />
         {log.length === 0 ? (
-          <EmptyState title="No admin actions yet" description="Pay-ins, view checks, payouts, identity reviews, and fee changes are listed here." />
+          <EmptyState title="No admin actions yet" description="Pay-ins, wallet credits, view checks, payouts, identity reviews, and fee changes are listed here." />
         ) : (
           <ul className="space-y-2">
             {log.map((entry) => {
@@ -36,8 +37,16 @@ export default async function AdminFeesPage() {
                   <div>
                     <p className="text-sm font-medium">{entry.summary}</p>
                     <p className="text-xs text-muted">
-                      {entry.action} · {actor?.displayName || "Admin"} · {new Date(entry.createdAt).toLocaleString()}
+                      {entry.action} · {actor?.displayName || "Admin"}
+                      {entry.actorEmail ? ` · ${entry.actorEmail}` : ""} · {new Date(entry.createdAt).toLocaleString()}
                     </p>
+                    {entry.amountCents != null ? (
+                      <p className="text-xs text-muted">
+                        {formatMoney(entry.amountCents)}
+                        {entry.targetId ? ` · user ${entry.targetId}` : ""}
+                        {entry.note ? ` · ${entry.note}` : ""}
+                      </p>
+                    ) : null}
                   </div>
                 </li>
               );

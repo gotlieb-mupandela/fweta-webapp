@@ -48,6 +48,7 @@ export async function confirmPayInAction(depositId: string) {
       const deposit = store.brandDeposits.find((item) => item.id === depositId);
       if (!deposit) throw new Error("Pay-in not found.");
       if (deposit.status === "credited") throw new Error("That pay-in is already confirmed.");
+      if (deposit.status !== "pending") throw new Error("That pay-in is no longer pending.");
       const now = nowIso();
       applyWalletDelta(store, {
         userId: deposit.brandId,

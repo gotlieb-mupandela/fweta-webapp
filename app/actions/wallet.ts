@@ -12,9 +12,13 @@ import {
   updateStore,
 } from "@/lib/db/store";
 import type { PayoutMethod, WithdrawalRequest } from "@/lib/db/types";
-import { adjustWallet, applyWalletDelta, getWallet } from "@/lib/wallet/ledger";
+import { creditWalletInStore } from "@/lib/wallet/admin-credit";
+import { applyWalletDelta, getWallet } from "@/lib/wallet/ledger";
+import { markWithdrawalPaidInStore, rejectWithdrawalInStore } from "@/lib/wallet/withdrawal-state";
 import { payoutMethodSchema } from "@/lib/validations/payout-method";
+import { adminCreditSchema } from "@/lib/validations/wallet";
 import { kycSchema, withdrawalSchema } from "@/lib/validations/withdrawal";
+import { payoutIdentityReady } from "@/lib/marketplace/growth";
 import { nadToCents } from "@/lib/money/cents";
 import { maskAccountNumber } from "@/lib/utils";
 
@@ -36,28 +40,29 @@ export async function getMyLedger() {
 export async function adminCreditWalletAction(userId: string, amountCents: number, reason: string) {
   const session = await requireSession();
   if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
-  const cents = nadToCents(amountCents / 100);
-  if (cents == null || cents !== amountCents) {
-    return { ok: false as const, error: "Enter a valid amount in NAD." };
+  const parsed = adminCreditSchema.safeParse({ userId, amountCents, reason });
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Enter a valid amount in NAD.",
+    };
   }
 
-  const store = await readStore();
-  const user = store.profiles.find((profile) => profile.id === userId);
-  if (!user) return { ok: false as const, error: "User not found." };
-
-  const note = reason.trim() || "Manual EFT credit";
   let availableCents = 0;
   let entryId = "";
   try {
-    const result = await adjustWallet({
-      userId,
-      availableDelta: cents,
-      type: "credit",
-      reason: `${note} (confirmed by ${session.email})`,
-      referenceType: "admin_credit",
+    await updateStore((store) => {
+      const result = creditWalletInStore(store, {
+        adminId: session.id,
+        adminEmail: session.email,
+        userId: parsed.data.userId,
+        amountCents: parsed.data.amountCents,
+        reason: parsed.data.reason,
+      });
+      if (!result.ok) throw new Error(result.error);
+      availableCents = result.availableCents;
+      entryId = result.entryId;
     });
-    availableCents = result.wallet.availableCents;
-    entryId = result.entry.id;
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Could not credit wallet." };
   }
@@ -158,6 +163,10 @@ export async function requestWithdrawalAction(raw: unknown) {
     (p) => p.id === parsed.data.payoutMethodId && p.userId === session.id,
   );
   if (!method) return { ok: false as const, error: "Add a payout method first." };
+  const profile = store.profiles.find((item) => item.id === session.id);
+  if (!payoutIdentityReady(profile?.kyc)) {
+    return { ok: false as const, error: "Payout stays closed until an admin verifies the ID photo." };
+  }
 
   const req: WithdrawalRequest = {
     id: newId(),
@@ -172,9 +181,17 @@ export async function requestWithdrawalAction(raw: unknown) {
     paidAt: null,
   };
 
-  // Atomic: wallet move + withdrawal record + ledger link in one write.
+  // Atomic: identity, payout method, wallet move, and the request commit together.
   try {
     await updateStore((s) => {
+      const current = s.profiles.find((item) => item.id === session.id);
+      if (!payoutIdentityReady(current?.kyc)) {
+        throw new Error("Payout stays closed until an admin verifies the ID photo.");
+      }
+      const payout = s.payoutMethods.find(
+        (p) => p.id === parsed.data.payoutMethodId && p.userId === session.id,
+      );
+      if (!payout) throw new Error("Add a payout method first.");
       const { entry } = applyWalletDelta(s, {
         userId: session.id,
         availableDelta: -parsed.data.amountCents,
@@ -222,28 +239,11 @@ export async function markWithdrawalPaidAction(
   const session = await requireSession();
   if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
 
-  const store = await readStore();
-  const req = store.withdrawalRequests.find((w) => w.id === id);
-  if (!req || req.status === "paid") return { ok: false as const, error: "Not found." };
-  if (req.status !== "pending") return { ok: false as const, error: "Already handled." };
-
+  const reference = bankReference?.trim() || null;
   try {
-    await updateStore((s) => {
-      applyWalletDelta(s, {
-        userId: req.userId,
-        availableDelta: 0,
-        pendingDelta: -req.amountCents,
-        type: "debit",
-        reason: "Withdrawal paid via EFT",
-        referenceType: "withdrawal",
-        referenceId: req.id,
-      });
-      const w = s.withdrawalRequests.find((x) => x.id === id);
-      if (!w) throw new Error("Withdrawal not found.");
-      w.status = "paid";
-      w.bankReference = bankReference || null;
-      w.paidAt = nowIso();
-      w.updatedAt = nowIso();
+    await updateStore((store) => {
+      const outcome = markWithdrawalPaidInStore(store, id, reference);
+      if (!outcome.ok) throw new Error(outcome.error);
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
@@ -256,26 +256,12 @@ export async function markWithdrawalPaidAction(
 export async function rejectWithdrawalAction(id: string, note?: string) {
   const session = await requireSession();
   if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
-  const store = await readStore();
-  const req = store.withdrawalRequests.find((w) => w.id === id);
-  if (!req || req.status !== "pending") return { ok: false as const, error: "Not found." };
+  const adminNote = note?.trim() || null;
 
   try {
-    await updateStore((s) => {
-      applyWalletDelta(s, {
-        userId: req.userId,
-        availableDelta: req.amountCents,
-        pendingDelta: -req.amountCents,
-        type: "credit",
-        reason: "Withdrawal rejected. Funds restored",
-        referenceType: "withdrawal",
-        referenceId: req.id,
-      });
-      const w = s.withdrawalRequests.find((x) => x.id === id);
-      if (!w) throw new Error("Withdrawal not found.");
-      w.status = "rejected";
-      w.adminNote = note || null;
-      w.updatedAt = nowIso();
+    await updateStore((store) => {
+      const outcome = rejectWithdrawalInStore(store, id, adminNote);
+      if (!outcome.ok) throw new Error(outcome.error);
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };

@@ -455,6 +455,12 @@ export function AdminUserProfile({ dossier }: { dossier: AdminUserDossier }) {
                     {formatMoney(entry.balanceAfterAvailableCents)} · pending{" "}
                     {formatMoney(entry.balanceAfterPendingCents)}
                   </p>
+                  {entry.referenceType === "admin_credit" && (entry.actorEmail || entry.actorId) ? (
+                    <p className="mt-1 text-xs text-muted">
+                      Credited by {entry.actorEmail || "admin"}
+                      {entry.actorId ? ` · ${entry.actorId}` : ""}
+                    </p>
+                  ) : null}
                 </div>
                 <p
                   className={

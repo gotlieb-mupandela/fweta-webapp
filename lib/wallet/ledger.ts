@@ -9,6 +9,9 @@ type WalletDelta = {
   reason: string;
   referenceType: LedgerEntry["referenceType"];
   referenceId?: string | null;
+  /** Admin identity for a manual credit. Omitted for system movements. */
+  actorId?: string;
+  actorEmail?: string;
 };
 
 function getOrCreateWallet(store: { wallets: Wallet[] }, userId: string): Wallet {
@@ -74,6 +77,10 @@ export function applyWalletDelta(
     balanceAfterPendingCents: wallet.pendingCents,
     createdAt: nowIso(),
   };
+  if (params.actorId) {
+    entry.actorId = params.actorId;
+    entry.actorEmail = params.actorEmail?.trim() || null;
+  }
   store.ledgerEntries.push(entry);
   return { wallet: { ...wallet }, entry };
 }
