@@ -10,9 +10,24 @@ import {
   notifyBookingDeclined,
   notifyBookingRequested,
 } from "@/lib/notifications/events";
+import {
+  acceptRequestedBooking,
+  approveDeliveredBooking,
+  markBookingDelivered,
+  refundRequestedBooking,
+  type BookingTransition,
+} from "@/lib/bookings/escrow";
 import type { Booking } from "@/lib/db/types";
 import { applyWalletDelta } from "@/lib/wallet/ledger";
 import { bookingSchema } from "@/lib/validations/booking";
+
+function transitionError(outcome: BookingTransition): string {
+  if (outcome.ok) return "Failed.";
+  if (outcome.reason === "not_found") return "Not found.";
+  if (outcome.reason === "waiting") return "Waiting for delivery.";
+  if (outcome.reason === "insufficient_pending") return "Insufficient pending balance.";
+  return "Already handled.";
+}
 
 /**
  * Booking decision: request/accept (not instant book).
@@ -87,42 +102,20 @@ export async function requestBookingAction(raw: unknown) {
 
 export async function respondBookingAction(id: string, accept: boolean) {
   const session = await requireSession();
-  const store = await readStore();
-  const booking = store.bookings.find((b) => b.id === id);
-  if (!booking || booking.influencerId !== session.id) {
-    return { ok: false as const, error: "Not found." };
-  }
-  if (booking.status !== "requested") {
-    return { ok: false as const, error: "Already handled." };
+  let outcome: BookingTransition = { ok: false, reason: "not_found" };
+
+  try {
+    await updateStore((s) => {
+      outcome = accept
+        ? acceptRequestedBooking(s, id, session.id)
+        : refundRequestedBooking(s, id, "Booking declined. Escrow refunded", session.id);
+    });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
   }
 
-  if (!accept) {
-    try {
-      await updateStore((s) => {
-        applyWalletDelta(s, {
-          userId: booking.brandId,
-          availableDelta: booking.amountCents,
-          pendingDelta: -booking.amountCents,
-          type: "credit",
-          reason: "Booking declined. Escrow refunded",
-          referenceType: "booking_refund",
-          referenceId: booking.id,
-        });
-        const b = s.bookings.find((x) => x.id === id);
-        if (!b) throw new Error("Booking not found.");
-        b.status = "cancelled";
-        b.updatedAt = nowIso();
-      });
-    } catch (e) {
-      return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
-    }
-  } else {
-    await updateStore((s) => {
-      const b = s.bookings.find((x) => x.id === id);
-      if (!b) return;
-      b.status = "accepted";
-      b.updatedAt = nowIso();
-    });
+  if (!outcome.ok) {
+    return { ok: false as const, error: transitionError(outcome) };
   }
 
   revalidatePath("/dashboard/influencer/bookings");
@@ -139,13 +132,13 @@ export async function deliverBookingAction(id: string, deliverableUrl: string) {
   } catch {
     return { ok: false as const, error: "Valid URL required." };
   }
+  let outcome: BookingTransition = { ok: false, reason: "not_found" };
   await updateStore((s) => {
-    const b = s.bookings.find((x) => x.id === id && x.influencerId === session.id);
-    if (!b || (b.status !== "accepted" && b.status !== "in_progress")) return;
-    b.deliverableUrl = deliverableUrl;
-    b.status = "delivered";
-    b.updatedAt = nowIso();
+    outcome = markBookingDelivered(s, id, session.id, deliverableUrl);
   });
+  if (!outcome.ok) {
+    return { ok: false as const, error: transitionError(outcome) };
+  }
   revalidatePath("/dashboard/influencer/bookings");
   revalidatePath("/dashboard/brand/bookings");
   return { ok: true as const };
@@ -153,49 +146,20 @@ export async function deliverBookingAction(id: string, deliverableUrl: string) {
 
 export async function approveBookingAction(id: string) {
   const session = await requireSession();
-  const store = await readStore();
-  const booking = store.bookings.find((b) => b.id === id);
-  if (!booking || booking.brandId !== session.id) {
-    return { ok: false as const, error: "Not found." };
-  }
-  if (booking.status !== "delivered") {
-    return { ok: false as const, error: "Waiting for delivery." };
-  }
+  let outcome: BookingTransition = { ok: false, reason: "not_found" };
 
-  // Atomic: release brand escrow + credit influencer + mark approved.
-  // Previously three separate writes — a crash mid-way left money half-moved.
+  // Release, creator credit, and approved status share one write.
+  // A refund marker or a release marker blocks a second payment.
   try {
     await updateStore((s) => {
-      const b = s.bookings.find((x) => x.id === id);
-      if (!b || b.status !== "delivered") throw new Error("Waiting for delivery.");
-      applyWalletDelta(s, {
-        userId: b.brandId,
-        availableDelta: 0,
-        pendingDelta: -b.amountCents,
-        type: "debit",
-        reason: "Booking approved. Escrow released",
-        referenceType: "booking_release",
-        referenceId: b.id,
-      });
-      applyWalletDelta(s, {
-        userId: b.influencerId,
-        availableDelta: b.amountCents,
-        type: "credit",
-        reason: "Booking payment received",
-        referenceType: "booking_release",
-        referenceId: b.id,
-      });
-      b.status = "approved";
-      b.updatedAt = nowIso();
+      outcome = approveDeliveredBooking(s, id, session.id);
     });
   } catch (e) {
-    // Preserve the "not found / waiting" UX for stale reads.
-    const fresh = (await readStore()).bookings.find((x) => x.id === id);
-    if (!fresh || fresh.brandId !== session.id)
-      return { ok: false as const, error: "Not found." };
-    if (fresh.status !== "delivered" && !(e instanceof Error && e.message.includes("balance")))
-      return { ok: false as const, error: "Waiting for delivery." };
     return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
+  }
+
+  if (!outcome.ok) {
+    return { ok: false as const, error: transitionError(outcome) };
   }
 
   revalidatePath("/dashboard/brand/bookings");

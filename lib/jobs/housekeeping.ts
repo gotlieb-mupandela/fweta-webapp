@@ -1,6 +1,6 @@
-import { nowIso, updateStore } from "@/lib/db/store";
+import { releaseExpiredBookingHolds } from "@/lib/bookings/escrow";
+import { updateStore } from "@/lib/db/store";
 import { finalizeCampaign } from "@/lib/rewards/earnings";
-import { applyWalletDelta } from "@/lib/wallet/ledger";
 
 /** Requested bookings keep escrow this long, then the daily job returns it. */
 export const BOOKING_HOLD_DAYS = 14;
@@ -15,6 +15,7 @@ export type HousekeepingResult = {
 /**
  * Ends campaigns whose end date has passed, returns unused budget and fee once,
  * and releases booking escrow that has sat in "requested" for 14 days.
+ * Expiry uses the same refund guard as a decline, so a race between them refunds once.
  * Does not read social networks or change view counts.
  */
 export async function runHousekeepingJob(now = new Date()): Promise<HousekeepingResult> {
@@ -28,8 +29,6 @@ export async function runHousekeepingJob(now = new Date()): Promise<Housekeeping
   };
 
   await updateStore((store) => {
-    const at = nowIso();
-
     for (const campaign of store.campaigns) {
       if (campaign.settledAt) continue;
       const wasLive = campaign.status === "active" || campaign.status === "paused";
@@ -44,25 +43,9 @@ export async function runHousekeepingJob(now = new Date()): Promise<Housekeeping
       }
     }
 
-    for (const booking of store.bookings) {
-      if (booking.status !== "requested") continue;
-      const created = Date.parse(booking.createdAt);
-      if (!Number.isFinite(created) || created > holdCutoff) continue;
-      const wallet = store.wallets.find((row) => row.userId === booking.brandId);
-      if (!wallet || wallet.pendingCents < booking.amountCents) continue;
-      applyWalletDelta(store, {
-        userId: booking.brandId,
-        availableDelta: booking.amountCents,
-        pendingDelta: -booking.amountCents,
-        type: "credit",
-        reason: "Booking request expired. Escrow returned",
-        referenceType: "booking_refund",
-        referenceId: booking.id,
-      });
-      booking.status = "cancelled";
-      booking.updatedAt = at;
-      result.holdsReleased += 1;
-    }
+    // Assign, do not add. A compare-and-swap retry runs this callback again
+    // on a fresh document, so the count has to be this attempt's releases.
+    result.holdsReleased = releaseExpiredBookingHolds(store, holdCutoff);
   });
 
   return result;
