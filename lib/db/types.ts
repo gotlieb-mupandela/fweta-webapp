@@ -674,6 +674,22 @@ export type BusinessListing = {
   updatedAt: string;
 };
 
+/** Direct upload that is not recorded until finalize. Swept if it expires first. */
+export type UploadGrant = {
+  id: string;
+  userId: string;
+  bucket: "fweta-media" | "fweta-kyc";
+  path: string;
+  purpose: "avatar" | "screenshot" | "kyc" | "ugc";
+  maxBytes: number;
+  tokenHash: string;
+  expiresAt: string;
+  openedAt: string | null;
+  finalizedAt: string | null;
+  targetId: string | null;
+  createdAt: string;
+};
+
 export type CreatorReview = {
   id: string;
   businessId: string;
@@ -722,4 +738,6 @@ export type DatabaseStore = {
   creatorPortfolios: CreatorPortfolio[];
   businessListings: BusinessListing[];
   creatorReviews: CreatorReview[];
+  /** Absent on stores saved before private uploads. */
+  uploadGrants?: UploadGrant[];
 };

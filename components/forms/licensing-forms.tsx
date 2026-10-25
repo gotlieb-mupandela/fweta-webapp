@@ -17,10 +17,15 @@ import {
   requestRevisionAction,
   resolveDisputeAction,
   savePortfolioAction,
-  submitDeliveryAction,
+  stageUgcFileAction,
+  submitStagedDeliveryAction,
 } from "@/app/actions/licensing";
+import { createUgcUploadAction, finalizeUgcUploadAction } from "@/app/actions/uploads";
 import { Button } from "@/components/ui/button";
+import { SERVER_ACTION_FILE_MAX, UGC_MAX_BYTES } from "@/lib/storage/constants";
+import { putSignedUpload } from "@/lib/storage/direct-upload";
 import { FieldError, Input, Label, Select, Textarea } from "@/components/ui/input";
+import type { UgcFile } from "@/lib/db/types";
 
 function useRefresh() {
   const router = useRouter();
@@ -247,6 +252,34 @@ export function ApplyForm({ briefId }: { briefId: string }) {
   );
 }
 
+async function stageDeliveryFiles(applicationId: string, files: File[]) {
+  if (!files.length) return { ok: false as const, error: "Choose a file to upload." };
+  const staged: UgcFile[] = [];
+  for (const file of files) {
+    if (file.size > UGC_MAX_BYTES) return { ok: false as const, error: "Each file must be 40 MB or smaller." };
+    if (file.size > SERVER_ACTION_FILE_MAX) {
+      const grant = await createUgcUploadAction({ applicationId, byteSize: file.size });
+      if (!grant.ok) return grant;
+      const uploaded = await putSignedUpload(grant.signedUrl, file);
+      if (!uploaded.ok) return uploaded;
+      const done = await finalizeUgcUploadAction({
+        token: grant.token,
+        applicationId,
+        originalName: file.name,
+      });
+      if (!done.ok) return done;
+      staged.push(done.file);
+      continue;
+    }
+    const body = new FormData();
+    body.set("file", file);
+    const saved = await stageUgcFileAction(body);
+    if (!saved.ok) return saved;
+    staged.push(saved.file);
+  }
+  return submitStagedDeliveryAction({ applicationId, files: staged });
+}
+
 export function DeliveryForm({ applicationId, rawFiles }: { applicationId: string; rawFiles: boolean }) {
   const { error, pending, run } = useRefresh();
   return (
@@ -254,15 +287,15 @@ export function DeliveryForm({ applicationId, rawFiles }: { applicationId: strin
       className="space-y-3"
       onSubmit={(event) => {
         event.preventDefault();
-        const body = new FormData(event.currentTarget);
-        body.set("applicationId", applicationId);
-        run(() => submitDeliveryAction(body));
+        const picked = event.currentTarget.querySelector<HTMLInputElement>("input[type=file]")?.files;
+        const files = picked ? Array.from(picked) : [];
+        run(() => stageDeliveryFiles(applicationId, files));
       }}
     >
       <div>
-        <Label htmlFor={`files-${applicationId}`}>{rawFiles ? "Finished video and raw files" : "Finished video"}</Label>
-        <Input id={`files-${applicationId}`} name="files" type="file" required multiple={rawFiles} accept="video/mp4,video/webm,video/quicktime,image/png,image/jpeg,image/webp" />
-        <p className="mt-1 text-xs text-muted">MP4, WebM, or MOV. Up to 40 MB each. Files stay private to the brand, you, and admins.</p>
+        <Label htmlFor={`files-${applicationId}`}>{rawFiles ? "Finished file and extra files" : "Finished file"}</Label>
+        <Input id={`files-${applicationId}`} name="files" type="file" required multiple={rawFiles} accept="image/png,image/jpeg,image/webp,application/pdf" />
+        <p className="mt-1 text-xs text-muted">PNG, JPG, WebP, or PDF. Up to 40 MB each. Files stay private to the brand, you, and admins.</p>
       </div>
       <Button type="submit" disabled={pending}>
         {pending ? "Uploading" : "Submit files"}

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
-import { newId, nowIso, updateStore } from "@/lib/db/store";
+import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { SocialPlatform } from "@/types/enums";
 import {
   applyToBrief,
@@ -23,7 +23,9 @@ import {
   type CreateBriefInput,
 } from "@/lib/licensing/hub";
 import { pushNotification } from "@/lib/notifications/inbox";
+import { SERVER_ACTION_FILE_MAX } from "@/lib/storage/constants";
 import { saveUgcFile } from "@/lib/ugc/files";
+import { submitStagedDeliverySchema } from "@/lib/validations/uploads";
 
 function clock() {
   return { id: () => newId(), now: () => nowIso() };
@@ -243,9 +245,12 @@ export async function submitDeliveryAction(formData: FormData) {
   const applicationId = String(formData.get("applicationId") ?? "");
   const incoming = formData.getAll("files").filter((item): item is File => item instanceof File && item.size > 0);
   if (!incoming.length) return { ok: false as const, error: "Choose a file to upload." };
+  if (incoming.some((file) => file.size > SERVER_ACTION_FILE_MAX)) {
+    return { ok: false as const, error: "Files over 4 MB upload directly. Choose the file again." };
+  }
   try {
     const files: Awaited<ReturnType<typeof saveUgcFile>>[] = [];
-    for (const file of incoming) files.push(await saveUgcFile(file));
+    for (const file of incoming) files.push(await saveUgcFile(file, session.id));
     let briefId = "";
     await updateStore((store) => {
       const delivery = submitDelivery(store, session, applicationId, files, clock());
@@ -253,6 +258,78 @@ export async function submitDeliveryAction(formData: FormData) {
       const brief = store.ugcBriefs.find((item) => item.id === briefId);
       if (brief) {
         pushNotification(store, {
+          id: newId(),
+          userId: brief.brandId,
+          kind: "ugc_update",
+          title: "UGC file uploaded",
+          body: `${session.displayName} submitted a file for ${brief.title}.`,
+          href: `/dashboard/brand/ugc/${briefId}`,
+          readAt: null,
+          createdAt: nowIso(),
+        });
+      }
+    });
+    revalidateLicensing(briefId);
+    return { ok: true as const };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function stageUgcFileAction(formData: FormData) {
+  const session = await requireSession();
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size <= 0) return { ok: false as const, error: "Choose a file to upload." };
+  if (file.size > SERVER_ACTION_FILE_MAX) {
+    return { ok: false as const, error: "Files over 4 MB upload directly. Choose the file again." };
+  }
+  try {
+    const saved = await saveUgcFile(file, session.id);
+    const now = nowIso();
+    await updateStore((draft) => {
+      draft.uploadGrants = [
+        ...(draft.uploadGrants ?? []),
+        {
+          id: saved.id,
+          userId: session.id,
+          bucket: "fweta-media",
+          path: saved.name,
+          purpose: "ugc",
+          maxBytes: file.size,
+          tokenHash: "server-action",
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+          openedAt: now,
+          finalizedAt: now,
+          targetId: null,
+          createdAt: now,
+        },
+      ];
+    });
+    return { ok: true as const, file: saved };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function submitStagedDeliveryAction(raw: unknown) {
+  const session = await requireSession();
+  const parsed = submitStagedDeliverySchema.safeParse(raw);
+  if (!parsed.success) return { ok: false as const, error: "Choose a file to upload." };
+  const store = await readStore();
+  for (const file of parsed.data.files) {
+    const grant = (store.uploadGrants ?? []).find((item) => item.path === file.name && item.userId === session.id);
+    if (!grant?.finalizedAt || (grant.targetId && grant.targetId !== parsed.data.applicationId)) {
+      return { ok: false as const, error: "Upload the file before finishing." };
+    }
+  }
+  try {
+    let briefId = "";
+    await updateStore((draft) => {
+      const delivery = submitDelivery(draft, session, parsed.data.applicationId, parsed.data.files, clock());
+      briefId = delivery.briefId;
+      const brief = draft.ugcBriefs.find((item) => item.id === briefId);
+      if (brief) {
+        pushNotification(draft, {
           id: newId(),
           userId: brief.brandId,
           kind: "ugc_update",

@@ -42,8 +42,15 @@ Run **in order**, paste full file contents:
 3. `supabase/migrations/20260830153000_fweta_app_store_grants.sql` — service role grants
 4. `supabase/migrations/20260913140000_avatars_bucket.sql` — avatar storage
 5. `supabase/migrations/20261017160000_production_hardening.sql` — profile columns, campaign `settled_at`, ledger checks, revoke anon access to the store functions
+6. `supabase/migrations/20261025220000_private_storage_buckets.sql`. Private `fweta-media` and `fweta-kyc` buckets. This is a production change and needs Gotlieb's OK. Apply it, then deploy. It does not need migration 4. That avatars migration was never applied on the live project, which has no storage buckets. Until migration 6 is applied, uploads show a friendly error instead of the raw "Bucket not found".
 
 Do not apply these from the app. Paste them in the Supabase SQL editor for the project you create. The hardening migration refuses to replace a populated relational store with an empty profile list, and it revokes `anon` / `authenticated` execute on `fweta_load_store` and `fweta_save_store`.
+
+After migration 6, paste `scripts/check-private-storage.sql`. It must not raise. Both buckets come back with public set to false, and anon and authenticated have no policies on storage.objects.
+
+Apply order for private uploads: migration 6, then the check script, then deploy. Rollback, only if Gotlieb asks to undo it: `supabase/rollbacks/20261025220000_private_storage_buckets.sql`. That deletes the two buckets and their objects. It does not turn avatar storage public again.
+
+Housekeeping should also call `sweepUnfinalizedUploads` from `lib/storage/pending.ts` once `lib/jobs/housekeeping.ts` is free. Another change owns that file right now.
 
 After running #1, verify:
 
