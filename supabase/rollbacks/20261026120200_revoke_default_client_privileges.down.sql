@@ -1,14 +1,13 @@
 -- Rollback for 20261026120200_revoke_default_client_privileges.sql
 --
--- Live default privileges can differ from the platform defaults this
--- fallback puts back. Save the real defaults first with the read only
--- snapshot, from the repo root, BEFORE applying the forward file:
+-- This file does not invent default privileges and does not put the
+-- platform defaults back for postgres or for supabase_admin.
 --
---   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
---     -f scripts/ops/snapshot-client-grants.sql \
---     -o /tmp/fweta-client-grants.snapshot.sql
---
--- Replay that saved file through this rollback:
+-- Produce the snapshot with QA's export_acl.sql and gen_restore.py before
+-- applying any forward file. Point the psql variable snapshot at that file.
+-- Replaying any one of the three rollbacks with that snapshot restores the
+-- grants for all three files, not only this one. That includes the default
+-- privileges the snapshot recorded.
 --
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 --     -v snapshot=/tmp/fweta-client-grants.snapshot.sql \
@@ -16,69 +15,16 @@
 --     -f supabase/rollbacks/20261026120200_revoke_default_client_privileges.down.sql \
 --     -c 'commit'
 --
--- The same snapshot is used for the file 1 and file 2 rollbacks.
--- If the psql variable snapshot is not set, the fallback below runs instead.
--- That fallback restores the platform defaults the forward file removes.
--- It does not restore a custom live default ACL.
+-- If snapshot is not set, this file raises and grants nothing.
 
 \if :{?snapshot}
 \echo 'Replaying client grant snapshot:' :snapshot
+\echo 'One replay restores the grants for all three files.'
 \ir :snapshot
 \else
-
--- This re-opens the exposure. Future tables, sequences, and functions created
--- in public by postgres or supabase_admin would again be granted to anon and
--- authenticated, and future functions would again be executable by public.
--- Another app sharing the project would receive those default grants too.
---
--- Restores both owner roles, and only the privileges the forward file
--- revokes. service_role defaults are untouched. Repo migration
--- 20260830153000 grants default ALL ON TABLES to service_role only; that
--- grant is not removed by the forward file and is not repeated here.
--- The anon, authenticated, and public defaults below are the platform
--- defaults this file removes. They are not GRANT statements in the repo
--- migrations. Putting them back is the inverse of this file, which is what
--- re-opens the exposure.
-
-do $default_down$
-declare
-  owner_name text;
+do $missing_snapshot$
 begin
-  if not exists (select 1 from pg_roles where rolname = 'anon')
-     or not exists (select 1 from pg_roles where rolname = 'authenticated') then
-    raise exception 'anon and authenticated roles are required';
-  end if;
-
-  foreach owner_name in array array['postgres', 'supabase_admin'] loop
-    if not exists (select 1 from pg_roles where rolname = owner_name) then
-      raise notice 'skipping default-privilege restore for % because that role is absent', owner_name;
-      continue;
-    end if;
-
-    execute format(
-      'alter default privileges for role %I in schema public grant all on tables to anon, authenticated',
-      owner_name
-    );
-    execute format(
-      'alter default privileges for role %I in schema public grant all on sequences to anon, authenticated',
-      owner_name
-    );
-    execute format(
-      'alter default privileges for role %I in schema public grant all on functions to anon, authenticated',
-      owner_name
-    );
-    execute format(
-      'alter default privileges for role %I in schema public grant execute on functions to public',
-      owner_name
-    );
-    -- Inverse of the global revoke in the forward file. This puts back the
-    -- built-in EXECUTE grant to public for functions this role creates.
-    execute format(
-      'alter default privileges for role %I grant execute on functions to public',
-      owner_name
-    );
-  end loop;
+  raise exception 'Refusing to restore client grants without the psql variable snapshot. This rollback does not grant default privileges. Pass -v snapshot=/path/to/saved-acl.sql. One replay of that snapshot restores the grants for all three files.';
 end
-$default_down$;
-
+$missing_snapshot$;
 \endif

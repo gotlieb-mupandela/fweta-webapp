@@ -1,10 +1,14 @@
 -- File 3 default-privilege test. Throwaway database, one transaction, rolled back:
 --   psql -v ON_ERROR_STOP=1 -f supabase/tests/default_client_privileges.sql
--- (a) a table created by postgres after the revoke has no anon or authenticated grants.
--- (b) a fresh fweta_ table created by supabase_admin also has no client grants.
--- The same check covers a sequence and a function for each owner role.
--- The rollback restores both owners, which re-opens that exposure, then this
--- script rolls the transaction back.
+-- (a) a table, sequence, and function created by postgres after the revoke
+--     have no anon or authenticated grants. The global function revoke runs
+--     for postgres only.
+-- (b) a fresh fweta_ table and sequence created by supabase_admin also have
+--     no client grants. A function that role creates stays executable by
+--     anon and authenticated: supabase_admin gets only the IN SCHEMA public
+--     statements, and that does not remove the built-in EXECUTE grant to public.
+-- Without a snapshot the rollback raises and does not restore defaults.
+-- This script then rolls the transaction back.
 
 \set ON_ERROR_STOP on
 begin;
@@ -86,6 +90,16 @@ begin
   if not has_function_privilege('service_role', 'public.dp_after_postgres_fn()'::regprocedure, 'execute') then
     raise exception 'service_role lost default function execute';
   end if;
+  if not exists (
+    select 1
+    from pg_default_acl d
+    join pg_roles r on r.oid = d.defaclrole
+    where r.rolname = 'postgres'
+      and d.defaclnamespace = 0
+      and d.defaclobjtype = 'f'
+  ) then
+    raise exception 'postgres is missing the global function default privilege';
+  end if;
 end
 $after_postgres$;
 
@@ -143,12 +157,28 @@ begin
      or has_sequence_privilege('authenticated', 'public.fweta_after_admin_seq', 'UPDATE') then
     raise exception 'supabase_admin sequence still has client grants';
   end if;
-  if has_function_privilege('anon', 'public.fweta_after_admin_fn()'::regprocedure, 'execute')
-     or has_function_privilege('authenticated', 'public.fweta_after_admin_fn()'::regprocedure, 'execute') then
-    raise exception 'supabase_admin function is still executable by a client role';
+  -- In-schema revoke does not remove the built-in EXECUTE grant to public.
+  -- The global revoke is postgres only, so this function stays executable.
+  if not has_function_privilege('anon', 'public.fweta_after_admin_fn()'::regprocedure, 'execute')
+     or not has_function_privilege('authenticated', 'public.fweta_after_admin_fn()'::regprocedure, 'execute')
+     or not has_function_privilege('public', 'public.fweta_after_admin_fn()'::regprocedure, 'execute') then
+    raise exception 'schema-only revoke removed built-in execute for a supabase_admin function';
+  end if;
+  if exists (
+    select 1
+    from pg_default_acl d
+    join pg_roles r on r.oid = d.defaclrole
+    where r.rolname = 'supabase_admin'
+      and d.defaclnamespace = 0
+      and d.defaclobjtype = 'f'
+  ) then
+    raise exception 'supabase_admin has a global function default privilege';
   end if;
   if not has_table_privilege('service_role', 'public.fweta_after_admin', 'UPDATE') then
     raise exception 'service_role lost default access on the supabase_admin table';
+  end if;
+  if not has_function_privilege('service_role', 'public.fweta_after_admin_fn()'::regprocedure, 'execute') then
+    raise exception 'service_role lost default execute on the supabase_admin function';
   end if;
 end
 $after_admin$;
@@ -165,28 +195,60 @@ begin
 end
 $second$;
 
+\unset file3_did_not_raise
+savepoint file3_no_snapshot;
+\set ON_ERROR_STOP off
 \ir ../rollbacks/20261026120200_revoke_default_client_privileges.down.sql
-
-create table public.dp_restored_postgres (id int);
-set local role supabase_admin;
-create table public.fweta_restored_admin (id int);
-create function public.fweta_restored_admin_fn() returns int language sql as $$ select 1 $$;
-reset role;
-
-do $restored$
+select 1 as file3_did_not_raise \gset
+\set ON_ERROR_STOP on
+rollback to savepoint file3_no_snapshot;
+\if :{?file3_did_not_raise}
+do $file3_should_have_raised$
 begin
-  if not has_table_privilege('anon', 'public.dp_restored_postgres', 'INSERT')
-     or not has_table_privilege('authenticated', 'public.dp_restored_postgres', 'SELECT') then
-    raise exception 'rollback did not restore postgres default grants';
+  raise exception 'file 3 rollback without snapshot did not raise';
+end
+$file3_should_have_raised$;
+\endif
+
+do $defaults_stay_revoked$
+begin
+  if not exists (
+    select 1
+    from pg_default_acl d
+    join pg_roles r on r.oid = d.defaclrole
+    where r.rolname = 'postgres'
+      and d.defaclnamespace = 0
+      and d.defaclobjtype = 'f'
+  ) then
+    raise exception 'file 3 rollback without snapshot removed the postgres global revoke';
   end if;
-  if not has_table_privilege('anon', 'public.fweta_restored_admin', 'SELECT')
-     or not has_table_privilege('authenticated', 'public.fweta_restored_admin', 'UPDATE') then
-    raise exception 'rollback did not restore supabase_admin default grants';
-  end if;
-  if not has_function_privilege('anon', 'public.fweta_restored_admin_fn()'::regprocedure, 'execute') then
-    raise exception 'rollback did not restore public execute for supabase_admin functions';
+  if exists (
+    select 1
+    from pg_default_acl d
+    join pg_roles r on r.oid = d.defaclrole
+    where r.rolname = 'supabase_admin'
+      and d.defaclnamespace = 0
+      and d.defaclobjtype = 'f'
+  ) then
+    raise exception 'file 3 rollback without snapshot gave supabase_admin a global function default';
   end if;
 end
-$restored$;
+$defaults_stay_revoked$;
+
+do $rollback_source$
+declare
+  body text;
+begin
+  body := lower(pg_read_file('/workspace/supabase/rollbacks/20261026120200_revoke_default_client_privileges.down.sql'));
+  if position('refusing to restore client grants without the psql variable snapshot' in body) = 0 then
+    raise exception 'file 3 rollback does not fail loudly without a snapshot';
+  end if;
+  if position('grant all on tables' in body) > 0
+     or position('grant execute on functions' in body) > 0
+     or position('grant all on functions' in body) > 0 then
+    raise exception 'file 3 rollback still grants default privileges';
+  end if;
+end
+$rollback_source$;
 
 rollback;

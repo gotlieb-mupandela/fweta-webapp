@@ -179,6 +179,7 @@ begin
   end loop;
 
   grant select, insert on table public.device_locations to anon;
+  grant select (note) on table public.fweta_profiles to authenticated;
 
   for fn in
     select p.oid, p.prokind, p.proname
@@ -304,6 +305,10 @@ begin
     and table_name like 'fweta\_%' escape '\';
   if client_grants <> 0 then
     raise exception 'anon or authenticated still have % fweta_ column grants', client_grants;
+  end if;
+  if has_column_privilege('authenticated', 'public.fweta_profiles', 'note', 'SELECT')
+     or has_column_privilege('anon', 'public.fweta_profiles', 'note', 'SELECT') then
+    raise exception 'column select on fweta_profiles survived file 1';
   end if;
 
   for seq_name in
@@ -451,6 +456,31 @@ select public.fweta_load_store();
 select public.fweta_cas_save_store('{"profiles":[]}'::jsonb, 0::bigint);
 reset role;
 
+-- QA: a SELECT granted to PUBLIC survived when File 1 revoked only anon
+-- and authenticated. Both client roles can use a PUBLIC grant.
+create table public.fweta_public_select (id int primary key, note text);
+grant select on table public.fweta_public_select to public;
+create table public.fweta_public_seq (
+  id bigint generated always as identity primary key
+);
+grant usage, select on sequence public.fweta_public_seq_id_seq to public;
+\ir ../migrations/20261026120000_revoke_client_table_grants.sql
+
+do $public_select$
+begin
+  if has_table_privilege('anon', 'public.fweta_public_select', 'SELECT')
+     or has_table_privilege('authenticated', 'public.fweta_public_select', 'SELECT') then
+    raise exception 'SELECT granted to PUBLIC on a fweta_ table survived file 1';
+  end if;
+  if has_sequence_privilege('anon', 'public.fweta_public_seq_id_seq', 'USAGE')
+     or has_sequence_privilege('anon', 'public.fweta_public_seq_id_seq', 'SELECT')
+     or has_sequence_privilege('authenticated', 'public.fweta_public_seq_id_seq', 'USAGE')
+     or has_sequence_privilege('authenticated', 'public.fweta_public_seq_id_seq', 'SELECT') then
+    raise exception 'privileges granted to PUBLIC on a fweta_ sequence survived file 1';
+  end if;
+end
+$public_select$;
+
 -- A later grant must not stick. Re-run removes it.
 grant execute on function public.fweta_load_store() to anon, authenticated;
 \ir ../migrations/20261026120000_revoke_client_table_grants.sql
@@ -508,7 +538,37 @@ begin
 end
 $final_counts$;
 
+-- No snapshot: the rollback must raise, and it must not grant execute.
+\unset file1_did_not_raise
+savepoint file1_no_snapshot;
+\set ON_ERROR_STOP off
 \ir ../rollbacks/20261026120000_revoke_client_table_grants.down.sql
+select 1 as file1_did_not_raise \gset
+\set ON_ERROR_STOP on
+rollback to savepoint file1_no_snapshot;
+\if :{?file1_did_not_raise}
+do $file1_should_have_raised$
+begin
+  raise exception 'file 1 rollback without snapshot did not raise';
+end
+$file1_should_have_raised$;
+\endif
+
+do $rollback_source$
+declare
+  body text;
+begin
+  body := lower(pg_read_file('/workspace/supabase/rollbacks/20261026120000_revoke_client_table_grants.down.sql'));
+  if position('refusing to restore client grants without the psql variable snapshot' in body) = 0 then
+    raise exception 'file 1 rollback does not fail loudly without a snapshot';
+  end if;
+  if position('grant execute on function' in body) > 0
+     or position('grant execute on procedure' in body) > 0
+     or position('to public, anon, authenticated' in body) > 0 then
+    raise exception 'file 1 rollback still grants execute on fweta_json_store_set';
+  end if;
+end
+$rollback_source$;
 
 do $down_keeps_lock$
 declare
@@ -534,24 +594,33 @@ begin
   ) then
     raise exception 'rollback dropped fweta_json_store_set';
   end if;
-  if not has_function_privilege(
+  if has_function_privilege(
+       'public',
+       'public.fweta_json_store_set()'::regprocedure,
+       'execute'
+     )
+     or has_function_privilege(
        'anon',
        'public.fweta_json_store_set()'::regprocedure,
        'execute'
      )
-     or not has_function_privilege(
+     or has_function_privilege(
        'authenticated',
        'public.fweta_json_store_set()'::regprocedure,
        'execute'
      ) then
-    raise exception 'rollback did not restore client execute on fweta_json_store_set';
+    raise exception 'rollback granted execute on fweta_json_store_set to public, anon, or authenticated';
+  end if;
+  if has_table_privilege('anon', 'public.fweta_public_select', 'SELECT')
+     or has_table_privilege('authenticated', 'public.fweta_public_select', 'SELECT') then
+    raise exception 'rollback granted the PUBLIC select back on fweta_public_select';
   end if;
   if has_function_privilege(
        'anon',
        'public.fweta_load_store()'::regprocedure,
        'execute'
      ) then
-    raise exception 'rollback restored execute on a function other than fweta_json_store_set';
+    raise exception 'rollback restored execute on fweta_load_store';
   end if;
 end
 $down_keeps_lock$;

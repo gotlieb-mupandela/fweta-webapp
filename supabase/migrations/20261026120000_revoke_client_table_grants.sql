@@ -3,8 +3,11 @@
 -- not touch unprefixed tables. Those are later files.
 --
 -- Safe on a shared project: the table loop only matches public relations whose
--- names start with fweta_. service_role and postgres keep the grants they
--- already have. The web app reads public.fweta_app_store and calls
+-- names start with fweta_. service_role and postgres keep the explicit grants
+-- they already have. Privileges on those tables and sequences are revoked
+-- from public as well as from anon and authenticated. A grant to public is
+-- not removed by revoking only anon and authenticated, and both client roles
+-- can use it. The web app reads public.fweta_app_store and calls
 -- fweta_cas_save_store, fweta_load_store, and fweta_save_store with the
 -- service role. This file does not revoke those.
 --
@@ -39,8 +42,8 @@
 -- file supabase/migrations/20261021100752_security_lockdown.sql, not on main):
 -- that file also revokes anon and authenticated on the original fweta_ tables,
 -- then grants a subset back to authenticated and adds row policies. This file
--- does not re-grant and does not copy those policies. If PR 28 is applied
--- after this one, its grants give authenticated access back.
+-- does not re-grant and does not copy those policies. PR 28 must never be
+-- applied after this file. Its grants give authenticated access back.
 
 do $fweta_revoke$
 declare
@@ -72,7 +75,7 @@ begin
       and c.relname like 'fweta\_%' escape '\'
   loop
     execute format(
-      'revoke all privileges on table %I.%I from anon, authenticated',
+      'revoke all privileges on table %I.%I from public, anon, authenticated',
       rel.schema_name,
       rel.table_name
     );
@@ -97,7 +100,7 @@ begin
       )
   loop
     execute format(
-      'revoke all privileges on sequence %s from anon, authenticated',
+      'revoke all privileges on sequence %s from public, anon, authenticated',
       seq_name
     );
   end loop;

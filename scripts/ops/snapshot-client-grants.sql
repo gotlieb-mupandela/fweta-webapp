@@ -14,19 +14,30 @@
 --   pg_proc functions and procedures in schema public
 --   pg_default_acl for schema public, plus global default privileges
 --     (defaclnamespace 0). Global defaults apply to objects created in
---     public, and file 3 revokes the global function default.
+--     public. File 3 revokes the global function default for postgres only.
 --     When postgres or supabase_admin has no global function row, PUBLIC
 --     execute is still the built-in default. The script emits that GRANT
---     so a later revoke can be reversed. Replaying it while the built-in
---     default is already in effect does not create a row.
+--     so the saved ACL includes it. Replaying the postgres statement
+--     reverses File 3. Replaying the supabase_admin statement while the
+--     built-in default is already in effect does not create a row.
 --
 -- Grantees: anon, authenticated, service_role, and PUBLIC.
--- A null ACL is expanded with acldefault, so a function that is executable
--- by PUBLIC only because proacl is null is still recorded.
--- Column-only grants in pg_attribute.attacl are not recorded.
+-- A null table, sequence, or function ACL is expanded with acldefault, so a
+-- function that is executable by PUBLIC only because proacl is null is still
+-- recorded. Column grants come from pg_attribute.attacl. A null column ACL
+-- is skipped. Columns that share a privilege, grantee, and grant option are
+-- emitted as one GRANT (col, ...) ON TABLE statement, with column names
+-- sorted so the line is stable.
 --
--- Replay the saved file through a rollback (see the .down.sql headers),
--- or with: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /tmp/fweta-client-grants.snapshot.sql
+-- Output order is fixed: comment, table grants, column grants, sequence
+-- grants, function grants, stored default privileges, then the built-in
+-- global function default. Within each group the statement text is sorted.
+-- Two runs against the same catalog produce the same file.
+--
+-- The real live restore path is QA's export_acl.sql plus gen_restore.py.
+-- Replaying the saved file through any one rollback restores the grants for
+-- all three forward files. Tests also replay this script's output.
+-- Or: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /tmp/fweta-client-grants.snapshot.sql
 
 \pset tuples_only on
 \pset format unaligned
@@ -64,6 +75,41 @@ from (
   select
     2,
     format(
+      'grant %s (%s) on table %I.%I to %s%s;',
+      lower(col.privilege_type),
+      col.cols,
+      col.nspname,
+      col.relname,
+      col.who,
+      col.grantable
+    )
+  from (
+    select
+      n.nspname,
+      c.relname,
+      a.privilege_type,
+      case when a.grantee = 0 then 'public' else quote_ident(r.rolname) end as who,
+      case when a.is_grantable then ' with grant option' else '' end as grantable,
+      string_agg(distinct quote_ident(att.attname), ', ' order by quote_ident(att.attname)) as cols
+    from pg_attribute att
+    join pg_class c on c.oid = att.attrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    cross join lateral aclexplode(att.attacl) a
+    left join pg_roles r on r.oid = a.grantee
+    where n.nspname = 'public'
+      and c.relkind in ('r', 'p', 'v', 'm', 'f')
+      and att.attnum > 0
+      and not att.attisdropped
+      and att.attacl is not null
+      and (a.grantee = 0 or r.rolname in ('anon', 'authenticated', 'service_role'))
+    group by n.nspname, c.relname, a.privilege_type, a.grantee, r.rolname, a.is_grantable
+  ) col
+
+  union all
+
+  select
+    3,
+    format(
       'grant %s on sequence %I.%I to %s%s;',
       lower(a.privilege_type),
       n.nspname,
@@ -82,7 +128,7 @@ from (
   union all
 
   select
-    3,
+    4,
     format(
       'grant %s on %s %I.%I(%s) to %s%s;',
       lower(a.privilege_type),
@@ -103,7 +149,7 @@ from (
   union all
 
   select
-    4,
+    5,
     format(
       'alter default privileges for role %I%s grant %s on %s to %s%s;',
       owner_role.rolname,
@@ -135,10 +181,12 @@ from (
   union all
 
   -- No global function row means the built-in default, which grants
-  -- execute to PUBLIC. File 3's global revoke inserts a row that removes
-  -- that grant. Emitting it here lets the snapshot put it back.
+  -- execute to PUBLIC. File 3's global revoke inserts that row for
+  -- postgres only. Emitting the grant here lets the snapshot put the
+  -- postgres default back. The supabase_admin line records the built-in
+  -- default; File 3 does not revoke it globally.
   select
-    5,
+    6,
     format(
       'alter default privileges for role %I grant %s on functions to %s%s;',
       owner_role.rolname,

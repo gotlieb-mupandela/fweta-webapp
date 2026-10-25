@@ -101,6 +101,13 @@ grant select, insert, update, delete on table public.bookings to authenticated;
 grant select on table public.bookings to anon;
 grant select, insert on table public.device_locations to anon;
 grant execute on function public.fweta_json_store_set() to public, anon, authenticated;
+
+create table public.fweta_profiles (
+  id int primary key,
+  email text,
+  display_name text
+);
+grant select (email, display_name) on table public.fweta_profiles to authenticated;
 revoke all on function public.fweta_load_store() from public;
 
 alter default privileges for role postgres in schema public
@@ -130,6 +137,26 @@ as $$
   left join pg_roles r on r.oid = a.grantee
   where n.nspname = 'public'
     and c.relkind in ('r', 'p', 'v', 'm', 'f')
+    and (a.grantee = 0 or r.rolname in ('anon', 'authenticated', 'service_role'))
+
+  union all
+
+  select
+    'column',
+    format('%I.%I.%I', n.nspname, c.relname, att.attname),
+    case when a.grantee = 0 then 'public' else r.rolname end,
+    a.privilege_type,
+    a.is_grantable
+  from pg_attribute att
+  join pg_class c on c.oid = att.attrelid
+  join pg_namespace n on n.oid = c.relnamespace
+  cross join lateral aclexplode(att.attacl) a
+  left join pg_roles r on r.oid = a.grantee
+  where n.nspname = 'public'
+    and c.relkind in ('r', 'p', 'v', 'm', 'f')
+    and att.attnum > 0
+    and not att.attisdropped
+    and att.attacl is not null
     and (a.grantee = 0 or r.rolname in ('anon', 'authenticated', 'service_role'))
 
   union all
@@ -199,6 +226,9 @@ from pg_temp.client_acl();
 \o /tmp/fweta-client-grants.snapshot.sql
 \ir ../../scripts/ops/snapshot-client-grants.sql
 \o
+\o /tmp/fweta-client-grants.snapshot.again.sql
+\ir ../../scripts/ops/snapshot-client-grants.sql
+\o
 
 \pset tuples_only off
 \pset format aligned
@@ -207,8 +237,13 @@ from pg_temp.client_acl();
 do $snapshot_file$
 declare
   body text;
+  again text;
 begin
   body := pg_read_file('/tmp/fweta-client-grants.snapshot.sql');
+  again := pg_read_file('/tmp/fweta-client-grants.snapshot.again.sql');
+  if body is distinct from again then
+    raise exception 'snapshot output is not deterministic';
+  end if;
   if position('grant select on table public.fweta_campaigns to anon;' in body) = 0 then
     raise exception 'snapshot missed anon select on fweta_campaigns';
   end if;
@@ -233,6 +268,9 @@ begin
   if position('alter default privileges for role postgres grant execute on functions to public;' in body) = 0 then
     raise exception 'snapshot missed global function default privilege';
   end if;
+  if position('grant select (display_name, email) on table public.fweta_profiles to authenticated;' in body) = 0 then
+    raise exception 'snapshot missed authenticated column select on fweta_profiles';
+  end if;
   if position('revoke ' in body) > 0 then
     raise exception 'snapshot must be grants only';
   end if;
@@ -248,12 +286,17 @@ begin
     from pg_temp.client_acl()
     where grantee in ('anon', 'authenticated', 'public')
       and (
-        (kind in ('table', 'sequence') and obj like 'public.fweta\_%' escape '\')
+        (kind in ('table', 'sequence', 'column') and obj like 'public.fweta\_%' escape '\')
         or obj = 'public.fweta_json_store_set()'
         or obj = 'public.fweta_load_store()'
       )
   ) then
     raise exception 'file 1 left a client grant on a fweta_ object';
+  end if;
+
+  if has_column_privilege('authenticated', 'public.fweta_profiles', 'email', 'select')
+     or has_column_privilege('authenticated', 'public.fweta_profiles', 'display_name', 'select') then
+    raise exception 'file 1 left a column select on fweta_profiles';
   end if;
 
   if not exists (
@@ -325,6 +368,14 @@ begin
          and privilege_type = 'EXECUTE'
      ) then
     raise exception 'snapshot replay did not restore fweta_json_store_set execute';
+  end if;
+
+  if not has_column_privilege('authenticated', 'public.fweta_profiles', 'email', 'select')
+     or not has_column_privilege('authenticated', 'public.fweta_profiles', 'display_name', 'select') then
+    raise exception 'snapshot replay did not restore fweta_profiles column select';
+  end if;
+  if has_table_privilege('authenticated', 'public.fweta_profiles', 'select') then
+    raise exception 'snapshot replay turned a column grant into table select';
   end if;
 end
 $match$;

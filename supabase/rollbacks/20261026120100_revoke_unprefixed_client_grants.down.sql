@@ -1,14 +1,16 @@
 -- Rollback for 20261026120100_revoke_unprefixed_client_grants.sql
 --
--- The live grants on the unprefixed tables are not in the repo migrations,
--- so this file cannot invent them. Save them first with the read only
--- snapshot, from the repo root, BEFORE applying the forward file:
+-- This file does not invent grants. The live anon and authenticated
+-- privileges on the unprefixed tables are not in the repo migrations.
+-- David's live read stays a note, not a GRANT: authenticated has INSERT,
+-- SELECT, and UPDATE on the unprefixed tables, and DELETE on some of them.
+-- The note did not name which tables have DELETE. anon has SELECT only on
+-- campaigns, influencer_profiles, and rate_cards.
 --
---   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
---     -f scripts/ops/snapshot-client-grants.sql \
---     -o /tmp/fweta-client-grants.snapshot.sql
---
--- Replay that saved file through this rollback:
+-- Produce the snapshot with QA's export_acl.sql and gen_restore.py before
+-- applying any forward file. Point the psql variable snapshot at that file.
+-- Replaying any one of the three rollbacks with that snapshot restores the
+-- grants for all three files, not only this one.
 --
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 --     -v snapshot=/tmp/fweta-client-grants.snapshot.sql \
@@ -16,35 +18,17 @@
 --     -f supabase/rollbacks/20261026120100_revoke_unprefixed_client_grants.down.sql \
 --     -c 'commit'
 --
--- The same snapshot is used for the file 1 and file 3 rollbacks.
--- If the psql variable snapshot is not set, the fallback below runs instead.
--- That fallback does not restore the live catalog.
+-- If snapshot is not set, this file raises and grants nothing.
+-- device_locations is not in the forward list and is not granted here.
 
 \if :{?snapshot}
 \echo 'Replaying client grant snapshot:' :snapshot
+\echo 'One replay restores the grants for all three files.'
 \ir :snapshot
 \else
-
--- Re-granting these privileges re-opens the exposure. This file does not
--- grant them.
---
--- Derived from the migrations on main, not guessed: no migration grants
--- anon or authenticated any privilege on bookings, brand_deposits, campaigns,
--- fraud_flags, influencer_profiles, ledger_entries, payout_methods, profiles,
--- rate_cards, submissions, view_snapshots, wallets, or withdrawal_requests.
--- service_role was not revoked, so there is nothing to restore for that role.
---
--- David's live read, recorded here so the exposure is visible, and not
--- turned into GRANT statements: authenticated has INSERT, SELECT, and UPDATE
--- on the unprefixed tables, and DELETE on some of them. The live note did
--- not name which tables have DELETE, so a DELETE grant would be a guess.
--- anon has SELECT only on campaigns, influencer_profiles, and rate_cards.
--- Those grants are not in this repo.
-
-do $unprefixed_down$
+do $missing_snapshot$
 begin
-  raise notice 'No anon or authenticated grants from repo migrations to restore on the unprefixed list.';
+  raise exception 'Refusing to restore client grants without the psql variable snapshot. This rollback does not grant anything. Pass -v snapshot=/path/to/saved-acl.sql. One replay of that snapshot restores the grants for all three files.';
 end
-$unprefixed_down$;
-
+$missing_snapshot$;
 \endif

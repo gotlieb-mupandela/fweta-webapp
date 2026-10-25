@@ -229,7 +229,20 @@ begin
 end
 $view_snapshots$;
 
+\unset file2_did_not_raise
+savepoint file2_no_snapshot;
+\set ON_ERROR_STOP off
 \ir ../rollbacks/20261026120100_revoke_unprefixed_client_grants.down.sql
+select 1 as file2_did_not_raise \gset
+\set ON_ERROR_STOP on
+rollback to savepoint file2_no_snapshot;
+\if :{?file2_did_not_raise}
+do $file2_should_have_raised$
+begin
+  raise exception 'file 2 rollback without snapshot did not raise';
+end
+$file2_should_have_raised$;
+\endif
 
 do $down$
 declare
