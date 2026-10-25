@@ -57,17 +57,22 @@ const DEMO_ACCOUNTS: Array<Omit<Profile, "passwordHash" | "id">> = [
 type SeedEnv = {
   FWETA_SEED_DEMO?: string;
   NODE_ENV?: string;
+  VERCEL?: string;
   VERCEL_ENV?: string;
 };
 
+function envSet(value: string | undefined): boolean {
+  return Boolean(value?.trim());
+}
+
 /**
- * Demo accounts stay off unless the flag is exactly `true` and this process
- * is not production. `NODE_ENV=production` and `VERCEL_ENV=production` each
- * refuse the seed, including when the flag is set.
+ * Demo accounts stay off unless the flag is exactly `true`, NODE_ENV is not
+ * production, and this process is not a Vercel host. `VERCEL` and `VERCEL_ENV`
+ * each refuse the seed, including when the flag is set.
  */
 export function shouldSeedDemoAccounts(env: SeedEnv = process.env): boolean {
   if (env.FWETA_SEED_DEMO !== "true") return false;
-  if (env.VERCEL_ENV === "production") return false;
+  if (envSet(env.VERCEL) || envSet(env.VERCEL_ENV)) return false;
   if (env.NODE_ENV === "production") return false;
   return true;
 }

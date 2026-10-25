@@ -155,7 +155,7 @@ curl -X POST "https://app.fweta.com/api/jobs/housekeeping" \
 
 ## 4. Demo logins (local only)
 
-These accounts are off by default. They are created only when `FWETA_SEED_DEMO` is exactly `true` and the process is not production. `NODE_ENV=production` and `VERCEL_ENV=production` each refuse the seed, even when the flag is `true`. Seeding runs once at server start, not on `/login`.
+These accounts are off by default. They are created only when `FWETA_SEED_DEMO` is exactly `true`, `NODE_ENV` is not `production`, and neither `VERCEL` nor `VERCEL_ENV` is set. Each of those refuses the seed, even when the flag is `true`. Seeding runs once at server start, not on `/login`.
 
 | Email | Role | Password |
 |-------|------|----------|
@@ -207,7 +207,7 @@ Data file: `data/store.json` (local only, gitignored).
 
 Local health check: `http://localhost:3000/api/health/store` should return `"ok": true`, `"mode": "local"`, and `"load": "ok"` after the first page load. Counts need `Authorization: Bearer CRON_SECRET`.
 
-E2E scripts expect the demo accounts. Set `FWETA_SEED_DEMO=true` in `.env.local` and restart the dev server before running them. Do not set that flag on Vercel production.
+E2E scripts expect the demo accounts. Set `FWETA_SEED_DEMO=true` in `.env.local` and restart the dev server before running them. Do not set that flag on Vercel.
 
 E2E scripts (with dev server running):
 

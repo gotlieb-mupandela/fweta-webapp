@@ -4,7 +4,12 @@ import test from "node:test";
 
 import { demoEmailsToSeed, seedDemoAccounts, shouldSeedDemoAccounts } from "../../lib/auth/demo-seed";
 
-const dev = { NODE_ENV: "development", VERCEL_ENV: undefined, FWETA_SEED_DEMO: undefined };
+const dev = {
+  NODE_ENV: "development",
+  VERCEL: undefined,
+  VERCEL_ENV: undefined,
+  FWETA_SEED_DEMO: undefined,
+};
 
 test("demo seeding is off by default", () => {
   assert.equal(shouldSeedDemoAccounts({ ...dev }), false);
@@ -37,6 +42,42 @@ test("demo seeding stays off in production even when the flag is true", () => {
   );
   assert.deepEqual(
     demoEmailsToSeed([], { FWETA_SEED_DEMO: "true", NODE_ENV: "production" }),
+    [],
+  );
+});
+
+test("demo seeding stays off on any Vercel host even when the flag is true", () => {
+  assert.equal(
+    shouldSeedDemoAccounts({ FWETA_SEED_DEMO: "true", NODE_ENV: "development", VERCEL: "1" }),
+    false,
+  );
+  assert.equal(
+    shouldSeedDemoAccounts({
+      FWETA_SEED_DEMO: "true",
+      NODE_ENV: "development",
+      VERCEL_ENV: "preview",
+    }),
+    false,
+  );
+  assert.equal(
+    shouldSeedDemoAccounts({
+      FWETA_SEED_DEMO: "true",
+      NODE_ENV: "development",
+      VERCEL_ENV: "development",
+    }),
+    false,
+  );
+  assert.equal(
+    shouldSeedDemoAccounts({
+      FWETA_SEED_DEMO: "true",
+      NODE_ENV: "test",
+      VERCEL: "1",
+      VERCEL_ENV: "preview",
+    }),
+    false,
+  );
+  assert.deepEqual(
+    demoEmailsToSeed([], { FWETA_SEED_DEMO: "true", NODE_ENV: "development", VERCEL: "1" }),
     [],
   );
 });

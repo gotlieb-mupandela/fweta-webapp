@@ -22,7 +22,7 @@ npm run dev
 
 ### Demo accounts
 
-Off by default. Set `FWETA_SEED_DEMO=true` and restart the dev server. The flag is ignored when `NODE_ENV` or `VERCEL_ENV` is `production`.
+Off by default. Set `FWETA_SEED_DEMO=true` and restart the dev server. The flag is ignored when `NODE_ENV` is `production` or when `VERCEL` or `VERCEL_ENV` is set.
 
 | Email | Roles | Password |
 |-------|-------|----------|

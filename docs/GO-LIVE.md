@@ -8,7 +8,7 @@ This file splits what the repo already does from what Gotlieb has to provide. No
 
 - **Store adapter.** `lib/db/adapter.ts` uses Postgres when `NEXT_PUBLIC_SUPABASE_URL` and a service-role key are set. Otherwise it uses `data/store.json`. `FWETA_STORE=file` forces the file. A failed Supabase read does not cache an empty store and write it back. A production runtime (`NODE_ENV=production` or `VERCEL` set) throws at first use when that choice is the file store, and `next build` (`NEXT_PHASE=phase-production-build`) does not.
 - **SQL, not applied.** `supabase/migrations/20261017160000_production_hardening.sql` adds the profile columns the app already saves (name, socials, onboarding, credential version), `fweta_campaigns.settled_at`, a `revision` column for safer JSON writes, non-negative wallet and positive ledger checks (`NOT VALID`), indexes, and revokes `anon` / `authenticated` from the store tables and from `fweta_load_store` / `fweta_save_store`. Those functions are `security invoker`. The save function refuses to replace a populated profile table with an empty list. The campaign load and save include `settledAt`.
-- **Sessions.** Production rejects the published dev secrets. Demo `*@fweta.test` accounts are off unless `FWETA_SEED_DEMO` is exactly `true`, and they are never seeded when `NODE_ENV` or `VERCEL_ENV` is `production`. Password changes bump `credentialVersion` and older cookies are sent to `/api/auth/end-session`. Suspended accounts are rejected on the dashboard and on server actions.
+- **Sessions.** Production rejects the published dev secrets. Demo `*@fweta.test` accounts are off unless `FWETA_SEED_DEMO` is exactly `true`, and they are never seeded when `NODE_ENV` is `production` or when `VERCEL` or `VERCEL_ENV` is set. Password changes bump `credentialVersion` and older cookies are sent to `/api/auth/end-session`. Suspended accounts are rejected on the dashboard and on server actions.
 - **Abuse limits.** Login, signup, and password change are rate limited per instance. Login `next` must be a relative path. Cron and the health write-probe compare the bearer token in constant time.
 - **Manual view counts.** An admin enters totals at `/dashboard/admin/views`. Saving a higher count writes a snapshot and runs the existing CPM earnings math. Counts cannot be lowered. Nothing simulates views. `GET` or `POST /api/jobs/poll-views` returns 401 without the cron bearer, 410 when Apify is unset, and runs a fetch only when `APIFY_API_TOKEN` is set.
 - **Errors.** `ERROR_WEBHOOK_URL`, if set, receives a short JSON report from `/api/observability` and from server `reportServerError`. Unset, the app only logs.
@@ -48,7 +48,7 @@ This file splits what the repo already does from what Gotlieb has to provide. No
 
 - Payment gateway keys. Deposits and payouts are manual.
 - `APIFY_API_TOKEN` and any TikTok, Meta, Instagram, YouTube, or X API keys. View counts are manual.
-- `FWETA_SEED_DEMO` on production.
+- `FWETA_SEED_DEMO` on any Vercel host.
 - `TRIGGER_SECRET_KEY` until a job runner is actually wired. Housekeeping uses the Vercel cron route.
 
 ## Already merged here

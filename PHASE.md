@@ -30,7 +30,7 @@ This document expands [AGENTS.md](./AGENTS.md) into an actionable build sequence
 
 ## Local runtime notes
 
-- **Auth:** Cookie JWT (`fweta_session`) with bcrypt email + password. Demo users (`*@fweta.test` / `password123`) are created at server start only when `FWETA_SEED_DEMO` is exactly `true` and neither `NODE_ENV` nor `VERCEL_ENV` is `production`. The admin account is seeded from `ADMIN_EMAIL` and `ADMIN_PASSWORD`, hashed at seed time.
+- **Auth:** Cookie JWT (`fweta_session`) with bcrypt email + password. Demo users (`*@fweta.test` / `password123`) are created at server start only when `FWETA_SEED_DEMO` is exactly `true`, `NODE_ENV` is not `production`, and neither `VERCEL` nor `VERCEL_ENV` is set. The admin account is seeded from `ADMIN_EMAIL` and `ADMIN_PASSWORD`, hashed at seed time.
 - **Data:** File store at `data/store.json` (gitignored). Ledger discipline enforced in `lib/wallet/ledger.ts`.
 - **Jobs:** An admin records view counts at `/dashboard/admin/views`. `POST /api/jobs/poll-views` fetches counts only when Apify is configured, otherwise it returns 410. `POST /api/jobs/settle-rewards` releases holds and closes ended campaigns. `POST /api/jobs/housekeeping` does the same close once a day and releases stale booking holds.
 - **Email:** Resend when `RESEND_API_KEY` and `RESEND_FROM` are set. Otherwise sends are skipped with a warning. Admin previews live at `/dashboard/admin/emails`.

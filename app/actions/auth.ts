@@ -55,6 +55,7 @@ export async function signupAction(input: {
 }
 
 export async function logoutAction() {
+  await getSession();
   await logout();
   redirect("/");
 }

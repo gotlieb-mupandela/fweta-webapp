@@ -281,6 +281,19 @@ const BLOCKED_ACTION_NAMES = new Set([
   "ensureAdminAccount",
 ]);
 
+/**
+ * Actions with no session. loginAction and signupAction stay here.
+ * Email preference actions stay here too: the signed link token is the gate,
+ * and the form is opened from an inbox, not a signed-in page.
+ */
+const PUBLIC_ACTIONS = new Set([
+  "app/actions/auth.ts loginAction",
+  "app/actions/auth.ts signupAction",
+  "app/actions/email-preferences.ts saveTokenPreferencesAction",
+  "app/actions/email-preferences.ts confirmUnsubscribeAction",
+  "app/actions/email-preferences.ts unsubscribeByToken",
+]);
+
 function walk(dir: string): string[] {
   const found: string[] = [];
   for (const name of readdirSync(dir)) {
@@ -292,22 +305,216 @@ function walk(dir: string): string[] {
   return found;
 }
 
-function isUseServer(source: string): boolean {
-  return /^\s*["']use server["'];?/m.test(source);
+const SESSION_OR_ROLE = /requireSession\(|getSession\(|\.roles\.includes|session\.roles|assertBrand\(/;
+const STORE_TOUCH = /\b(readStore|updateStore|commitStoreToSupabase)\b/;
+
+/** Drop comments so a note cannot invent an export or a session check. */
+function stripComments(source: string): string {
+  let out = "";
+  let quote: "'" | '"' | "`" | null = null;
+  for (let i = 0; i < source.length; i += 1) {
+    const c = source[i];
+    const next = source[i + 1];
+    if (quote) {
+      out += c;
+      if (c === "\\") {
+        out += next ?? "";
+        i += 1;
+        continue;
+      }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === "'" || c === '"' || c === "`") {
+      quote = c;
+      out += c;
+      continue;
+    }
+    if (c === "/" && next === "/") {
+      while (i < source.length && source[i] !== "\n") i += 1;
+      out += "\n";
+      continue;
+    }
+    if (c === "/" && next === "*") {
+      i += 2;
+      while (i < source.length && !(source[i] === "*" && source[i + 1] === "/")) i += 1;
+      i += 1;
+      out += " ";
+      continue;
+    }
+    out += c;
+  }
+  return out;
 }
 
-function exportedFunctions(source: string): { name: string; body: string }[] {
-  const parts = source.split(/\n(?=export )/);
-  const found: { name: string; body: string }[] = [];
-  for (const part of parts) {
-    const match = part.match(/^export (?:async )?function (\w+)/);
-    if (match) found.push({ name: match[1], body: part });
+function isUseServer(source: string): boolean {
+  return /^\s*["']use server["'];?/m.test(stripComments(source));
+}
+
+function isExportWord(source: string, index: number): boolean {
+  if (!source.startsWith("export", index)) return false;
+  const before = index === 0 ? "" : source[index - 1];
+  const after = source[index + 6] ?? "";
+  if (before && /[\w$]/.test(before)) return false;
+  if (/[\w$]/.test(after)) return false;
+  return true;
+}
+
+/** Top-level `export` statements, each running through the next one. */
+function exportSpans(source: string): string[] {
+  const starts: number[] = [];
+  let brace = 0;
+  let quote: "'" | '"' | "`" | null = null;
+  for (let i = 0; i < source.length; i += 1) {
+    const c = source[i];
+    if (quote) {
+      if (c === "\\") {
+        i += 1;
+        continue;
+      }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === "'" || c === '"' || c === "`") {
+      quote = c;
+      continue;
+    }
+    if (c === "{") brace += 1;
+    else if (c === "}") brace = Math.max(0, brace - 1);
+    else if (brace === 0 && isExportWord(source, i)) starts.push(i);
+  }
+  return starts.map((start, index) => source.slice(start, starts[index + 1] ?? source.length));
+}
+
+function matchingBrace(source: string, open: number): number {
+  let depth = 0;
+  let quote: "'" | '"' | "`" | null = null;
+  for (let i = open; i < source.length; i += 1) {
+    const c = source[i];
+    if (quote) {
+      if (c === "\\") {
+        i += 1;
+        continue;
+      }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === "'" || c === '"' || c === "`") {
+      quote = c;
+      continue;
+    }
+    if (c === "{") depth += 1;
+    else if (c === "}") {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return source.length - 1;
+}
+
+/** Body of a function or arrow, skipping a return-type `{ ... }` before the real block. */
+function sliceCallable(source: string, start: number): string {
+  let paren = 0;
+  let angle = 0;
+  let seenParen = false;
+  let quote: "'" | '"' | "`" | null = null;
+  for (let i = start; i < source.length; i += 1) {
+    const c = source[i];
+    const next = source[i + 1];
+    if (quote) {
+      if (c === "\\") {
+        i += 1;
+        continue;
+      }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === "'" || c === '"' || c === "`") {
+      quote = c;
+      continue;
+    }
+    if (c === "(") {
+      paren += 1;
+      continue;
+    }
+    if (c === ")") {
+      paren = Math.max(0, paren - 1);
+      if (paren === 0) seenParen = true;
+      continue;
+    }
+    if (!seenParen || paren !== 0) continue;
+    if (c === "<") {
+      angle += 1;
+      continue;
+    }
+    if (c === ">") {
+      angle = Math.max(0, angle - 1);
+      continue;
+    }
+    if (angle === 0 && c === "{") {
+      return source.slice(start, matchingBrace(source, i) + 1);
+    }
+    if (angle === 0 && c === "=" && next === ">") {
+      const tail = source.slice(i);
+      const end = tail.search(/;\s*(?:\n|$)/);
+      return source.slice(start, i + (end === -1 ? tail.length : end + 1));
+    }
+  }
+  return source.slice(start);
+}
+
+function declarationBody(source: string, name: string): string {
+  const pattern = new RegExp(
+    `(?:^|\\n)\\s*(?:export\\s+)?(?:async\\s+)?function\\s+${name}\\b|\\n\\s*(?:export\\s+)?const\\s+${name}\\s*=`,
+  );
+  const match = pattern.exec(source);
+  if (!match || match.index == null) return "";
+  const at = source.indexOf(name, match.index);
+  return sliceCallable(source, at === -1 ? match.index : at);
+}
+
+type ActionExport = { name: string; body: string };
+
+function exportedActions(source: string): ActionExport[] {
+  const clean = stripComments(source);
+  const found: ActionExport[] = [];
+  const seen = new Set<string>();
+  const add = (name: string, body: string) => {
+    if (!name || seen.has(name)) return;
+    seen.add(name);
+    found.push({ name, body });
+  };
+
+  for (const span of exportSpans(clean)) {
+    const text = span.trim();
+    if (/^export\s+(?:type|interface)\b/.test(text)) continue;
+    if (/^export\s*\*/.test(text)) {
+      add("*", text);
+      continue;
+    }
+
+    const fn = text.match(/^export\s+(?:default\s+)?(?:async\s+)?function\s+(\w+)/);
+    const arrow = text.match(/^export\s+const\s+(\w+)\s*=\s*(?:async\s+)?(?:function\b|\()/);
+    const namedDefault = text.match(/^export\s+default\s+(?:async\s+)?function\s+(\w+)/);
+    const bareDefault = /^export\s+default\b/.test(text);
+    if (fn && !text.startsWith("export default")) add(fn[1], text);
+    if (arrow) add(arrow[1], text);
+    if (namedDefault) add(namedDefault[1], text);
+    if (bareDefault) add("default", text);
+
+    const list = text.match(/^export\s*\{([^}]+)\}/);
+    if (!list) continue;
+    const reexport = /\}\s*from\s+["']/.test(text);
+    for (const spec of list[1].split(",")) {
+      const part = spec.trim().match(/^(\w+)(?:\s+as\s+(\w+))?$/);
+      if (!part) continue;
+      const local = part[1];
+      const name = part[2] ?? part[1];
+      add(name, reexport ? text : declarationBody(clean, local));
+    }
   }
   return found;
 }
-
-const SESSION_OR_ROLE = /requireSession\(|getSession\(|\.roles\.includes|session\.roles|assertBrand\(/;
-const STORE_TOUCH = /\b(readStore|updateStore|commitStoreToSupabase)\b/;
 
 test("use server files only export allowlisted actions that check the session first", () => {
   const sessionSource = readFileSync(path.join(root, "lib/auth/session.ts"), "utf8");
@@ -322,20 +529,74 @@ test("use server files only export allowlisted actions that check the session fi
   for (const file of files) {
     const rel = path.relative(root, file);
     const source = readFileSync(file, "utf8");
-    for (const fn of exportedFunctions(source)) {
+    for (const fn of exportedActions(source)) {
       const key = `${rel} ${fn.name}`;
       seen.add(key);
       assert.equal(BLOCKED_ACTION_NAMES.has(fn.name), false, key);
       const allowed = ALLOWED_ACTIONS.some((entry) => entry.file === rel && entry.name === fn.name);
       assert.equal(allowed, true, `${key} is not an allowlisted action`);
+      if (PUBLIC_ACTIONS.has(key)) continue;
+      const checkAt = fn.body.search(SESSION_OR_ROLE);
+      assert.notEqual(checkAt, -1, `${key} has no session or role check`);
       const storeAt = fn.body.search(STORE_TOUCH);
       if (storeAt === -1) continue;
-      const checkAt = fn.body.search(SESSION_OR_ROLE);
-      assert.ok(checkAt !== -1 && checkAt < storeAt, `${key} touches the store before a session or role check`);
+      assert.ok(checkAt < storeAt, `${key} touches the store before a session or role check`);
     }
   }
 
   for (const entry of ALLOWED_ACTIONS) {
     assert.equal(seen.has(`${entry.file} ${entry.name}`), true, `allowlist entry missing: ${entry.file} ${entry.name}`);
   }
+});
+
+test("action export scan ignores comments and catches const, list, and default exports", () => {
+  const source = `
+"use server";
+// export async function commentedOut() { requireSession(); }
+/* export const blockCommented = async () => { requireSession(); } */
+/* export default function hidden() { requireSession(); } */
+
+export const arrowAction = async () => {
+  const session = await requireSession();
+  return session.id;
+};
+
+export const fnAction = async function () {
+  await getSession();
+};
+
+function localA() {
+  // requireSession(
+  readStore();
+}
+function localB() {
+  const session = await getSession();
+  if (!session.roles.includes("admin")) return;
+  readStore();
+}
+export { localA, localB as renamedB };
+
+export default async function defaultAction() {
+  assertBrand([]);
+}
+`;
+  const found = exportedActions(source);
+  const names = found.map((item) => item.name).sort();
+  assert.deepEqual(names, ["arrowAction", "default", "defaultAction", "fnAction", "localA", "renamedB"]);
+  assert.equal(found.some((item) => item.name === "commentedOut" || item.name === "blockCommented" || item.name === "hidden"), false);
+
+  const body = (name: string) => found.find((item) => item.name === name)?.body ?? "";
+  assert.notEqual(body("arrowAction").search(SESSION_OR_ROLE), -1);
+  assert.notEqual(body("fnAction").search(SESSION_OR_ROLE), -1);
+  assert.notEqual(body("renamedB").search(SESSION_OR_ROLE), -1);
+  assert.notEqual(body("default").search(SESSION_OR_ROLE), -1);
+  assert.notEqual(body("defaultAction").search(SESSION_OR_ROLE), -1);
+  assert.equal(body("localA").search(SESSION_OR_ROLE), -1);
+  assert.notEqual(body("localA").search(STORE_TOUCH), -1);
+  const renamedCheck = body("renamedB").search(SESSION_OR_ROLE);
+  const renamedStore = body("renamedB").search(STORE_TOUCH);
+  assert.ok(renamedCheck !== -1 && renamedCheck < renamedStore);
+
+  const commentedDirective = "// \"use server\";\nexport const nope = async () => {};";
+  assert.equal(isUseServer(commentedDirective), false);
 });
