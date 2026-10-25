@@ -1,34 +1,38 @@
-import { chromium } from "playwright";
+import {
+  ADMIN_EMAIL,
+  baseUrl,
+  clickLogOut,
+  confirmPayIn,
+  dismissTour,
+  launchBrowser,
+  loadPlaywright,
+  login,
+  PASSWORD,
+  publishCampaign,
+  submitEftDeposit,
+} from "./e2e-helpers.mjs";
 
-const BASE = "http://localhost:3000";
-const PASSWORD = "password123";
+const BASE = baseUrl();
 
 const accounts = [
   { email: "brand@fweta.test", role: "brand", paths: ["/dashboard/brand", "/dashboard/brand/campaigns", "/dashboard/brand/campaigns/new", "/dashboard/brand/analytics", "/dashboard/brand/deposits", "/dashboard/brand/bookings", "/dashboard/brand/ugc", "/dashboard/brand/ugc/new", "/dashboard/brand/directory"] },
   { email: "clipper@fweta.test", role: "clipper", paths: ["/dashboard/clipper", "/dashboard/clipper/campaigns", "/dashboard/clipper/submissions", "/dashboard/clipper/earnings", "/dashboard/ugc", "/dashboard/ugc/portfolio"] },
   { email: "creator@fweta.test", role: "influencer", paths: ["/dashboard/influencer", "/dashboard/influencer/profile", "/dashboard/influencer/rate-cards", "/dashboard/influencer/bookings", "/dashboard/influencer/earnings", "/dashboard/ugc", "/dashboard/ugc/portfolio"] },
-  { email: "admin@fweta.test", role: "admin", paths: ["/dashboard/admin", "/dashboard/admin/withdrawals", "/dashboard/admin/fraud", "/dashboard/admin/users", "/dashboard/admin/stats", "/dashboard/admin/licenses", "/dashboard/admin/disputes", "/dashboard/admin/directory"] },
+  { email: ADMIN_EMAIL, role: "admin", paths: ["/dashboard/admin", "/dashboard/admin/withdrawals", "/dashboard/admin/fraud", "/dashboard/admin/users", "/dashboard/admin/stats", "/dashboard/admin/licenses", "/dashboard/admin/disputes", "/dashboard/admin/directory"] },
 ];
 
 const results = [];
 
-async function login(page, email) {
-  await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
-  await page.fill("#email", email);
-  await page.fill("#password", PASSWORD);
-  await page.getByRole("button", { name: /continue/i }).click();
-  await page.waitForURL(/\/dashboard/, { timeout: 15000 });
-}
-
 async function logout(page) {
-  await page.goto(`${BASE}/dashboard/settings`);
-  const logoutBtn = page.getByRole("button", { name: /log out|sign out/i });
-  if (await logoutBtn.count()) {
-    await logoutBtn.click();
-    await page.waitForURL(/\/(login|$)/, { timeout: 10000 }).catch(() => {});
-  } else {
+  await page.goto(`${BASE}/dashboard/settings`, { waitUntil: "domcontentloaded" });
+  await dismissTour(page);
+  const visibleLogout = page.getByRole("button", { name: "Log out", exact: true }).filter({ visible: true });
+  if ((await visibleLogout.count()) === 0) {
     await page.context().clearCookies();
+    return;
   }
+  await clickLogOut(page);
+  await page.waitForURL((url) => !url.pathname.startsWith("/dashboard"), { timeout: 10000 }).catch(() => {});
 }
 
 async function checkPath(page, path) {
@@ -36,40 +40,48 @@ async function checkPath(page, path) {
   const status = res?.status() ?? 0;
   const url = page.url();
   const body = await page.locator("body").innerText();
-  const hasError = /application error|something went wrong|500|404 not found/i.test(body);
+  const hasError = /application error|something went wrong|internal server error|404 not found/i.test(body);
   const redirectedToLogin = url.includes("/login");
   return { path, status, url, ok: status < 400 && !hasError && !redirectedToLogin };
 }
 
 async function testBrandFlow(page) {
   const flow = [];
-  await page.goto(`${BASE}/dashboard/brand/campaigns/new`, { waitUntil: "networkidle" });
+  const note = `Smoke deposit ${Date.now()}`;
+  await page.goto(`${BASE}/dashboard/brand/deposits`, { waitUntil: "domcontentloaded" });
+  await submitEftDeposit(page, "200", note);
+  await login(page, ADMIN_EMAIL, PASSWORD);
+  await confirmPayIn(page, note);
+  await login(page, "brand@fweta.test", PASSWORD);
+  await page.goto(`${BASE}/dashboard/brand/campaigns/new`, { waitUntil: "domcontentloaded" });
   const title = `QA Campaign ${Date.now()}`;
-  await page.locator('input[name="title"], #title').first().fill(title);
-  await page.locator('textarea[name="description"], #description').first().fill("Automated QA test campaign.");
-  await page.locator('input[name="budgetTotalCents"], #budgetTotalCents').first().fill("50000");
-  await page.locator('input[name="cpmCents"], #cpmCents').first().fill("500");
-  await page.locator('input[name="maxPayoutPerSubmissionCents"]').first().fill("10000").catch(() => {});
-  const tiktok = page.locator('input[type="checkbox"][value="tiktok"], label:has-text("tiktok") input').first();
-  if (await tiktok.count()) await tiktok.check().catch(() => {});
-  await page.getByRole("button", { name: /create|save|publish/i }).click();
-  await page.waitForTimeout(2000);
-  flow.push({ step: "create campaign", ok: !page.url().includes("/new") || (await page.content()).includes(title) });
+  await publishCampaign(page, {
+    title,
+    description: "Automated QA test campaign.",
+    category: "Tech",
+    budget: "50",
+    cpm: "5",
+    maxPayout: "20",
+    platform: "YouTube",
+  });
+  const body = await page.locator("body").innerText();
+  flow.push({ step: "create campaign", ok: body.includes(title) && !page.url().includes("/new") });
   return flow;
 }
 
 async function testClipperSubmit(page) {
-  await page.goto(`${BASE}/dashboard/clipper/campaigns`, { waitUntil: "networkidle" });
-  const urlInput = page.locator('input[name="postUrl"], input[type="url"]').first();
+  await page.goto(`${BASE}/dashboard/clipper/campaigns`, { waitUntil: "domcontentloaded" });
+  const urlInput = page.getByLabel("Post URL", { exact: true });
   if (!(await urlInput.count())) return [{ step: "submit clip", ok: false, note: "no campaigns to submit to" }];
-  await urlInput.fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-  await page.getByRole("button", { name: /submit/i }).click();
-  await page.waitForTimeout(2000);
+  await urlInput.first().fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  await page.getByRole("button", { name: "Submit clip", exact: true }).first().click();
+  await page.getByText("Clip submitted for review").first().waitFor({ timeout: 15000 }).catch(() => {});
   const content = await page.content();
-  return [{ step: "submit clip", ok: /submitted|pending|success/i.test(content) || !(await page.locator(".text-red").count()) }];
+  return [{ step: "submit clip", ok: /Clip submitted for review|pending/i.test(content) }];
 }
 
-const browser = await chromium.launch({ headless: true });
+const playwright = await loadPlaywright();
+const browser = await launchBrowser(playwright);
 const context = await browser.newContext();
 const page = await context.newPage();
 
@@ -81,7 +93,7 @@ try {
 
   for (const account of accounts) {
     try {
-      await login(page, account.email);
+      await login(page, account.email, PASSWORD);
       results.push({ role: account.role, step: "login", ok: page.url().includes("/dashboard") });
 
       for (const path of account.paths) {

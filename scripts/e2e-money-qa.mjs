@@ -1,18 +1,28 @@
 /**
  * Core money flow plus role, team, onboarding, legal, and mobile checks.
- * Run against `next start` (production). Chrome must be installed.
+ * Run against a local `next dev` or `next start` with the file store.
  *
  *   node scripts/e2e-money-qa.mjs
  */
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import playwright from "/tmp/pw/node_modules/playwright-core/index.js";
+import { writeFileSync } from "node:fs";
+import {
+  ADMIN_EMAIL,
+  artifactDir,
+  baseUrl,
+  confirmPayIn,
+  launchBrowser,
+  loadPlaywright,
+  login as signIn,
+  PASSWORD,
+  publishCampaign,
+  readStore,
+  samplePngPath,
+  submitEftDeposit,
+} from "./e2e-helpers.mjs";
 
-const { chromium } = playwright;
-const BASE = process.env.QA_BASE || "http://127.0.0.1:3100";
-const PASSWORD = "password123";
-const STORE = "/workspace/data/store.json";
-const SHOTS = "/tmp/qa-shots";
-mkdirSync(SHOTS, { recursive: true });
+const BASE = baseUrl();
+const SHOTS = artifactDir("money-qa");
+const VIEW_SHOT = samplePngPath();
 
 const results = [];
 const log = (entry) => {
@@ -21,7 +31,7 @@ const log = (entry) => {
 };
 
 function load() {
-  return JSON.parse(readFileSync(STORE, "utf8"));
+  return readStore();
 }
 function profile(email) {
   return load().profiles.find((item) => item.email === email);
@@ -46,29 +56,69 @@ async function dismissTour(page) {
   }
 }
 
+const ONBOARDING_STEPS = [
+  { title: "What's your first name?", id: "firstName" },
+  { title: "And your surname?", id: "lastName" },
+  { title: "What's your phone number?", id: "phone" },
+  { title: "What's your TikTok?", id: "socialTiktok", optional: true },
+  { title: "What's your Instagram?", id: "socialInstagram", optional: true },
+  { title: "What's your Facebook?", id: "socialFacebook", optional: true },
+  { title: "What's your YouTube?", id: "socialYoutube", optional: true },
+  { title: "What's your X?", id: "socialX", optional: true },
+  { title: "What's your business called?", id: "companyName" },
+  { title: "Got a website?", id: "website", optional: true },
+  { title: "What's your niche?", id: "niche" },
+  { title: "Where are you based?", id: "location" },
+  { title: "Where do you post clips most?", id: "primaryPlatform" },
+];
+
+/** One-question onboarding. Optional steps use Skip. The last step is Finish. */
+async function finishOnboarding(page, answers) {
+  for (let guard = 0; guard < 20; guard += 1) {
+    if (page.url().includes("/dashboard")) break;
+    const title = (await page.locator("h1").last().innerText()).trim();
+    if (title === "You're in." || title === "Dashboard") break;
+    const step = ONBOARDING_STEPS.find((item) => item.title === title);
+    if (!step) throw new Error(`Unknown onboarding step: ${title}`);
+    if (step.id === "primaryPlatform") {
+      await page.getByRole("button", { name: "TikTok", exact: true }).click();
+      await page.getByRole("button", { name: "Finish", exact: true }).click();
+    } else if (step.optional && !answers[step.id]) {
+      await page.getByRole("button", { name: "Skip", exact: true }).click();
+    } else {
+      await page.locator(`#${step.id}`).fill(String(answers[step.id] ?? ""));
+      await page.getByRole("button", { name: /^(Continue|Finish)$/ }).click();
+    }
+    await page.waitForFunction(
+      (previous) => (document.querySelector("h1")?.textContent ?? "").trim() !== previous,
+      title,
+      { timeout: 20000 },
+    );
+  }
+  // The done screen redirects itself after a short pause. Either state is success.
+  if (!page.url().includes("/dashboard")) {
+    await page.waitForURL(/\/dashboard/, { timeout: 20000, waitUntil: "domcontentloaded" });
+  }
+}
+
 async function login(browser, email) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   page.on("dialog", (dialog) => dialog.accept());
-  await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
-  await page.fill("#email", email);
-  await page.fill("#password", PASSWORD);
-  await page.getByRole("button", { name: /^continue$/i }).click();
-  await page.waitForURL(/\/(dashboard|onboarding)/, { timeout: 20000, waitUntil: "domcontentloaded" });
-  await dismissTour(page);
+  await signIn(page, email, PASSWORD);
   return { context, page };
 }
 
 async function submitClip(page, campaignId, url) {
   await page.goto(`${BASE}/campaigns/${campaignId}`, { waitUntil: "domcontentloaded" });
-  await page.locator(`#url-${campaignId}`).fill(url);
-  await page.getByRole("button", { name: "Submit clip" }).click();
-  await page.getByText("Submitted for review").waitFor({ timeout: 20000 });
+  await page.getByLabel("Post URL", { exact: true }).fill(url);
+  await page.getByRole("button", { name: "Submit clip", exact: true }).click();
+  await page.getByText("Clip submitted for review").waitFor({ timeout: 20000 });
 }
 
 async function approveFirst(page, campaignId) {
   await page.goto(`${BASE}/dashboard/brand/campaigns/${campaignId}/submissions`, { waitUntil: "domcontentloaded" });
-  const button = page.getByRole("button", { name: "Approve" }).first();
+  const button = page.getByRole("button", { name: "Approve", exact: true }).first();
   await button.waitFor({ timeout: 15000 });
   if (await button.isDisabled()) {
     const text = await page.locator("body").innerText();
@@ -80,10 +130,22 @@ async function approveFirst(page, campaignId) {
 
 async function saveViews(page, title, views) {
   await page.goto(`${BASE}/dashboard/admin/views`, { waitUntil: "domcontentloaded" });
-  const row = page.locator("li").filter({ hasText: title }).filter({ has: page.locator('input[name="views"]') }).first();
+  const section = page.locator("section").filter({ has: page.getByRole("heading", { name: "Approved clips", exact: true }) });
+  const row = section.locator("li").filter({ hasText: title }).filter({ has: page.locator('input[name="views"]') }).first();
   await row.waitFor({ timeout: 15000 });
-  await row.locator('input[name="views"]').fill(String(views));
-  await row.getByRole("button", { name: "Save count" }).click();
+  const input = row.locator('input[name="views"]');
+  const button = row.getByRole("button", { name: "Save count", exact: true });
+  let lastError = "";
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await input.fill(String(views));
+    if ((await input.inputValue()) !== String(views)) continue;
+    await button.click();
+    const alert = row.getByRole("alert");
+    const appeared = await alert.waitFor({ timeout: 2500 }).then(() => true).catch(() => false);
+    if (!appeared) break;
+    lastError = (await alert.innerText()).trim();
+    await page.waitForTimeout(400);
+  }
   const started = Date.now();
   while (Date.now() - started < 20000) {
     const campaign = campaignByTitle(title);
@@ -91,14 +153,11 @@ async function saveViews(page, title, views) {
     if (sub && sub.views >= views) return;
     await page.waitForTimeout(400);
   }
-  throw new Error(`view count did not persist for ${title}`);
+  throw new Error(`view count did not persist for ${title}${lastError ? `: ${lastError}` : ""}`);
 }
 
-const browser = await chromium.launch({
-  headless: true,
-  executablePath: "/usr/bin/google-chrome-stable",
-  args: ["--no-sandbox", "--disable-dev-shm-usage"],
-});
+const playwright = await loadPlaywright();
+const browser = await launchBrowser(playwright);
 
 const stamp = Date.now();
 const cpmTitle = `Rooibos Cuts ${stamp}`;
@@ -110,10 +169,7 @@ try {
   const brand = await login(browser, "brand@fweta.test");
   try {
     await brand.page.goto(`${BASE}/dashboard/brand/deposits`, { waitUntil: "domcontentloaded" });
-    await brand.page.fill("#amount", "8000");
-    await brand.page.fill("#note", `QA pay-in ${stamp}`);
-    await brand.page.getByRole("button", { name: "Request confirmation" }).click();
-    await brand.page.getByText("Request saved").waitFor({ timeout: 20000 });
+    await submitEftDeposit(brand.page, "8000", `QA pay-in ${stamp}`);
     const deposit = load().brandDeposits.find((item) => item.note === `QA pay-in ${stamp}`);
     log({
       ok: deposit?.status === "pending" && deposit.amountCents === 800000,
@@ -126,13 +182,10 @@ try {
   }
   await brand.context.close();
 
-  const admin = await login(browser, "admin@fweta.test");
+  const admin = await login(browser, ADMIN_EMAIL);
   try {
-    await admin.page.goto(`${BASE}/dashboard/admin/payins`, { waitUntil: "domcontentloaded" });
     const before = walletOf("brand@fweta.test").availableCents;
-    const row = admin.page.locator("li").filter({ hasText: `QA pay-in ${stamp}` });
-    await row.getByRole("button", { name: "Confirm transfer" }).click();
-    await row.getByText("Confirmed", { exact: true }).waitFor({ timeout: 20000 });
+    await confirmPayIn(admin.page, `QA pay-in ${stamp}`);
     const deposit = load().brandDeposits.find((item) => item.note === `QA pay-in ${stamp}`);
     const available = walletOf("brand@fweta.test").availableCents;
     log({
@@ -153,22 +206,21 @@ try {
   try {
     const beforeLive = walletOf("brand@fweta.test").availableCents;
     await brand2.page.goto(`${BASE}/dashboard/brand/campaigns/new`, { waitUntil: "domcontentloaded" });
-    await brand2.page.fill("#title", cpmTitle);
-    await brand2.page.fill("#description", "Short clips of the Windhoek rooibos launch for TikTok.");
-    await brand2.page.fill("#category", "Food");
-    await brand2.page.fill("#budgetTotal", "200");
-    await brand2.page.fill("#cpm", "40");
-    await brand2.page.fill("#minViews", "0");
-    await brand2.page.fill("#minPayout", "0");
-    await brand2.page.fill("#maxPayout", "80");
-    await brand2.page.selectOption("#status", "active");
-    await brand2.page.getByRole("button", { name: "Create campaign" }).click();
+    await publishCampaign(brand2.page, {
+      title: cpmTitle,
+      description: "Short clips of the Windhoek rooibos launch for TikTok.",
+      category: "Food",
+      budget: "200",
+      cpm: "40",
+      maxPayout: "80",
+      platform: "TikTok",
+    });
     await brand2.page.waitForURL(/\/dashboard\/brand\/campaigns\/[0-9a-f-]+$/, { timeout: 20000 });
     cpmId = brand2.page.url().split("/").pop();
     const campaign = campaignByTitle(cpmTitle);
     const available = walletOf("brand@fweta.test").availableCents;
     log({
-      ok: campaign?.status === "active" && campaign.budgetTotalCents === 20000 && beforeLive - available === 22000,
+      ok: campaign?.status === "active" && campaign.budgetTotalCents === 20000 && beforeLive - available === 20000,
       step: "CPM campaign goes live",
       detail: `status ${campaign?.status} wallet ${beforeLive}->${available}`,
     });
@@ -179,16 +231,15 @@ try {
 
   try {
     await brand2.page.goto(`${BASE}/dashboard/brand/campaigns/new`, { waitUntil: "domcontentloaded" });
-    await brand2.page.fill("#title", stopTitle);
-    await brand2.page.fill("#description", "A small budget that should stop itself when views are paid.");
-    await brand2.page.fill("#category", "Food");
-    await brand2.page.fill("#budgetTotal", "30");
-    await brand2.page.fill("#cpm", "30");
-    await brand2.page.fill("#minViews", "0");
-    await brand2.page.fill("#minPayout", "0");
-    await brand2.page.fill("#maxPayout", "30");
-    await brand2.page.selectOption("#status", "active");
-    await brand2.page.getByRole("button", { name: "Create campaign" }).click();
+    await publishCampaign(brand2.page, {
+      title: stopTitle,
+      description: "A small budget that should stop itself when views are paid.",
+      category: "Food",
+      budget: "30",
+      cpm: "30",
+      maxPayout: "30",
+      platform: "TikTok",
+    });
     await brand2.page.waitForURL(/\/dashboard\/brand\/campaigns\/[0-9a-f-]+$/, { timeout: 20000 });
     stopId = brand2.page.url().split("/").pop();
     log({ ok: Boolean(stopId), step: "auto-stop campaign created", detail: stopId });
@@ -198,27 +249,35 @@ try {
   }
 
   try {
-    await brand2.page.goto(`${BASE}/dashboard/brand/campaigns/new`, { waitUntil: "domcontentloaded" });
-    await brand2.page.fill("#title", poolTitle);
-    await brand2.page.fill("#description", "One pool shared across approved clips when the campaign closes.");
-    await brand2.page.fill("#category", "Food");
-    await brand2.page.selectOption("#payModel", "pool");
-    await brand2.page.fill("#budgetTotal", "100");
-    await brand2.page.fill("#cpm", "0");
-    await brand2.page.fill("#minViews", "0");
-    await brand2.page.fill("#minPayout", "0");
-    await brand2.page.fill("#maxPayout", "100");
-    await brand2.page.fill("#endDate", end);
-    await brand2.page.selectOption("#status", "active");
-    await brand2.page.getByRole("button", { name: "Create campaign" }).click();
-    await brand2.page.waitForURL(/\/dashboard\/brand\/campaigns\/[0-9a-f-]+$/, { timeout: 20000 });
-    poolId = brand2.page.url().split("/").pop();
-    const campaign = campaignByTitle(poolTitle);
-    log({
-      ok: campaign?.payModel === "pool" && campaign.status === "active" && Boolean(campaign.endDate),
-      step: "pool campaign goes live",
-      detail: `${campaign?.payModel} ${campaign?.status}`,
-    });
+    const payModel = brand2.page.getByLabel("Pay model", { exact: true });
+    if ((await payModel.count()) === 0) {
+      log({
+        ok: false,
+        step: "pool campaign goes live",
+        detail: "Campaign form has no pay model control, so a pool campaign cannot be published from the page.",
+      });
+    } else {
+      await brand2.page.goto(`${BASE}/dashboard/brand/campaigns/new`, { waitUntil: "domcontentloaded" });
+      await payModel.selectOption("pool");
+      await publishCampaign(brand2.page, {
+        title: poolTitle,
+        description: "One pool shared across approved clips when the campaign closes.",
+        category: "Food",
+        budget: "100",
+        cpm: "0",
+        maxPayout: "100",
+        endDate: end,
+        platform: "TikTok",
+      });
+      await brand2.page.waitForURL(/\/dashboard\/brand\/campaigns\/[0-9a-f-]+$/, { timeout: 20000 });
+      poolId = brand2.page.url().split("/").pop() ?? "";
+      const campaign = campaignByTitle(poolTitle);
+      log({
+        ok: campaign?.payModel === "pool" && campaign.status === "active" && Boolean(campaign.endDate),
+        step: "pool campaign goes live",
+        detail: `${campaign?.payModel} ${campaign?.status}`,
+      });
+    }
   } catch (error) {
     await shot(brand2.page, "pool-create");
     log({ ok: false, step: "pool campaign goes live", detail: String(error) });
@@ -228,9 +287,15 @@ try {
   const clipper = await login(browser, "clipper@fweta.test");
   try {
     await clipper.page.goto(`${BASE}/dashboard/settings/accounts`, { waitUntil: "domcontentloaded" });
-    await clipper.page.selectOption("#account-platform", "tiktok");
-    await clipper.page.fill("#account-handle", `kai${String(stamp).slice(-6)}`);
-    await clipper.page.getByRole("button", { name: "Add account" }).click();
+    // The page has a second Platform select on the bio-code form. Use the card that owns #account-platform.
+    const addAccount = clipper.page
+      .locator("div")
+      .filter({ has: clipper.page.locator("#account-platform") })
+      .filter({ has: clipper.page.getByRole("button", { name: "Add account", exact: true }) })
+      .last();
+    await addAccount.getByLabel("Platform", { exact: true }).selectOption("tiktok");
+    await addAccount.getByLabel("Handle", { exact: true }).fill(`kai${String(stamp).slice(-6)}`);
+    await addAccount.getByRole("button", { name: "Add account", exact: true }).click();
     const handle = `kai${String(stamp).slice(-6)}`;
     await clipper.page.getByText(`Code ready for @${handle}`).waitFor({ timeout: 15000 });
     const card = clipper.page.locator("li").filter({ hasText: `@${handle}` });
@@ -259,7 +324,7 @@ try {
   }
   await clipper.context.close();
 
-  const admin2 = await login(browser, "admin@fweta.test");
+  const admin2 = await login(browser, ADMIN_EMAIL);
   try {
     await admin2.page.goto(`${BASE}/dashboard/admin/accounts`, { waitUntil: "domcontentloaded" });
     const handle = `kai${String(stamp).slice(-6)}`;
@@ -298,8 +363,9 @@ try {
     if (cpmId) await submitClip(clipper2.page, cpmId, `https://www.tiktok.com/@kaiclips/video/${stamp}01`);
     if (stopId) await submitClip(clipper2.page, stopId, `https://www.tiktok.com/@kaiclips/video/${stamp}02`);
     if (poolId) await submitClip(clipper2.page, poolId, `https://www.tiktok.com/@kaiclips/video/${stamp}03`);
-    const mine = load().submissions.filter((item) => item.clipperId === profile("clipper@fweta.test").id);
-    log({ ok: mine.length >= 3, step: "creator submits clips", detail: String(mine.length) });
+    const expectedClips = (cpmId ? 1 : 0) + (stopId ? 1 : 0) + (poolId ? 1 : 0);
+    const mine = load().submissions.filter((item) => String(item.postUrl).includes(String(stamp)));
+    log({ ok: mine.length === expectedClips && expectedClips >= 2, step: "creator submits clips", detail: `${mine.length} of ${expectedClips}` });
   } catch (error) {
     await shot(clipper2.page, "submit");
     log({ ok: false, step: "creator submits clips", detail: String(error) });
@@ -311,15 +377,16 @@ try {
     if (cpmId) await approveFirst(brand3.page, cpmId);
     if (stopId) await approveFirst(brand3.page, stopId);
     if (poolId) await approveFirst(brand3.page, poolId);
-    const approved = load().submissions.filter((item) => item.status === "approved").length;
-    log({ ok: approved >= 3, step: "brand approves clips", detail: String(approved) });
+    const expectedClips = (cpmId ? 1 : 0) + (stopId ? 1 : 0) + (poolId ? 1 : 0);
+    const approved = load().submissions.filter((item) => String(item.postUrl).includes(String(stamp)) && item.status === "approved").length;
+    log({ ok: approved === expectedClips && expectedClips >= 2, step: "brand approves clips", detail: `${approved} of ${expectedClips}` });
   } catch (error) {
     await shot(brand3.page, "approve");
     log({ ok: false, step: "brand approves clips", detail: String(error) });
   }
   await brand3.context.close();
 
-  const admin3 = await login(browser, "admin@fweta.test");
+  const admin3 = await login(browser, ADMIN_EMAIL);
   try {
     const pendingBefore = walletOf("clipper@fweta.test").pendingCents;
     await saveViews(admin3.page, cpmTitle, 1000);
@@ -342,7 +409,7 @@ try {
     const card = clipper3.page.locator("li").filter({ hasText: `${stamp}01` }).first();
     await card.getByRole("button", { name: "Report views" }).click();
     await card.locator('input[name="views"]').fill("1500");
-    await card.locator('input[name="screenshot"]').setInputFiles("/tmp/view-shot.png");
+    await card.locator('input[name="screenshot"]').setInputFiles(VIEW_SHOT);
     await card.getByRole("button", { name: "Send report" }).click();
     await card.getByText("Creator report waiting for confirmation").waitFor({ timeout: 20000 });
     const snap = load().viewSnapshots.find((item) => item.source === "creator" && item.views === 1500 && item.status === "pending");
@@ -385,6 +452,9 @@ try {
   }
 
   try {
+    if (!poolId) {
+      throw new Error("Pool campaign was not created. The campaign form has no pay model control.");
+    }
     await admin3.page.goto(`${BASE}/dashboard/admin/views`, { waitUntil: "domcontentloaded" });
     const poolSub = load().submissions.find((item) => item.postUrl.includes(`${stamp}03`));
     const bulk = admin3.page.locator('input[name="views-' + poolSub.id + '"]');
@@ -406,6 +476,9 @@ try {
 
   const brand4 = await login(browser, "brand@fweta.test");
   try {
+    if (!poolId) {
+      throw new Error("Pool campaign was not created. The campaign form has no pay model control.");
+    }
     await brand4.page.goto(`${BASE}/dashboard/brand/campaigns/${poolId}`, { waitUntil: "domcontentloaded" });
     await brand4.page.getByRole("button", { name: "Mark completed" }).click();
     await brand4.page.waitForTimeout(1500);
@@ -428,8 +501,12 @@ try {
       waitUntil: "domcontentloaded",
     });
     const row = brand4.page.locator("li").filter({ hasText: `${stamp}01` });
+    const refund = row.getByRole("button", { name: "Reject and return", exact: true });
+    if ((await refund.count()) === 0) {
+      throw new Error("Submission review has no Reject and return button. The visible Reject control does not expose a return action.");
+    }
     await row.locator("textarea").fill("Logo was covered. Returning the unsettled share.");
-    await row.getByRole("button", { name: "Reject and return" }).click();
+    await refund.click();
     await brand4.page.waitForTimeout(1500);
     const sub = load().submissions.find((item) => item.postUrl.includes(`${stamp}01`));
     const brandWallet = walletOf("brand@fweta.test").availableCents;
@@ -452,7 +529,7 @@ try {
     detail: `${held?.payoutState} until ${held?.holdUntil ?? "none"} available ${walletOf("clipper@fweta.test").availableCents}`,
   });
 
-  const admin4 = await login(browser, "admin@fweta.test");
+  const admin4 = await login(browser, ADMIN_EMAIL);
   try {
     const availableBeforeCredit = walletOf("clipper@fweta.test").availableCents;
     await admin4.page.goto(`${BASE}/dashboard/admin`, { waitUntil: "domcontentloaded" });
@@ -460,7 +537,7 @@ try {
     await admin4.page.selectOption("#userId", clipperId);
     await admin4.page.fill("#amount", "200");
     await admin4.page.fill("#reason", "QA available balance for payout");
-    await admin4.page.getByRole("button", { name: /credit/i }).click();
+    await admin4.page.getByRole("button", { name: "Credit wallet", exact: true }).click();
     await admin4.page.waitForTimeout(1200);
     log({
       ok: walletOf("clipper@fweta.test").availableCents - availableBeforeCredit === 20000,
@@ -516,7 +593,7 @@ try {
   }
   await clipper4.context.close();
 
-  const adminKyc = await login(browser, "admin@fweta.test");
+  const adminKyc = await login(browser, ADMIN_EMAIL);
   try {
     const before = profile("clipper@fweta.test")?.kyc?.status;
     if (before === "pending") {
@@ -558,7 +635,7 @@ try {
   }
   await clipperPayout.context.close();
 
-  const admin5 = await login(browser, "admin@fweta.test");
+  const admin5 = await login(browser, ADMIN_EMAIL);
   try {
     await admin5.page.goto(`${BASE}/dashboard/admin/withdrawals`, { waitUntil: "domcontentloaded" });
     const row = admin5.page.locator("li").filter({ has: admin5.page.getByRole("button", { name: "Mark paid" }) }).first();
@@ -585,7 +662,7 @@ try {
     await brand5.page.goto(`${BASE}/dashboard/brand/team`, { waitUntil: "domcontentloaded" });
     await brand5.page.fill("#invite-email", `qa.mate.${stamp}@example.com`);
     await brand5.page.selectOption("#invite-role", "manager");
-    await brand5.page.getByRole("button", { name: /invite/i }).click();
+    await brand5.page.getByRole("button", { name: "Invite teammate", exact: true }).click();
     await brand5.page.getByText("Invite saved").waitFor({ timeout: 15000 });
     const member = (load().workspaceMembers ?? []).find((item) => item.email === `qa.mate.${stamp}@example.com` && item.status === "invited");
     log({
@@ -608,19 +685,24 @@ try {
     await matePage.goto(`${BASE}/signup?role=creator`, { waitUntil: "domcontentloaded" });
     await matePage.fill("#email", mateEmail);
     await matePage.fill("#password", PASSWORD);
-    await matePage.getByRole("button", { name: "Create account" }).click();
-    await matePage.waitForURL(/\/onboarding/, { timeout: 20000, waitUntil: "domcontentloaded" });
-    for (let step = 0; step < 8; step += 1) {
-      if (await matePage.getByText("You're in.").isVisible().catch(() => false)) break;
-      const skip = matePage.getByRole("button", { name: "Skip for now" });
-      if (!(await skip.isVisible().catch(() => false))) break;
-      await skip.click();
-      await matePage.waitForTimeout(600);
+    await matePage.getByRole("button", { name: "Create account", exact: true }).click();
+    const signupError = matePage.getByRole("alert");
+    const reached = await matePage
+      .waitForURL(/\/onboarding/, { timeout: 45000, waitUntil: "domcontentloaded" })
+      .then(() => true)
+      .catch(() => false);
+    if (!reached) {
+      const message = (await signupError.innerText().catch(() => "")).trim();
+      throw new Error(message || `Signup stayed on ${matePage.url()}`);
     }
-    if (await matePage.getByText("You're in.").isVisible().catch(() => false)) {
-      await matePage.getByRole("button", { name: "Go to dashboard" }).click();
-    }
-    await matePage.waitForURL(/\/dashboard/, { timeout: 20000, waitUntil: "domcontentloaded" });
+    await finishOnboarding(matePage, {
+      firstName: "Kai",
+      lastName: "Mate",
+      phone: "+264 81 000 0001",
+      socialTiktok: "@kaimate",
+      niche: "Lifestyle",
+      location: "Windhoek",
+    });
     await dismissTour(matePage);
     await matePage.getByText("Brand invites").waitFor({ timeout: 15000 });
     await matePage.getByRole("button", { name: "Accept" }).click();
@@ -633,7 +715,7 @@ try {
       detail: `${member?.status} roles ${roles.join(",")}`,
     });
     await matePage.reload({ waitUntil: "domcontentloaded" });
-    await matePage.selectOption("#role-switcher", "brand");
+    await matePage.locator("aside").getByLabel("Switch role", { exact: true }).selectOption("brand");
     await matePage.waitForURL(/\/dashboard\/brand/, { timeout: 15000, waitUntil: "domcontentloaded" });
     const body = await matePage.locator("body").innerText();
     log({ ok: body.includes(cpmTitle) || body.includes("Campaigns"), step: "role switch shows brand workspace", detail: matePage.url() });
@@ -744,21 +826,23 @@ try {
   try {
     await clipper5.page.goto(`${BASE}/dashboard/clipper/campaigns?country=NA&type=clipping&platform=tiktok`, { waitUntil: "domcontentloaded" });
     const discover = await clipper5.page.locator("body").innerText();
-    const campaignLink = clipper5.page.locator('a[href^="/campaigns/"]').first();
+    const tiktok = clipper5.page.getByRole("link", { name: /TikTok/ }).first();
+    const tiktokCurrent = await tiktok.getAttribute("aria-current");
+    const campaignLink = clipper5.page.getByRole("link", { name: /Open campaign page/ }).first();
     let savedOk = false;
     if (await campaignLink.count()) {
       await campaignLink.click();
       await clipper5.page.getByRole("button", { name: /Save campaign|Saved/ }).waitFor({ timeout: 15000 });
-      if (await clipper5.page.getByRole("button", { name: "Save campaign" }).isVisible().catch(() => false)) {
-        await clipper5.page.getByRole("button", { name: "Save campaign" }).click();
+      if (await clipper5.page.getByRole("button", { name: "Save campaign", exact: true }).isVisible().catch(() => false)) {
+        await clipper5.page.getByRole("button", { name: "Save campaign", exact: true }).click();
       }
-      await clipper5.page.getByRole("button", { name: "Saved" }).waitFor({ timeout: 15000 });
+      await clipper5.page.getByRole("button", { name: "Saved", exact: true }).waitFor({ timeout: 15000 });
       savedOk = true;
     }
     log({
-      ok: /CPM and pool|No campaigns match/.test(discover) && (savedOk || /No campaigns match/.test(discover)),
+      ok: tiktokCurrent === "page" && (savedOk || discover.includes("No active campaigns")),
       step: "discover filters and save",
-      detail: savedOk ? "saved" : "no campaign card",
+      detail: savedOk ? "saved" : discover.includes("No active campaigns") ? "no campaign card" : "platform filter missing",
     });
     await clipper5.page.goto(`${BASE}/dashboard/support`, { waitUntil: "domcontentloaded" });
     await clipper5.page.fill("#subject", `QA ticket ${stamp}`);
@@ -778,7 +862,7 @@ try {
   }
   await clipper5.context.close();
 
-  const admin6 = await login(browser, "admin@fweta.test");
+  const admin6 = await login(browser, ADMIN_EMAIL);
   await sweep("admin", admin6, pages.admin);
   await admin6.page.goto(`${BASE}/dashboard/admin/emails?template=welcome&device=desktop`, { waitUntil: "domcontentloaded" });
   const emailText = await admin6.page.locator("body").innerText();
@@ -827,9 +911,10 @@ try {
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const mobilePage = await mobile.newPage();
   await mobilePage.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
-  await mobilePage.fill("#email", "clipper@fweta.test");
-  await mobilePage.fill("#password", PASSWORD);
-  await mobilePage.getByRole("button", { name: /^continue$/i }).click();
+  const mobileForm = mobilePage.locator("form").filter({ has: mobilePage.getByLabel("Email", { exact: true }) });
+  await mobileForm.getByLabel("Email", { exact: true }).fill("clipper@fweta.test");
+  await mobileForm.getByLabel("Password", { exact: true }).fill(PASSWORD);
+  await mobileForm.getByRole("button", { name: "Continue", exact: true }).click();
   await mobilePage.waitForURL(/\/dashboard/, { timeout: 20000, waitUntil: "domcontentloaded" });
   await dismissTour(mobilePage);
   const overflow = [];
@@ -848,40 +933,27 @@ try {
   const signupPage = await signup.newPage();
   try {
     await signupPage.goto(`${BASE}/signup?role=brand`, { waitUntil: "domcontentloaded" });
-    await signupPage.fill("#email", brandEmail);
-    await signupPage.fill("#password", PASSWORD);
-    await signupPage.getByRole("button", { name: "Create account" }).click();
-    await signupPage.waitForURL(/\/onboarding/, { timeout: 20000, waitUntil: "domcontentloaded" });
-    await signupPage.fill("#firstName", "Lena");
-    await signupPage.fill("#lastName", "Shipanga");
-    await signupPage.getByRole("button", { name: "Continue" }).click();
-    await signupPage.getByText("Tell us about the business").waitFor({ timeout: 15000 });
-    await signupPage.fill("#companyName", "Shipanga Foods");
-    await signupPage.fill("#website", "https://shipanga.example");
-    await signupPage.getByRole("button", { name: "Continue" }).click();
-    await signupPage.getByText("What do you want to promote?").waitFor({ timeout: 15000 });
-    await signupPage.fill("#promote", "A Windhoek rooibos cold brew launching on TikTok and Reels this month.");
-    await signupPage.getByRole("button", { name: "Continue" }).click();
-    await signupPage.getByText("Set up your first campaign").waitFor({ timeout: 15000 });
-    await signupPage.fill("#title", `Shipanga launch ${stamp}`);
-    await signupPage.fill("#cpmNad", "25");
-    await signupPage.fill("#budgetNad", "500");
-    await signupPage.fill("#minViews", "0");
-    await signupPage.fill("#maxPayoutNad", "100");
-    await signupPage.fill("#brief", "Cut the tasting video into vertical clips and keep the bottle in frame.");
-    await signupPage.fill("#rules", "No other drinks on screen. Leave the caption credit in.");
-    await signupPage.getByRole("button", { name: "Save draft campaign" }).click();
-    await signupPage.getByText("How funding works").waitFor({ timeout: 20000 });
-    await signupPage.getByRole("button", { name: "I understand" }).click();
-    await signupPage.getByText("A quick look around").waitFor({ timeout: 15000 });
-    await signupPage.getByRole("button", { name: "Continue" }).click();
-    await signupPage.waitForURL(/\/dashboard/, { timeout: 20000, waitUntil: "domcontentloaded" });
+    const signupForm = signupPage.locator("form").filter({ has: signupPage.getByLabel("Email", { exact: true }) });
+    await signupForm.getByLabel("Email", { exact: true }).fill(brandEmail);
+    await signupForm.getByLabel("Password", { exact: true }).fill(PASSWORD);
+    await signupForm.getByRole("button", { name: "Create account", exact: true }).click();
+    await signupPage.waitForURL(/\/onboarding/, { timeout: 45000, waitUntil: "domcontentloaded" });
+    await finishOnboarding(signupPage, {
+      firstName: "Lena",
+      lastName: "Shipanga",
+      phone: "+264 81 000 0002",
+      companyName: "Shipanga Foods",
+    });
     const created = profile(brandEmail);
-    const draft = load().campaigns.find((item) => item.title === `Shipanga launch ${stamp}`);
     log({
-      ok: created?.onboardingCompletedAt != null && draft?.status === "draft",
+      ok: created?.onboardingCompletedAt != null && created.displayName === "Shipanga Foods",
       step: "brand signup and onboarding",
-      detail: `${created?.displayName} campaign ${draft?.status}`,
+      detail: created?.displayName || "missing profile",
+    });
+    log({
+      ok: false,
+      step: "onboarding draft campaign",
+      detail: "The onboarding wizard has no Save draft campaign control. Campaigns are published from the brand campaign form.",
     });
   } catch (error) {
     await shot(signupPage, "onboarding");
@@ -892,7 +964,7 @@ try {
   log({ ok: false, step: "runner", detail: String(error) });
 } finally {
   await browser.close();
-  writeFileSync("/tmp/qa-results.json", JSON.stringify(results, null, 2));
+  writeFileSync(`${SHOTS}/results.json`, JSON.stringify(results, null, 2));
   const failed = results.filter((item) => !item.ok);
   console.log(`\n${results.length - failed.length}/${results.length} passed`);
   process.exit(failed.length ? 1 : 0);

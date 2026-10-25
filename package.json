@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test tests/onboarding/*.test.ts tests/money/*.test.ts tests/db/*.test.ts"
+    "test": "tsx --test tests/onboarding/*.test.ts tests/money/*.test.ts tests/db/*.test.ts && node --test tests/scripts/e2e-target.test.mjs",
+    "e2e": "node scripts/e2e-smoke.mjs && node scripts/e2e-brand-dashboard.mjs && node scripts/e2e-other-dashboards.mjs && node scripts/e2e-full-flow.mjs && node scripts/e2e-licensing.mjs && node scripts/e2e-money-qa.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",
@@ -35,6 +36,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
+    "playwright": "^1.56.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"

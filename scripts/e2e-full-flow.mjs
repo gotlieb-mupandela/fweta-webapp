@@ -1,7 +1,16 @@
-import { chromium } from "playwright";
+import {
+  ADMIN_EMAIL,
+  baseUrl,
+  confirmPayIn,
+  fillPostUrl,
+  launchBrowser,
+  loadPlaywright,
+  login,
+  publishCampaign,
+  submitEftDeposit,
+} from "./e2e-helpers.mjs";
 
-const BASE = "http://localhost:3000";
-const PASSWORD = "password123";
+const BASE = baseUrl();
 
 const results = [];
 const log = (entry) => {
@@ -9,20 +18,12 @@ const log = (entry) => {
   console.log(entry.ok ? "✓" : "✗", JSON.stringify(entry));
 };
 
-async function login(page, email) {
-  await page.context().clearCookies();
-  await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
-  await page.fill("#email", email);
-  await page.fill("#password", PASSWORD);
-  await page.getByRole("button", { name: /^continue$/i }).click();
-  await page.waitForURL(/\/dashboard/, { timeout: 15000 });
-}
-
 async function logout(page) {
   await page.context().clearCookies();
 }
 
-const browser = await chromium.launch({ headless: true });
+const playwright = await loadPlaywright();
+const browser = await launchBrowser(playwright);
 const page = await browser.newPage();
 
 try {
@@ -32,7 +33,7 @@ try {
     log({ area: "public", path, ok: (res?.status() ?? 0) === 200 });
   }
 
-  // BRAND — deposit + create active campaign
+  // BRAND: deposit + create active campaign
   await login(page, "brand@fweta.test");
   log({ area: "brand", step: "login", ok: true });
 
@@ -48,23 +49,24 @@ try {
     log({ area: "brand", path, ok: (res?.status() ?? 0) === 200 && !page.url().includes("/login") });
   }
 
-  await page.goto(`${BASE}/dashboard/brand/deposits`, { waitUntil: "networkidle" });
-  await page.fill("#amount", "1000");
-  await page.fill("#note", `E2E deposit ${Date.now()}`);
-  await page.getByRole("button", { name: /record deposit/i }).click();
-  await page.waitForTimeout(1500);
+  await page.goto(`${BASE}/dashboard/brand/deposits`, { waitUntil: "domcontentloaded" });
+  const depositNote = `E2E deposit ${Date.now()}`;
+  await submitEftDeposit(page, "1000", depositNote);
+  await login(page, ADMIN_EMAIL);
+  await confirmPayIn(page, depositNote);
+  await login(page, "brand@fweta.test");
 
-  await page.goto(`${BASE}/dashboard/brand/campaigns/new`, { waitUntil: "networkidle" });
+  await page.goto(`${BASE}/dashboard/brand/campaigns/new`, { waitUntil: "domcontentloaded" });
   const campaignTitle = `QA Campaign ${Date.now()}`;
-  await page.fill("#title", campaignTitle);
-  await page.fill("#description", "End-to-end QA test campaign for view polling.");
-  await page.fill("#category", "Tech");
-  await page.fill("#budgetTotal", "500");
-  await page.fill("#cpm", "5");
-  await page.fill("#maxPayout", "100");
-  await page.locator('label:has-text("youtube") input[type="checkbox"]').check();
-  await page.selectOption("#status", "active");
-  await page.getByRole("button", { name: /create campaign/i }).click();
+  await publishCampaign(page, {
+    title: campaignTitle,
+    description: "End-to-end QA test campaign for view polling.",
+    category: "Tech",
+    budget: "500",
+    cpm: "5",
+    maxPayout: "100",
+    platform: "YouTube",
+  });
   await page.waitForURL(/\/dashboard\/brand\/campaigns\/[a-f0-9-]+/, { timeout: 15000 });
   const campaignUrl = page.url();
   const campaignId = campaignUrl.split("/campaigns/")[1]?.split("/")[0];
@@ -78,7 +80,7 @@ try {
 
   await logout(page);
 
-  // CLIPPER — submit clip
+  // CLIPPER: submit clip
   await login(page, "clipper@fweta.test");
   log({ area: "clipper", step: "login", ok: true });
 
@@ -93,11 +95,11 @@ try {
   }
 
   await page.goto(`${BASE}/dashboard/clipper/campaigns`, { waitUntil: "networkidle" });
-  const campaignCard = page.locator("li").filter({ hasText: campaignTitle });
+  const campaignCard = page.locator("li").filter({ hasText: campaignTitle }).filter({ has: page.getByLabel("Post URL", { exact: true }) });
   await campaignCard.waitFor({ timeout: 10000 });
-  await campaignCard.locator('input[name="postUrl"]').fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-  await campaignCard.locator('select[name="platform"]').selectOption("youtube");
-  await campaignCard.getByRole("button", { name: /submit/i }).click();
+  await fillPostUrl(campaignCard, "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  await campaignCard.getByLabel("Platform", { exact: true }).selectOption("youtube");
+  await campaignCard.getByRole("button", { name: "Submit clip", exact: true }).click();
   await page.waitForTimeout(2000);
   await page.goto(`${BASE}/dashboard/clipper/submissions`);
   const clipperBody = await page.locator("body").innerText();
@@ -109,7 +111,7 @@ try {
 
   await logout(page);
 
-  // BRAND — approve submission
+  // BRAND: approve submission
   await login(page, "brand@fweta.test");
   await page.goto(`${BASE}/dashboard/brand/campaigns/${campaignId}/submissions`, {
     waitUntil: "networkidle",
@@ -145,7 +147,7 @@ try {
   await logout(page);
 
   // ADMIN
-  await login(page, "admin@fweta.test");
+  await login(page, ADMIN_EMAIL);
   log({ area: "admin", step: "login", ok: true });
 
   for (const path of [

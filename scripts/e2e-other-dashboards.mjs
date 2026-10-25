@@ -1,22 +1,22 @@
-import { chromium } from "playwright";
-import { readFileSync, existsSync } from "fs";
+import {
+  ADMIN_EMAIL,
+  baseUrl,
+  confirmPayIn,
+  fillPostUrl,
+  launchBrowser,
+  loadPlaywright,
+  login,
+  readStore,
+  samplePngPath,
+  submitEftDeposit,
+} from "./e2e-helpers.mjs";
 
-const BASE = "http://localhost:3000";
-const PASSWORD = "password123";
+const BASE = baseUrl();
 const results = [];
 
 function log(entry) {
   results.push(entry);
   console.log(entry.ok ? "✓" : "✗", JSON.stringify(entry));
-}
-
-async function login(page, email) {
-  await page.context().clearCookies();
-  await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
-  await page.fill("#email", email);
-  await page.fill("#password", PASSWORD);
-  await page.getByRole("button", { name: /^continue$/i }).click();
-  await page.waitForURL(/\/dashboard/, { timeout: 15000 });
 }
 
 function pageLooksOk(body) {
@@ -26,17 +26,12 @@ function pageLooksOk(body) {
   );
 }
 
-function readStore() {
-  const path = "/workspace/data/store.json";
-  if (!existsSync(path)) return null;
-  return JSON.parse(readFileSync(path, "utf8"));
-}
-
 function profileId(store, email) {
   return store?.profiles?.find((p) => p.email === email)?.id;
 }
 
-const browser = await chromium.launch({ headless: true });
+const playwright = await loadPlaywright();
+const browser = await launchBrowser(playwright);
 const page = await browser.newPage();
 
 try {
@@ -69,22 +64,23 @@ try {
   await page.fill("#accountNumber", "62001234567");
   await page.fill("#accountHolderName", "Kai Clips");
   await page.selectOption("#accountType", "cheque");
-  await page.getByRole("button", { name: /save payout method/i }).click();
+  await page.getByRole("button", { name: "Save payout method", exact: true }).click();
   await page.waitForTimeout(1500);
   const payoutBody = await page.locator("body").innerText();
   log({ role: "clipper", step: "save payout method", ok: /FNB|6200/i.test(payoutBody) });
 
   // Submit clip to first active campaign
-  await page.goto(`${BASE}/dashboard/clipper/campaigns`, { waitUntil: "networkidle" });
-  const firstCard = page.locator("li").first();
-  const hasCampaigns = (await firstCard.count()) > 0;
+  await page.goto(`${BASE}/dashboard/clipper/campaigns`, { waitUntil: "domcontentloaded" });
+  const firstCard = page.locator("li").filter({ has: page.getByLabel("Post URL", { exact: true }) }).first();
+  const hasCampaigns = await firstCard.waitFor({ timeout: 15000 }).then(() => true).catch(() => false);
   if (hasCampaigns) {
     const uniqueUrl = `https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=${Date.now()}`;
-    await firstCard.locator('input[name="postUrl"]').fill(uniqueUrl);
-    await firstCard.locator('select[name="platform"]').selectOption("youtube").catch(async () => {
-      await firstCard.locator('select[name="platform"]').selectOption({ index: 0 });
+    await fillPostUrl(firstCard, uniqueUrl);
+    const platform = firstCard.getByLabel("Platform", { exact: true });
+    await platform.selectOption("youtube").catch(async () => {
+      await platform.selectOption({ index: 0 });
     });
-    await firstCard.getByRole("button", { name: /submit/i }).click();
+    await firstCard.getByRole("button", { name: "Submit clip", exact: true }).click();
     await page.waitForTimeout(2000);
     await page.goto(`${BASE}/dashboard/clipper/submissions`, { waitUntil: "networkidle" });
     const subsBody = await page.locator("body").innerText();
@@ -126,7 +122,7 @@ try {
   await page.fill("#niche", "Lifestyle");
   await page.fill("#location", "Windhoek, Namibia");
   await page.locator('input[name="published"]').check();
-  await page.getByRole("button", { name: /save profile/i }).click();
+  await page.getByRole("button", { name: "Save profile", exact: true }).click();
   await page.waitForTimeout(1500);
   const storeAfterProfile = readStore();
   const creatorId = profileId(storeAfterProfile, "creator@fweta.test");
@@ -144,7 +140,7 @@ try {
   await page.fill("#title", rateTitle);
   await page.fill("#description", "One TikTok post with brand mention.");
   await page.fill("#price", "750");
-  await page.getByRole("button", { name: /add item/i }).click();
+  await page.getByRole("button", { name: "Add item", exact: true }).click();
   await page.waitForTimeout(1500);
   const ratesBody = await page.locator("body").innerText();
   log({ role: "influencer", step: "add rate card", ok: ratesBody.includes(rateTitle) });
@@ -159,11 +155,12 @@ try {
 
   // Brand books influencer (full booking flow)
   await login(page, "brand@fweta.test");
-  await page.goto(`${BASE}/dashboard/brand/deposits`, { waitUntil: "networkidle" });
-  await page.fill("#amount", "2000");
-  await page.fill("#note", `Booking E2E ${Date.now()}`);
-  await page.getByRole("button", { name: /record deposit/i }).click();
-  await page.waitForTimeout(1500);
+  await page.goto(`${BASE}/dashboard/brand/deposits`, { waitUntil: "domcontentloaded" });
+  const bookingNote = `Booking E2E ${Date.now()}`;
+  await submitEftDeposit(page, "2000", bookingNote);
+  await login(page, ADMIN_EMAIL);
+  await confirmPayIn(page, bookingNote);
+  await login(page, "brand@fweta.test");
 
   const slug = profile?.slug;
   if (slug && rateCard) {
@@ -176,7 +173,7 @@ try {
     });
     await page.selectOption("#rateCardItemId", rateCard.id);
     await page.fill("#brief", "QA booking brief for influencer dashboard test.");
-    await page.getByRole("button", { name: /request booking/i }).click();
+    await page.getByRole("button", { name: "Request booking", exact: true }).click();
     await page.waitForTimeout(2000);
     const storeAfterBook = readStore();
     const booking = storeAfterBook?.bookings?.find(
@@ -192,21 +189,23 @@ try {
     // Influencer accepts + delivers
     await login(page, "creator@fweta.test");
     await page.goto(`${BASE}/dashboard/influencer/bookings`, { waitUntil: "networkidle" });
-    const acceptBtn = page.getByRole("button", { name: /^accept$/i }).first();
+    const creatorRow = page.locator("li").filter({ hasText: "QA booking brief for influencer dashboard test." }).first();
+    const acceptBtn = creatorRow.getByRole("button", { name: "Accept", exact: true });
     if (await acceptBtn.count()) {
       await acceptBtn.click();
-      await page.waitForTimeout(1500);
+      await creatorRow.getByLabel("Deliverable URL", { exact: true }).waitFor({ timeout: 15000 });
       log({ role: "influencer", step: "accept booking", ok: true });
 
-      await page.fill('input[type="url"]', "https://www.tiktok.com/@example/video/123");
-      await page.getByRole("button", { name: /mark delivered/i }).click();
+      await creatorRow.getByLabel("Deliverable URL", { exact: true }).fill("https://www.tiktok.com/@example/video/123");
+      await creatorRow.getByRole("button", { name: "Mark delivered", exact: true }).click();
       await page.waitForTimeout(1500);
       log({ role: "influencer", step: "deliver booking", ok: true });
 
-      // Brand approves
+      // Brand approves. The button is only rendered once the booking is delivered.
       await login(page, "brand@fweta.test");
       await page.goto(`${BASE}/dashboard/brand/bookings`, { waitUntil: "networkidle" });
-      const approveBooking = page.getByRole("button", { name: /approve/i }).first();
+      const brandRow = page.locator("li").filter({ hasText: "QA booking brief for influencer dashboard test." }).first();
+      const approveBooking = brandRow.getByRole("button", { name: "Approve & release payment", exact: true });
       if (await approveBooking.count()) {
         await approveBooking.click();
         await page.waitForTimeout(1500);
@@ -219,7 +218,8 @@ try {
           ok: approved?.status === "approved" && (creatorWallet?.availableCents ?? 0) >= 75000,
         });
       } else {
-        log({ role: "brand", step: "approve booking payment", ok: false, note: "no approve button" });
+        const status = readStore()?.bookings?.find((b) => b.id === booking?.id)?.status;
+        log({ role: "brand", step: "approve booking payment", ok: false, note: `no approve button (status ${status ?? "missing"})` });
       }
     } else {
       log({ role: "influencer", step: "accept booking", ok: false, note: "no accept button" });
@@ -229,7 +229,7 @@ try {
   }
 
   // ── ADMIN ────────────────────────────────────────────────
-  await login(page, "admin@fweta.test");
+  await login(page, ADMIN_EMAIL);
   log({ role: "admin", step: "login", ok: true });
 
   for (const path of [
@@ -254,7 +254,7 @@ try {
   await page.selectOption("#userId", clipperId);
   await page.fill("#amount", "150");
   await page.fill("#reason", "QA admin credit");
-  await page.getByRole("button", { name: /credit wallet/i }).click();
+  await page.getByRole("button", { name: "Credit wallet", exact: true }).click();
   await page.waitForTimeout(1500);
   const storeAfterCredit = readStore();
   const clipperWallet = storeAfterCredit?.wallets?.find((w) => w.userId === clipperId);
@@ -269,19 +269,38 @@ try {
     walletCents: clipperWallet?.availableCents,
   });
 
-  // Clipper requests withdrawal → admin marks paid
+  // Clipper requests withdrawal → admin marks paid.
+  // The amount field is hidden until a payout method exists and an admin verifies identity.
   await login(page, "clipper@fweta.test");
   await page.goto(`${BASE}/dashboard/settings/withdraw`, { waitUntil: "networkidle" });
-  const withdrawAmount = page.locator("#amount, input[name='amount']").first();
+  if (await page.locator("#legalName").isVisible().catch(() => false)) {
+    await page.fill("#legalName", "Kai Clips");
+    await page.fill("#idNumber", "9001010000000");
+    await page.fill("#country", "NA");
+    await page.setInputFiles("#idDocument", samplePngPath());
+    await page.getByRole("button", { name: "Save identity", exact: true }).click();
+    await page.getByText("Waiting for a review").waitFor({ timeout: 15000 });
+    await login(page, ADMIN_EMAIL);
+    await page.goto(`${BASE}/dashboard/admin/kyc`, { waitUntil: "networkidle" });
+    await page
+      .locator("li")
+      .filter({ hasText: "clipper@fweta.test" })
+      .getByRole("button", { name: "Verify identity", exact: true })
+      .click();
+    await page.waitForTimeout(1500);
+    await login(page, "clipper@fweta.test");
+    await page.goto(`${BASE}/dashboard/settings/withdraw`, { waitUntil: "networkidle" });
+  }
+  const withdrawAmount = page.locator("#amount");
   if (await withdrawAmount.count()) {
     await withdrawAmount.fill("100");
-    await page.getByRole("button", { name: /request withdrawal|withdraw/i }).click();
+    await page.getByRole("button", { name: "Request withdrawal", exact: true }).click();
     await page.waitForTimeout(1500);
     log({ role: "clipper", step: "request withdrawal", ok: true });
 
-    await login(page, "admin@fweta.test");
+    await login(page, ADMIN_EMAIL);
     await page.goto(`${BASE}/dashboard/admin/withdrawals`, { waitUntil: "networkidle" });
-    const markPaid = page.getByRole("button", { name: /mark paid/i }).first();
+    const markPaid = page.getByRole("button", { name: "Mark paid", exact: true }).first();
     if (await markPaid.count()) {
       await page.locator('input[name="ref"]').first().fill("EFT-QA-001");
       await markPaid.click();

@@ -181,12 +181,12 @@ Data file: `data/store.json` (local only, gitignored).
 
 Local health check: `http://localhost:3000/api/health/store` should return `"ok": true` and `"mode": "local"` after the first page load.
 
-E2E scripts (with dev server running):
+E2E scripts use the local file store and the `*@fweta.test` accounts. `BASE_URL` defaults to `http://localhost:3000`. The target guard allows only `localhost`, `127.0.0.1`, and `::1`. It lowercases the host and strips a trailing dot before comparing, then checks the origin again after every page load and redirect. A redirect from an allowed host to any other host aborts the run.
+
+Set `E2E_ALLOW_REMOTE_BASE_URL=1` to point `BASE_URL` at another host, such as a preview deployment. That override still refuses `fweta.com` and any host ending in `.fweta.com`. Those hosts also need `E2E_ALLOW_FWETA_HOSTS=1`. Leave both unset for local runs. With `npm run dev` or `next start` already running:
 
 ```bash
-node scripts/e2e-brand-dashboard.mjs
-node scripts/e2e-other-dashboards.mjs
-node scripts/e2e-full-flow.mjs
+npm run e2e
 ```
 
 ---
