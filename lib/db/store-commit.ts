@@ -123,6 +123,8 @@ export async function commitLoadedMutation<T>(args: {
     throw new StoreConflictError();
   })();
 
+  // The deadline answers the caller. It does not abort save(). A write already
+  // sent can still commit, so callers must be safe to run again.
   try {
     return await Promise.race([work, deadlinePromise]);
   } finally {
