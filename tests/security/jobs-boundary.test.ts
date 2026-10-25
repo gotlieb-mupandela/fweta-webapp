@@ -34,6 +34,7 @@ test("job functions are not exported from a use server file", () => {
   const modulePath = path.join(root, "lib/jobs/submission-jobs.ts");
   const moduleSource = readFileSync(modulePath, "utf8");
   assert.equal(isUseServer(moduleSource), false);
+  assert.match(moduleSource, /import "server-only"/);
   for (const name of JOB_EXPORTS) {
     assert.match(moduleSource, new RegExp(`export async function ${name}\\b`));
   }

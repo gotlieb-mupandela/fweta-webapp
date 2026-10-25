@@ -1,9 +1,22 @@
+import "server-only";
+
 import { revalidatePath } from "next/cache";
 
 import { creditSubmissionEarnings } from "@/lib/campaigns/earnings";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
-import type { ViewSnapshot } from "@/lib/db/types";
+import type { Campaign, Submission, ViewSnapshot } from "@/lib/db/types";
 import { fetchVideoViewsFromApify, isApifyConfigured } from "@/lib/social/apify";
+
+/** Closed, settled, completed, or forfeited clips do not take new job views. */
+function jobViewWriteBlocked(
+  submission: Pick<Submission, "fraudState" | "payoutState">,
+  campaign: Pick<Campaign, "closedAt" | "poolSettledAt" | "status"> | undefined,
+): boolean {
+  if (!campaign) return true;
+  if (campaign.closedAt || campaign.poolSettledAt || campaign.status === "completed") return true;
+  if (submission.fraudState === "upheld" || submission.payoutState === "clawed_back") return true;
+  return false;
+}
 
 function confirmedSnapshot(submissionId: string, views: number, at: string, source: ViewSnapshot["source"]): ViewSnapshot {
   return {
@@ -71,17 +84,21 @@ export async function pollSubmissionViewsJob() {
   if (pending.size > 0) {
     const at = nowIso();
     await updateStore((s) => {
+      let wrote = 0;
       for (const [id, views] of pending) {
         const sub = s.submissions.find((x) => x.id === id);
         if (!sub) continue;
         // Re-check inside the transaction; skip regressions per-record.
         if (views <= sub.views) continue;
+        const campaign = s.campaigns.find((item) => item.id === sub.campaignId);
+        if (jobViewWriteBlocked(sub, campaign)) continue;
         s.viewSnapshots.push(confirmedSnapshot(id, views, at, "job"));
         sub.views = views;
         sub.updatedAt = at;
+        wrote += 1;
       }
+      updated = wrote;
     });
-    updated = pending.size;
   }
 
   const earnings = await recalculateEarningsJob();
@@ -114,8 +131,14 @@ export async function recalculateEarningsJob() {
     credited += delta;
   }
 
-  revalidatePath("/dashboard/clipper");
-  revalidatePath("/dashboard/brand");
+  // Earnings are already stored. Next throws this call when there is no request cache.
+  try {
+    revalidatePath("/dashboard/clipper");
+    revalidatePath("/dashboard/brand");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (!message.includes("static generation store missing")) throw error;
+  }
   return { creditedCents: credited };
 }
 
