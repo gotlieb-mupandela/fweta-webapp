@@ -25,70 +25,79 @@ export type OnboardingStep = {
   inputType?: "text" | "tel" | "url";
 };
 
-const CORE: OnboardingStep[] = [
-  {
-    id: "firstName",
-    title: "What's your first name?",
-    subtitle: "We'll use this across your fweta profile.",
-    xp: 10,
-    placeholder: "Amara",
-  },
-  {
-    id: "lastName",
-    title: "And your surname?",
-    subtitle: "Almost there. This stays on your account.",
-    xp: 10,
-    placeholder: "Nangolo",
-  },
-  {
-    id: "phone",
-    title: "What's your phone number?",
-    subtitle: "For payouts and account recovery. Namibia +264 works great.",
-    xp: 15,
-    placeholder: "+264 81 000 0000",
-    inputType: "tel",
-  },
-  {
-    id: "socialTiktok",
-    title: "What's your TikTok?",
-    subtitle: "Handle or profile link. Skip if you don't use TikTok.",
-    xp: 10,
-    optional: true,
-    placeholder: "@yourhandle",
-  },
-  {
-    id: "socialInstagram",
-    title: "What's your Instagram?",
-    subtitle: "Handle or profile link. Skip if you don't use Instagram.",
-    xp: 10,
-    optional: true,
-    placeholder: "@yourhandle",
-  },
-  {
-    id: "socialFacebook",
-    title: "What's your Facebook?",
-    subtitle: "Handle or profile link. Skip if you don't use Facebook.",
-    xp: 10,
-    optional: true,
-    placeholder: "your.page",
-  },
-  {
-    id: "socialYoutube",
-    title: "What's your YouTube?",
-    subtitle: "Handle or channel link. Skip if you don't use YouTube.",
-    xp: 10,
-    optional: true,
-    placeholder: "@yourchannel",
-  },
-  {
-    id: "socialX",
-    title: "What's your X?",
-    subtitle: "Handle or profile link. Skip if you don't use X.",
-    xp: 10,
-    optional: true,
-    placeholder: "@yourhandle",
-  },
-];
+function socialSubtitle(platform: string, requireSocial: boolean): string {
+  if (requireSocial) {
+    return `Handle or profile link. Skip this one if you do not use ${platform}. At least one social profile is required to finish.`;
+  }
+  return `Handle or profile link. Skip if you don't use ${platform}.`;
+}
+
+function coreSteps(requireSocial: boolean): OnboardingStep[] {
+  return [
+    {
+      id: "firstName",
+      title: "What's your first name?",
+      subtitle: "We'll use this across your fweta profile.",
+      xp: 10,
+      placeholder: "Amara",
+    },
+    {
+      id: "lastName",
+      title: "And your surname?",
+      subtitle: "Almost there. This stays on your account.",
+      xp: 10,
+      placeholder: "Nangolo",
+    },
+    {
+      id: "phone",
+      title: "What's your phone number?",
+      subtitle: "For payouts and account recovery. Namibia +264 works great.",
+      xp: 15,
+      placeholder: "+264 81 000 0000",
+      inputType: "tel",
+    },
+    {
+      id: "socialTiktok",
+      title: "What's your TikTok?",
+      subtitle: socialSubtitle("TikTok", requireSocial),
+      xp: 10,
+      optional: true,
+      placeholder: "@yourhandle",
+    },
+    {
+      id: "socialInstagram",
+      title: "What's your Instagram?",
+      subtitle: socialSubtitle("Instagram", requireSocial),
+      xp: 10,
+      optional: true,
+      placeholder: "@yourhandle",
+    },
+    {
+      id: "socialFacebook",
+      title: "What's your Facebook?",
+      subtitle: socialSubtitle("Facebook", requireSocial),
+      xp: 10,
+      optional: true,
+      placeholder: "your.page",
+    },
+    {
+      id: "socialYoutube",
+      title: "What's your YouTube?",
+      subtitle: socialSubtitle("YouTube", requireSocial),
+      xp: 10,
+      optional: true,
+      placeholder: "@yourchannel",
+    },
+    {
+      id: "socialX",
+      title: "What's your X?",
+      subtitle: socialSubtitle("X", requireSocial),
+      xp: 10,
+      optional: true,
+      placeholder: "@yourhandle",
+    },
+  ];
+}
 
 const BRAND: OnboardingStep[] = [
   {
@@ -138,10 +147,11 @@ const CLIPPER: OnboardingStep[] = [
 ];
 
 export function getOnboardingSteps(roles: UserRole[]): OnboardingStep[] {
-  const steps = [...CORE];
   const isBrand = roles.includes("brand");
   const isInfluencer = roles.includes("influencer");
   const isClipper = roles.includes("clipper");
+  const requireSocial = (isInfluencer || isClipper) && !isBrand;
+  const steps = [...coreSteps(requireSocial)];
 
   if (isBrand) steps.push(...BRAND);
   if (isInfluencer || isClipper) steps.push(...CREATOR);

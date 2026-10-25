@@ -10,9 +10,10 @@ import {
 import { needsOnboarding } from "@/lib/onboarding/steps";
 import { encryptSecret, newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { InfluencerProfile, ProfileSocials } from "@/lib/db/types";
+import { clientErrorFromUnknown } from "@/lib/onboarding/errors";
+import { applyWizardCompletion } from "@/lib/onboarding/wizard-complete";
 import { onboardingCompleteSchema } from "@/lib/validations/onboarding";
 import { profileUrl } from "@/lib/social/platforms";
-import { slugify } from "@/lib/utils";
 import type { SocialPlatform } from "@/types/enums";
 
 import type { Campaign, DatabaseStore, OnboardingDraft, PayoutMethod, Profile } from "@/lib/db/types";
@@ -70,10 +71,6 @@ function socialsFromAnswers(socials: {
   return out;
 }
 
-function firstFilledPlatform(socials: ProfileSocials): SocialPlatform | undefined {
-  return PLATFORM_ORDER.find((p) => Boolean(socials[p]));
-}
-
 export async function getOnboardingState() {
   const session = await requireSession();
   const profile = await getProfileById(session.id);
@@ -97,97 +94,33 @@ export async function completeOnboardingAction(raw: unknown) {
   }
 
   const data = parsed.data;
-  const displayName = `${data.firstName} ${data.lastName}`.trim();
   const socials = socialsFromAnswers(data.socials);
   const now = nowIso();
 
-  let updatedId = session.id;
-
-  await updateStore((s) => {
-    const profile = s.profiles.find((p) => p.id === session.id);
-    if (!profile) throw new Error("Profile not found.");
-
-    profile.firstName = data.firstName;
-    profile.lastName = data.lastName;
-    profile.phone = data.phone.replace(/\s+/g, " ").trim();
-    profile.displayName = displayName;
-    profile.socials = { ...(profile.socials ?? {}), ...socials };
-    const pickedPlatform = data.primaryPlatform ?? firstFilledPlatform(socials);
-    if (pickedPlatform) profile.primaryPlatform = pickedPlatform;
-    profile.updatedAt = now;
-    profile.onboardingCompletedAt = now;
-
-    if (profile.roles.includes("brand")) {
-      const company = data.companyName?.trim();
-      if (company) profile.companyName = company;
-      const site = data.website?.trim();
-      if (site) {
-        profile.website = /^https?:\/\//i.test(site) ? site : `https://${site}`;
-      }
-      if (company && profile.primaryRole === "brand") {
-        profile.displayName = company;
-      }
-    }
-
-    if (profile.roles.includes("influencer") || profile.roles.includes("clipper")) {
-      const niche = data.niche?.trim();
-      if (niche) profile.niche = niche;
-    }
-
-    if (profile.roles.includes("influencer")) {
-      const location = data.location?.trim() || "Namibia";
-      profile.location = location;
-      const niche = data.niche?.trim() || "Creator";
-      profile.niche = niche;
-
-      const existing = s.influencerProfiles.find((p) => p.userId === session.id);
-      if (!existing) {
-        const baseSlug = slugify(displayName);
-        let slug = baseSlug || `creator-${session.id.slice(0, 6)}`;
-        let i = 1;
-        while (s.influencerProfiles.some((p) => p.slug === slug)) {
-          slug = `${baseSlug}-${i++}`;
-        }
-        const influencer: InfluencerProfile = {
-          id: newId(),
-          userId: session.id,
-          slug,
-          displayName,
-          headline: niche.length >= 5 ? niche : `${niche} creator`,
-          bio: `${displayName} is building on fweta.`,
-          niche,
-          location,
-          avatarUrl: null,
+  try {
+    await updateStore((store) => {
+      applyWizardCompletion(
+        store,
+        session.id,
+        {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone,
           socials,
-          featuredWork: [],
-          published: true,
-          createdAt: now,
-          updatedAt: now,
-        };
-        s.influencerProfiles.push(influencer);
-      } else {
-        Object.assign(existing, {
-          displayName,
-          niche,
-          location,
-          socials: { ...existing.socials, ...socials },
-          updatedAt: now,
-        });
-      }
-    }
-
-    updatedId = profile.id;
-  });
-
-  const updatedProfile = await getProfileById(updatedId);
-  if (!updatedProfile) {
-    return { ok: false as const, error: "Could not save onboarding." };
+          companyName: data.companyName,
+          website: data.website,
+          niche: data.niche,
+          location: data.location,
+          primaryPlatform: data.primaryPlatform,
+        },
+        now,
+      );
+    });
+  } catch (err) {
+    return { ok: false as const, error: clientErrorFromUnknown(err) };
   }
 
-  await refreshSessionFromProfile(updatedProfile);
-  revalidatePath("/dashboard");
-  revalidatePath("/onboarding");
-  revalidatePath("/influencers");
+  await settleOnboardingWrite(session.id);
   return { ok: true as const };
 }
 
@@ -202,8 +135,8 @@ type Saved = {
 
 type Failed = { ok: false; error: string; draft?: OnboardingDraft };
 
-function requireDraft(draft: OnboardingDraft | null, error: string): OnboardingDraft {
-  if (!draft) throw new Error(error);
+/** Closure writes are invisible to narrowing, so read the draft back through a return type. */
+function asSavedDraft(draft: OnboardingDraft | null): OnboardingDraft | null {
   return draft;
 }
 
@@ -221,6 +154,21 @@ function revalidateOnboarding() {
   revalidatePath("/dashboard/admin/onboarding");
   revalidatePath("/influencers");
   revalidatePath("/campaigns");
+}
+
+/** Session refresh and cache bumps must not turn a saved write into a thrown error. */
+async function settleOnboardingWrite(userId: string, extra?: () => void) {
+  try {
+    await syncSession(userId);
+  } catch (err) {
+    console.error("[fweta] onboarding session sync failed", err);
+  }
+  try {
+    revalidateOnboarding();
+    extra?.();
+  } catch (err) {
+    console.error("[fweta] onboarding revalidate failed", err);
+  }
 }
 
 function ensureDraft(profile: Profile, now: string): OnboardingDraft {
@@ -383,12 +331,12 @@ export async function saveOnboardingStepAction(raw: unknown): Promise<Saved | Fa
       savedDraft = cloneDraft(profile.onboarding ?? marked);
     });
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Could not save this step." };
+    return { ok: false, error: clientErrorFromUnknown(err) };
   }
 
-  await syncSession(session.id);
-  revalidateOnboarding();
-  const draft = requireDraft(savedDraft, "Could not save this step.");
+  await settleOnboardingWrite(session.id);
+  const draft = asSavedDraft(savedDraft);
+  if (!draft) return { ok: false, error: "Could not save this step." };
   if (failed) return { ok: false, error: failed, draft };
   return { ok: true, draft, done, nextStepId: draft.stepId };
 }
@@ -402,10 +350,9 @@ export async function exitOnboardingAction(): Promise<{ ok: true } | Failed> {
       finalize(store, profile, nowIso());
     });
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Could not leave setup." };
+    return { ok: false, error: clientErrorFromUnknown(err) };
   }
-  await syncSession(session.id);
-  revalidateOnboarding();
+  await settleOnboardingWrite(session.id);
   return { ok: true };
 }
 
@@ -440,11 +387,10 @@ export async function setSocialHandleAction(raw: unknown): Promise<
       savedDraft = cloneDraft(draft);
     });
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Could not save that handle." };
+    return { ok: false, error: clientErrorFromUnknown(err) };
   }
 
-  await syncSession(session.id);
-  revalidateOnboarding();
+  await settleOnboardingWrite(session.id);
   if (!savedDraft) return { ok: false, error: "Could not save that handle." };
   return {
     ok: true,
@@ -481,22 +427,25 @@ export async function verifySocialAction(
 
   let savedDraft: OnboardingDraft | null = null;
   const verifiedAt = nowIso();
-  await updateStore((next) => {
-    const current = next.profiles.find((item) => item.id === session.id);
-    if (!current?.onboarding) return;
-    const row = current.onboarding.checks.find((item) => item.platform === platform);
-    if (!row || row.handle !== check.handle) return;
-    row.status = "verified";
-    row.verifiedAt = verifiedAt;
-    current.onboarding.socials = socialsFromChecks(current.onboarding.checks);
-    current.onboarding.updatedAt = verifiedAt;
-    current.socials = { ...(current.socials ?? {}), ...current.onboarding.socials };
-    current.updatedAt = verifiedAt;
-    savedDraft = cloneDraft(current.onboarding);
-  });
+  try {
+    await updateStore((next) => {
+      const current = next.profiles.find((item) => item.id === session.id);
+      if (!current?.onboarding) return;
+      const row = current.onboarding.checks.find((item) => item.platform === platform);
+      if (!row || row.handle !== check.handle) return;
+      row.status = "verified";
+      row.verifiedAt = verifiedAt;
+      current.onboarding.socials = socialsFromChecks(current.onboarding.checks);
+      current.onboarding.updatedAt = verifiedAt;
+      current.socials = { ...(current.socials ?? {}), ...current.onboarding.socials };
+      current.updatedAt = verifiedAt;
+      savedDraft = cloneDraft(current.onboarding);
+    });
+  } catch (err) {
+    return { ok: false, error: clientErrorFromUnknown(err) };
+  }
 
-  await syncSession(session.id);
-  revalidateOnboarding();
+  await settleOnboardingWrite(session.id);
   if (!savedDraft) return { ok: false, error: "Could not save verification." };
   return { ok: true, draft: savedDraft };
 }
@@ -557,14 +506,15 @@ export async function saveOnboardingPayoutAction(raw: unknown): Promise<Saved | 
       savedDraft = cloneDraft(profile.onboarding ?? marked);
     });
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Could not save payout details." };
+    return { ok: false, error: clientErrorFromUnknown(err) };
   }
 
-  await syncSession(session.id);
-  revalidateOnboarding();
-  revalidatePath("/dashboard/settings/payout");
+  await settleOnboardingWrite(session.id, () => {
+    revalidatePath("/dashboard/settings/payout");
+  });
   if (failed) return { ok: false, error: failed };
-  const draft = requireDraft(savedDraft, "Could not save payout details.");
+  const draft = asSavedDraft(savedDraft);
+  if (!draft) return { ok: false, error: "Could not save payout details." };
   return { ok: true, draft, done, nextStepId: draft.stepId };
 }
 
@@ -656,14 +606,15 @@ export async function saveOnboardingCampaignAction(raw: unknown): Promise<Saved 
       savedDraft = cloneDraft(profile.onboarding ?? marked);
     });
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Could not save the campaign." };
+    return { ok: false, error: clientErrorFromUnknown(err) };
   }
 
-  await syncSession(session.id);
-  revalidateOnboarding();
-  revalidatePath("/dashboard/brand/campaigns");
+  await settleOnboardingWrite(session.id, () => {
+    revalidatePath("/dashboard/brand/campaigns");
+  });
   if (failed) return { ok: false, error: failed };
-  const draft = requireDraft(savedDraft, "Could not save the campaign.");
+  const draft = asSavedDraft(savedDraft);
+  if (!draft) return { ok: false, error: "Could not save the campaign." };
   return { ok: true, draft, done, nextStepId: draft.stepId };
 }
 
@@ -681,9 +632,13 @@ export async function markProductTourSeenAction(): Promise<{ ok: true } | Failed
       profile.updatedAt = now;
     });
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Could not save the tour." };
+    return { ok: false, error: clientErrorFromUnknown(err) };
   }
-  revalidatePath("/dashboard");
+  try {
+    revalidatePath("/dashboard");
+  } catch (err) {
+    console.error("[fweta] onboarding revalidate failed", err);
+  }
   return { ok: true };
 }
 
@@ -698,9 +653,13 @@ export async function dismissChecklistAction(): Promise<{ ok: true } | Failed> {
       profile.updatedAt = profile.onboarding.updatedAt;
     });
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Could not hide the checklist." };
+    return { ok: false, error: clientErrorFromUnknown(err) };
   }
-  revalidatePath("/dashboard");
+  try {
+    revalidatePath("/dashboard");
+  } catch (err) {
+    console.error("[fweta] onboarding revalidate failed", err);
+  }
   return { ok: true };
 }
 

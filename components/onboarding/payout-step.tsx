@@ -7,6 +7,7 @@ import { Hint } from "@/components/onboarding/hint";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select } from "@/components/ui/input";
 import { FIELD_HINTS } from "@/lib/onboarding/model";
+import { ONBOARDING_SLOW_MESSAGE, withOnboardingTimeout } from "@/lib/onboarding/submit-timeout";
 
 type Saved = Awaited<ReturnType<typeof saveOnboardingStepAction>>;
 
@@ -37,9 +38,15 @@ export function PayoutStep({
             onClick={() => {
               setError(null);
               startTransition(async () => {
-                const res = await saveOnboardingStepAction({ stepId: "payout", mode: "complete" });
-                if (!res.ok) setError(res.error);
-                onResult(res);
+                try {
+                  const res = await withOnboardingTimeout(
+                    saveOnboardingStepAction({ stepId: "payout", mode: "complete" }),
+                  );
+                  if (!res.ok) setError(res.error);
+                  onResult(res);
+                } catch {
+                  setError(ONBOARDING_SLOW_MESSAGE);
+                }
               });
             }}
           >
@@ -62,18 +69,24 @@ export function PayoutStep({
         const form = new FormData(event.currentTarget);
         setError(null);
         startTransition(async () => {
-          const res = await saveOnboardingPayoutAction({
-            bankName: String(form.get("bankName") || ""),
-            branchCode: String(form.get("branchCode") || ""),
-            accountNumber: String(form.get("accountNumber") || ""),
-            accountHolderName: String(form.get("accountHolderName") || ""),
-            accountType: String(form.get("accountType") || "cheque"),
-          });
-          if (!res.ok) {
-            setError(res.error);
-            return;
+          try {
+            const res = await withOnboardingTimeout(
+              saveOnboardingPayoutAction({
+                bankName: String(form.get("bankName") || ""),
+                branchCode: String(form.get("branchCode") || ""),
+                accountNumber: String(form.get("accountNumber") || ""),
+                accountHolderName: String(form.get("accountHolderName") || ""),
+                accountType: String(form.get("accountType") || "cheque"),
+              }),
+            );
+            if (!res.ok) {
+              setError(res.error);
+              return;
+            }
+            onResult(res);
+          } catch {
+            setError(ONBOARDING_SLOW_MESSAGE);
           }
-          onResult(res);
         });
       }}
     >
