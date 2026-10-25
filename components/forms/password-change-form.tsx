@@ -1,37 +1,36 @@
 "use client";
 
-import { useState, useTransition } from "react";
-
 import { changePasswordAction } from "@/app/actions/settings";
+import { useTimedSave } from "@/components/forms/use-timed-save";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label } from "@/components/ui/input";
+import { FieldError, FieldSuccess, Input, Label } from "@/components/ui/input";
 
 export function PasswordChangeForm() {
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const save = useTimedSave();
 
   return (
     <form
       className="max-w-md space-y-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const form = e.currentTarget;
+      onSubmit={(event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
         const fd = new FormData(form);
-        setError(null);
-        setSuccess(false);
-        startTransition(async () => {
-          const res = await changePasswordAction({
-            currentPassword: String(fd.get("currentPassword") || ""),
-            newPassword: String(fd.get("newPassword") || ""),
-            confirmPassword: String(fd.get("confirmPassword") || ""),
-          });
-          if (!res.ok) setError(res.error);
-          else {
-            setSuccess(true);
-            form.reset();
+        void (async () => {
+          const outcome = await save.run(() =>
+            changePasswordAction({
+              currentPassword: String(fd.get("currentPassword") || ""),
+              newPassword: String(fd.get("newPassword") || ""),
+              confirmPassword: String(fd.get("confirmPassword") || ""),
+            }),
+          );
+          if (outcome.status !== "ok") return;
+          if (!outcome.result.ok) {
+            save.fail(outcome.result.error);
+            return;
           }
-        });
+          form.reset();
+          save.succeed("Password updated.");
+        })();
       }}
     >
       <div>
@@ -46,10 +45,10 @@ export function PasswordChangeForm() {
         <Label htmlFor="confirmPassword">Confirm password</Label>
         <Input id="confirmPassword" name="confirmPassword" type="password" required minLength={8} />
       </div>
-      <FieldError>{error}</FieldError>
-      {success ? <p className="text-sm text-success">Password updated.</p> : null}
-      <Button type="submit" disabled={pending}>
-        {pending ? "Updating…" : "Change password"}
+      <FieldError>{save.error}</FieldError>
+      <FieldSuccess>{save.success}</FieldSuccess>
+      <Button type="submit" disabled={save.pending}>
+        {save.pending ? "Updating..." : "Change password"}
       </Button>
     </form>
   );

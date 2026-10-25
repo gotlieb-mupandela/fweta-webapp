@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { startLinkAccountAction, verifyLinkAccountAction } from "@/app/actions/submissions";
+import { useTimedSave } from "@/components/forms/use-timed-save";
 import { Button } from "@/components/ui/button";
 import { FieldError, FieldSuccess, Input, Label, Select, Textarea } from "@/components/ui/input";
 import type { LinkedSocialAccount } from "@/lib/db/types";
@@ -13,47 +13,66 @@ import type { SocialPlatform } from "@/types/enums";
 const PLATFORMS: SocialPlatform[] = ["tiktok", "instagram", "facebook", "youtube", "x"];
 
 export function LinkedAccountForm({ accounts }: { accounts: LinkedSocialAccount[] }) {
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const save = useTimedSave();
+  const [platform, setPlatform] = useState<SocialPlatform>("tiktok");
+  const [handle, setHandle] = useState("");
 
   return (
     <div className="space-y-6">
       <form
         className="space-y-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const fd = new FormData(e.currentTarget);
-          setError(null);
-          startTransition(async () => {
-            const res = await startLinkAccountAction({
-              platform: String(fd.get("platform")),
-              handle: String(fd.get("handle") || ""),
-            });
-            if (!res.ok) setError(res.error);
-            else router.refresh();
-          });
+        onSubmit={(event) => {
+          event.preventDefault();
+          void (async () => {
+            const outcome = await save.run(() =>
+              startLinkAccountAction({
+                platform,
+                handle,
+              }),
+            );
+            if (outcome.status !== "ok") return;
+            if (!outcome.result.ok) {
+              save.fail(outcome.result.error);
+              return;
+            }
+            setHandle("");
+            save.succeed("Bio code created. Add it to your bio, then confirm.");
+            save.refresh();
+          })();
         }}
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <Label htmlFor="platform">Platform</Label>
-            <Select id="platform" name="platform" defaultValue="tiktok">
-              {PLATFORMS.map((platform) => (
-                <option key={platform} value={platform}>
-                  {PLATFORM_LABEL[platform]}
+            <Select
+              id="platform"
+              name="platform"
+              value={platform}
+              onChange={(event) => setPlatform(event.target.value as SocialPlatform)}
+            >
+              {PLATFORMS.map((item) => (
+                <option key={item} value={item}>
+                  {PLATFORM_LABEL[item]}
                 </option>
               ))}
             </Select>
           </div>
           <div>
             <Label htmlFor="handle">Handle</Label>
-            <Input id="handle" name="handle" required placeholder="yourhandle" />
+            <Input
+              id="handle"
+              name="handle"
+              value={handle}
+              onChange={(event) => setHandle(event.target.value)}
+              required
+              placeholder="yourhandle"
+            />
           </div>
         </div>
-        <FieldError>{error}</FieldError>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Get a bio code"}
+        <FieldError>{save.error}</FieldError>
+        <FieldSuccess>{save.success}</FieldSuccess>
+        <Button type="submit" disabled={save.pending}>
+          {save.pending ? "Saving..." : "Get a bio code"}
         </Button>
       </form>
 
@@ -67,9 +86,8 @@ export function LinkedAccountForm({ accounts }: { accounts: LinkedSocialAccount[
 }
 
 function AccountRow({ account }: { account: LinkedSocialAccount }) {
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const save = useTimedSave();
+  const [bio, setBio] = useState("");
   return (
     <li className="rounded-2xl border border-border p-4">
       <p className="text-sm font-medium">
@@ -84,33 +102,40 @@ function AccountRow({ account }: { account: LinkedSocialAccount }) {
       {account.verifiedAt ? null : (
         <form
           className="mt-3 space-y-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const fd = new FormData(e.currentTarget);
-            setError(null);
-            startTransition(async () => {
-              const res = await verifyLinkAccountAction({
-                id: account.id,
-                pastedBio: String(fd.get("pastedBio") || ""),
-              });
-              if (!res.ok) setError(res.error);
-              else router.refresh();
-            });
+          onSubmit={(event) => {
+            event.preventDefault();
+            void (async () => {
+              const outcome = await save.run(() =>
+                verifyLinkAccountAction({
+                  id: account.id,
+                  pastedBio: bio,
+                }),
+              );
+              if (outcome.status !== "ok") return;
+              if (!outcome.result.ok) {
+                save.fail(outcome.result.error);
+                return;
+              }
+              save.succeed("Bio code confirmed.");
+              save.refresh();
+            })();
           }}
         >
           <Label htmlFor={`bio-${account.id}`}>Public bio, local demo only</Label>
           <Textarea
             id={`bio-${account.id}`}
             name="pastedBio"
+            value={bio}
+            onChange={(event) => setBio(event.target.value)}
             placeholder={`Paste a bio that contains ${account.bioCode}`}
           />
           <p className="text-xs text-muted">
             Used only when no view provider can read the bio, and only outside production.
           </p>
-          <FieldError>{error}</FieldError>
-          <FieldSuccess>{null}</FieldSuccess>
-          <Button type="submit" size="sm" disabled={pending}>
-            {pending ? "Checking…" : "Confirm bio code"}
+          <FieldError>{save.error}</FieldError>
+          <FieldSuccess>{save.success}</FieldSuccess>
+          <Button type="submit" size="sm" disabled={save.pending}>
+            {save.pending ? "Checking..." : "Confirm bio code"}
           </Button>
         </form>
       )}

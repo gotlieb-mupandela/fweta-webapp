@@ -1,37 +1,35 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-
 import { requestVerificationCodeAction } from "@/app/actions/verification";
+import { useTimedSave } from "@/components/forms/use-timed-save";
 import { Button } from "@/components/ui/button";
-import { FieldError } from "@/components/ui/input";
+import { FieldError, FieldSuccess } from "@/components/ui/input";
 
 export function VerificationRequestButton({ pendingAlready }: { pendingAlready: boolean }) {
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const save = useTimedSave();
 
   return (
     <div className="space-y-2">
       <Button
         type="button"
-        disabled={pending || pendingAlready}
+        disabled={save.pending || pendingAlready}
         onClick={() => {
-          setError(null);
-          startTransition(async () => {
-            const res = await requestVerificationCodeAction();
-            if (!res.ok) {
-              setError(res.error);
+          void (async () => {
+            const outcome = await save.run(() => requestVerificationCodeAction());
+            if (outcome.status !== "ok") return;
+            if (!outcome.result.ok) {
+              save.fail(outcome.result.error);
               return;
             }
-            router.refresh();
-          });
+            save.succeed("Bio code created.");
+            save.refresh();
+          })();
         }}
       >
-        {pending ? "Creating…" : pendingAlready ? "Code already issued" : "Get a bio code"}
+        {save.pending ? "Creating..." : pendingAlready ? "Code already issued" : "Get a bio code"}
       </Button>
-      <FieldError>{error}</FieldError>
+      <FieldError>{save.error}</FieldError>
+      <FieldSuccess>{save.success}</FieldSuccess>
     </div>
   );
 }
