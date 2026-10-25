@@ -180,6 +180,9 @@ export function applyConfirmedViews(
   const sub = store.submissions.find((item) => item.id === submissionId);
   const camp = sub ? store.campaigns.find((item) => item.id === sub.campaignId) : undefined;
   if (!sub || !camp) return;
+  // A view save must not close out a campaign that is already completed.
+  // An active campaign that spends its budget in this save still closes.
+  const alreadyCompleted = camp.status === "completed";
   if (sub.baselineViews == null) sub.baselineViews = 0;
   sub.views = views;
   if (likes != null) sub.likes = likes;
@@ -199,7 +202,10 @@ export function applyConfirmedViews(
     const capped = sub.payableViews < camp.minViews ? 0 : uncappedEarningsCents(sub.payableViews, camp);
     if (canIncrease || capped < already) accrueCpm(store, sub, camp, nowMs);
   }
-  if (camp.payModel === "pool" || camp.budgetSpentCents >= camp.budgetTotalCents || camp.status === "completed") {
+  if (
+    !alreadyCompleted &&
+    (camp.payModel === "pool" || camp.budgetSpentCents >= camp.budgetTotalCents || camp.status === "completed")
+  ) {
     finalizeCampaign(store, camp, nowMs);
   }
 }

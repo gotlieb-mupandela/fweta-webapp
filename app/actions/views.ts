@@ -4,12 +4,15 @@ import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
 import { newId, nowIso, updateStore } from "@/lib/db/store";
-import type { DatabaseStore, Submission, ViewSnapshot } from "@/lib/db/types";
-import { applyFraudScore } from "@/lib/rewards/fraud";
-import { applyConfirmedViews } from "@/lib/rewards/earnings";
-import { saveAdminViewForActor } from "@/lib/rewards/view-entry";
+import {
+  confirmCreatorViewForActor,
+  recordSubmissionViewsForActor,
+  saveAdminViewForActor,
+  saveBulkViewsForActor,
+  setManualViewsForActor,
+} from "@/lib/rewards/view-entry";
 import { recordViewsSchema } from "@/lib/validations/accounts";
-import { bulkViewsSchema, confirmViewSchema, manualViewsSchema, viewCountSchema, type ViewCountInput } from "@/lib/validations/views";
+import { bulkViewsSchema, confirmViewSchema, manualViewsSchema, viewCountSchema } from "@/lib/validations/views";
 import { saveViewScreenshot } from "@/lib/views/screenshots";
 
 function revalidateViewSurfaces(campaignIds: string[]) {
@@ -45,54 +48,6 @@ function fileFrom(value: FormDataEntryValue | null): File | null {
   if (!value || typeof value === "string") return null;
   if (value.size <= 0) return null;
   return value;
-}
-
-type Saved = { campaignId: string; stopped: boolean };
-
-function commitConfirmed(
-  store: DatabaseStore,
-  submission: Submission,
-  input: ViewCountInput,
-  source: ViewSnapshot["source"],
-  checkedBy: string,
-  actorEmail: string | null,
-  screenshotPath: string | null,
-  nowMs: number,
-): Saved {
-  const campaign = store.campaigns.find((item) => item.id === submission.campaignId);
-  if (!campaign) throw new Error("Campaign missing.");
-  const at = new Date(nowMs).toISOString();
-  const previousViews = submission.views;
-  for (const snap of store.viewSnapshots) {
-    if (snap.submissionId === submission.id && snap.status === "pending") snap.status = "replaced";
-  }
-  store.viewSnapshots.push({
-    id: newId(),
-    submissionId: submission.id,
-    views: input.views,
-    likes: input.likes ?? null,
-    comments: input.comments ?? null,
-    note: input.note?.trim() ? input.note.trim() : null,
-    screenshotPath,
-    recordedAt: at,
-    checkedBy,
-    actorEmail,
-    previousViews,
-    source,
-    status: "confirmed",
-  });
-  applyConfirmedViews(store, submission.id, input.views, input.likes ?? null, input.comments ?? null, nowMs);
-  const fresh = store.submissions.find((item) => item.id === submission.id);
-  if (fresh) applyFraudScore(store, fresh, nowMs);
-  const after = store.campaigns.find((item) => item.id === submission.campaignId);
-  return { campaignId: submission.campaignId, stopped: after?.status === "completed" && campaign.status !== "completed" };
-}
-
-function assertApproved(submission: Submission | undefined): Submission {
-  if (!submission) throw new Error("Clip not found.");
-  if (submission.status !== "approved") throw new Error("Approve the clip before counting views.");
-  if (submission.payoutState === "clawed_back") throw new Error("This clip was forfeited.");
-  return submission;
 }
 
 export async function saveAdminViewAction(formData: FormData) {
@@ -160,31 +115,15 @@ export async function saveBulkViewsAction(raw: unknown) {
     ids.add(entry.submissionId);
   }
 
-  const nowMs = Date.now();
-  const campaignIds = new Set<string>();
-  let stopped = 0;
-  try {
-    await updateStore((store) => {
-      const ready = parsed.data.entries.map((entry) => ({
-        entry,
-        submission: assertApproved(store.submissions.find((item) => item.id === entry.submissionId)),
-      }));
-      for (const item of ready) {
-        const result = commitConfirmed(store, item.submission, item.entry, "bulk", session.id, session.email, null, nowMs);
-        campaignIds.add(result.campaignId);
-        if (result.stopped) stopped += 1;
-      }
-    });
-  } catch (e) {
-    return { ok: false as const, error: e instanceof Error ? e.message : "Could not save the counts." };
-  }
-  revalidateViewSurfaces([...campaignIds]);
+  const saved = await saveBulkViewsForActor(session, parsed.data.entries, Date.now());
+  if (!saved.ok) return saved;
+  revalidateViewSurfaces(saved.campaignIds);
   const noun = parsed.data.entries.length === 1 ? "count" : "counts";
   return {
     ok: true as const,
     message:
-      stopped > 0
-        ? `${parsed.data.entries.length} ${noun} saved. Earnings updated. ${stopped === 1 ? "A campaign" : "Campaigns"} stopped because the budget ran out.`
+      saved.stopped > 0
+        ? `${parsed.data.entries.length} ${noun} saved. Earnings updated. ${saved.stopped === 1 ? "A campaign" : "Campaigns"} stopped because the budget ran out.`
         : `${parsed.data.entries.length} ${noun} saved. Earnings, wallets, budgets, and leaderboards are updated.`,
   };
 }
@@ -268,54 +207,19 @@ export async function confirmCreatorViewAction(formData: FormData) {
   });
   if (!parsed.success) return { ok: false as const, error: "Enter the confirmed view count." };
 
-  const nowMs = Date.now();
-  let saved: Saved = { campaignId: "", stopped: false };
-  try {
-    await updateStore((store) => {
-      const snap = store.viewSnapshots.find((item) => item.id === parsed.data.snapshotId);
-      if (!snap || snap.status !== "pending" || snap.submissionId !== parsed.data.submissionId) {
-        throw new Error("That report is no longer waiting.");
-      }
-      const submission = store.submissions.find((item) => item.id === snap.submissionId);
-      if (!submission) throw new Error("Clip not found.");
-      if (submission.status === "rejected" || submission.payoutState === "clawed_back") {
-        throw new Error("This clip can no longer be paid.");
-      }
-      const campaign = store.campaigns.find((item) => item.id === submission.campaignId);
-      if (!campaign) throw new Error("Campaign missing.");
-      for (const other of store.viewSnapshots) {
-        if (other.submissionId === submission.id && other.status === "pending" && other.id !== snap.id) {
-          other.status = "replaced";
-        }
-      }
-      snap.previousViews = submission.views;
-      snap.views = parsed.data.views;
-      snap.likes = parsed.data.likes ?? null;
-      snap.comments = parsed.data.comments ?? null;
-      snap.note = parsed.data.note?.trim() ? parsed.data.note.trim() : snap.note;
-      snap.status = "confirmed";
-      snap.checkedBy = session.id;
-      snap.actorEmail = session.email;
-      snap.recordedAt = new Date(nowMs).toISOString();
-      applyConfirmedViews(
-        store,
-        submission.id,
-        parsed.data.views,
-        parsed.data.likes ?? null,
-        parsed.data.comments ?? null,
-        nowMs,
-      );
-      const fresh = store.submissions.find((item) => item.id === submission.id);
-      if (fresh) applyFraudScore(store, fresh, nowMs);
-      const after = store.campaigns.find((item) => item.id === submission.campaignId);
-      saved = {
-        campaignId: submission.campaignId,
-        stopped: after?.status === "completed" && campaign.status !== "completed",
-      };
-    });
-  } catch (e) {
-    return { ok: false as const, error: e instanceof Error ? e.message : "Could not confirm the count." };
-  }
+  const saved = await confirmCreatorViewForActor(
+    session,
+    {
+      snapshotId: parsed.data.snapshotId,
+      submissionId: parsed.data.submissionId,
+      views: parsed.data.views,
+      likes: parsed.data.likes,
+      comments: parsed.data.comments,
+      note: parsed.data.note,
+    },
+    Date.now(),
+  );
+  if (!saved.ok) return saved;
   revalidateViewSurfaces(saved.campaignId ? [saved.campaignId] : []);
   return {
     ok: true as const,
@@ -332,56 +236,15 @@ export async function recordSubmissionViewsAction(raw: unknown) {
   const parsed = recordViewsSchema.safeParse(raw);
   if (!parsed.success) return { ok: false as const, error: "Enter a whole number of views." };
 
-  let campaignId = "";
-  try {
-    await updateStore((store) => {
-      const submission = store.submissions.find((item) => item.id === parsed.data.submissionId);
-      if (!submission) throw new Error("Submission not found.");
-      if (submission.status !== "approved") {
-        throw new Error("Approve the clip before recording views.");
-      }
-      if (parsed.data.views < submission.views) {
-        throw new Error("Views cannot go backwards.");
-      }
-      campaignId = submission.campaignId;
-      const nowMs = Date.now();
-      const at = new Date(nowMs).toISOString();
-      const previousViews = submission.views;
-      for (const snap of store.viewSnapshots) {
-        if (snap.submissionId === submission.id && snap.status === "pending") snap.status = "replaced";
-      }
-      store.viewSnapshots.push({
-        id: newId(),
-        submissionId: submission.id,
-        views: parsed.data.views,
-        likes: submission.likes,
-        comments: submission.comments,
-        note: null,
-        screenshotPath: null,
-        recordedAt: at,
-        checkedBy: session.id,
-        actorEmail: session.email,
-        previousViews,
-        source: "admin",
-        status: "confirmed",
-      });
-      applyConfirmedViews(
-        store,
-        submission.id,
-        parsed.data.views,
-        submission.likes,
-        submission.comments,
-        nowMs,
-      );
-      const fresh = store.submissions.find((item) => item.id === submission.id);
-      if (fresh) applyFraudScore(store, fresh, nowMs);
-    });
-  } catch (err) {
-    return { ok: false as const, error: err instanceof Error ? err.message : "Could not record views." };
-  }
+  const saved = await recordSubmissionViewsForActor(
+    session,
+    { submissionId: parsed.data.submissionId, views: parsed.data.views },
+    Date.now(),
+  );
+  if (!saved.ok) return saved;
 
-  revalidateViewSurfaces(campaignId ? [campaignId] : []);
-  return { ok: true as const, creditedCents: 0 };
+  revalidateViewSurfaces(saved.campaignId ? [saved.campaignId] : []);
+  return { ok: true as const, creditedCents: saved.creditedCents };
 }
 
 /** Admin total used by the simple view form. Earnings follow the saved count. */
@@ -391,25 +254,12 @@ export async function setManualViewsAction(raw: unknown) {
   const parsed = manualViewsSchema.safeParse(raw);
   if (!parsed.success) return { ok: false as const, error: "Enter a whole view count." };
 
-  const nowMs = Date.now();
-  let campaignId = "";
-  try {
-    await updateStore((store) => {
-      const submission = assertApproved(store.submissions.find((item) => item.id === parsed.data.submissionId));
-      const campaign = store.campaigns.find((item) => item.id === submission.campaignId);
-      if (campaign?.settledAt || campaign?.closedAt) {
-        throw new Error("This campaign is already settled. Further views are not paid.");
-      }
-      if (parsed.data.views < submission.views) {
-        throw new Error("Views cannot go backwards.");
-      }
-      campaignId = submission.campaignId;
-      if (parsed.data.views === submission.views) return;
-      commitConfirmed(store, submission, parsed.data, "admin", session.id, session.email, null, nowMs);
-    });
-  } catch (err) {
-    return { ok: false as const, error: err instanceof Error ? err.message : "Could not save the count." };
-  }
-  revalidateViewSurfaces(campaignId ? [campaignId] : []);
+  const saved = await setManualViewsForActor(
+    session,
+    { submissionId: parsed.data.submissionId, views: parsed.data.views },
+    Date.now(),
+  );
+  if (!saved.ok) return saved;
+  revalidateViewSurfaces(saved.campaignId ? [saved.campaignId] : []);
   return { ok: true as const };
 }

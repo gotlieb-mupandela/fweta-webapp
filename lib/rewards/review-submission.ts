@@ -12,8 +12,9 @@ export type ReviewDecision = {
 
 /**
  * Brand approve / reject / flag. View counts in the payload are ignored.
- * Rejecting an approved clip claws held money back once. A second reject
- * sees the rejected status and does not move money again.
+ * Reject claws held money back once when the clip is approved or still has
+ * a reserve, including a clip that was flagged after approval. A second
+ * reject sees the rejected status and does not move money again.
  * Must run inside updateStore.
  */
 export function reviewSubmissionInStore(
@@ -35,7 +36,8 @@ export function reviewSubmissionInStore(
 
   if (input.status === "rejected") {
     if (sub.status === "rejected") return;
-    if (sub.status === "approved") {
+    // A flagged clip is no longer "approved", but it can still be holding a reserve.
+    if (sub.reservedCents > 0 || sub.status === "approved") {
       clawbackSubmission(store, sub.id, nowMs, "Rejected. Earnings returned to the campaign.");
     }
     sub.status = "rejected";
