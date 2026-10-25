@@ -219,6 +219,7 @@ differences from hosted Supabase
 - The revoke rollback grants insert, update, and delete only. truncate, references, and trigger stay revoked.
 - 20261021165036_fweta_app_store_revision.sql is not in this repo and is not executed. Live must never run a copy. It revoked table writes in the same file as the additive objects. If live migration history has no row for that version, no repair is needed. If the version was recorded as applied, leave the record and do not run the SQL.
 - Trigger fire on this PostgreSQL 16 did not require the writing role to hold EXECUTE on the bump function. The additive file revokes that execute privilege and the upsert still bumps revision. Re-check that on the project's major version before applying if it is not 16.
+- fweta_json_store_set is not in the repo. The rehearsal creates a stand-in only after proving the revoke file succeeds while the function is absent, then proves execute is removed and that the rollback grants it back to service_role only. A hosted database may already have the real function.
 
 REHEARSAL_OK
 EOF

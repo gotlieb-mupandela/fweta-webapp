@@ -12,11 +12,11 @@ If live's migration history has no row for `20261021165036`, no repair is needed
 
 3. In the same short window, deploy main (or the 33, 34, 36 stack). Smoke a signup and confirm one compare-and-swap save.
 
-4. Only after that smoke passes, apply `supabase/migrations/20261026140000_store_revision_revoke_writes.sql`.
+4. Only after that smoke passes, apply `supabase/migrations/20261026140000_store_revision_revoke_writes.sql`. The same file revokes execute on `public.fweta_json_store_set(jsonb)` from `service_role`, `public`, `anon`, and `authenticated` if that function exists. It skips the revision check. This revoke is safe only if the live build in use does not call it. The repo code does not.
 
 5. Never re-run `supabase/migrations/20260830153000_fweta_app_store_grants.sql`. It hands writes back to `service_role`.
 
-6. Later, revoke or drop `fweta_json_store_set`. It skips the revision check. Only `service_role` can run it.
+6. Later, you may drop `fweta_json_store_set` if it is still present. Step 4 already revokes execute when the function exists.
 
 ## Rollback
 

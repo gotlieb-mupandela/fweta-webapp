@@ -10,7 +10,9 @@
 -- fweta_cas_save_store is security definer and keeps writing as its owner.
 --
 -- This file does not drop revision, the bump trigger, or fweta_cas_save_store.
--- Idempotent.
+-- If public.fweta_json_store_set(jsonb) exists, it also revokes execute on that
+-- function from service_role, public, anon, and authenticated. That function
+-- skips the revision check. The repo does not call it. Idempotent.
 --
 -- 20261021165036_fweta_app_store_revision.sql was removed. Live must never
 -- execute a copy. See docs/apply-plan-store-revision.md.
@@ -40,3 +42,15 @@ $revoke_guard$;
 
 revoke insert, update, delete, truncate, references, trigger on table public.fweta_app_store from service_role;
 grant select on table public.fweta_app_store to service_role;
+
+do $revoke_json_store_set$
+begin
+  if to_regprocedure('public.fweta_json_store_set(jsonb)') is null then
+    raise notice 'fweta_json_store_set(jsonb) is absent; execute revoke skipped';
+    return;
+  end if;
+
+  revoke execute on function public.fweta_json_store_set(jsonb) from service_role, public, anon, authenticated;
+  raise notice 'revoked execute on fweta_json_store_set(jsonb) from service_role, public, anon, authenticated';
+end
+$revoke_json_store_set$;
