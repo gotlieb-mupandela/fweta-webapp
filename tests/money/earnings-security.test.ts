@@ -5,8 +5,9 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import test from "node:test";
 
 import { earningsDataDir } from "./earnings-env";
-import { settleRewardsJob } from "../../app/actions/jobs";
+import { pollSubmissionViewsJob, settleRewardsJob } from "../../app/actions/jobs";
 import { allocateCampaignFunds } from "../../lib/campaigns/fund";
+import { applyPolledViews } from "../../lib/jobs/apply-polled-views";
 import { readStore, updateStore } from "../../lib/db/store";
 import type { Campaign, DatabaseStore, Submission, ViewSnapshot } from "../../lib/db/types";
 import { hydrateCampaign, hydrateSubmission } from "../../lib/rewards/content-rewards";
@@ -828,4 +829,137 @@ test("a second reject after a flagged clip is rejected does nothing", async () =
     1,
   );
   assert.equal(twice.submissions.find((item) => item.id === subId)?.status, "rejected");
+});
+
+test("pollSubmissionViewsJob counts only rows it writes", async () => {
+  const upheldId = "d1111111-1111-4111-8111-111111111111";
+  const sameId = "d2222222-2222-4222-8222-222222222222";
+  const lowerId = "d3333333-3333-4333-8333-333333333333";
+  const closedSubId = "d4444444-4444-4444-8444-444444444444";
+  const settledSubId = "d5555555-5555-4555-8555-555555555555";
+  const completedSubId = "d6666666-6666-4666-8666-666666666666";
+  const closedCampId = "e1111111-1111-4111-8111-111111111111";
+  const settledCampId = "e2222222-2222-4222-8222-222222222222";
+  const completedCampId = "e3333333-3333-4333-8333-333333333333";
+
+  await seed([
+    submission({ id: subId, views: 100 }),
+    submission({ id: sub2Id, views: 1_000, payoutState: "clawed_back", postUrl: "https://www.tiktok.com/@kai/video/2" }),
+    submission({ id: upheldId, views: 800, fraudState: "upheld", postUrl: "https://www.tiktok.com/@kai/video/3" }),
+    submission({ id: sameId, views: 1_500, postUrl: "https://www.tiktok.com/@kai/video/4" }),
+    submission({ id: lowerId, views: 2_200, postUrl: "https://www.tiktok.com/@kai/video/5" }),
+    submission({
+      id: closedSubId,
+      views: 200,
+      campaignId: closedCampId,
+      postUrl: "https://www.tiktok.com/@kai/video/6",
+    }),
+    submission({
+      id: settledSubId,
+      views: 300,
+      campaignId: settledCampId,
+      postUrl: "https://www.tiktok.com/@kai/video/7",
+    }),
+    submission({
+      id: completedSubId,
+      views: 400,
+      campaignId: completedCampId,
+      postUrl: "https://www.tiktok.com/@kai/video/8",
+    }),
+  ]);
+  await updateStore((store) => {
+    store.campaigns.push(
+      campaign({ id: closedCampId, status: "active", closedAt: nowIso }),
+      campaign({ id: settledCampId, status: "active", closedAt: null, settledAt: nowIso }),
+      campaign({ id: completedCampId, status: "completed", closedAt: null }),
+    );
+  });
+
+  const pending: Array<[string, number]> = [
+    [subId, 5_000],
+    [sub2Id, 8_000],
+    [upheldId, 9_000],
+    [sameId, 1_500],
+    [lowerId, 100],
+    [closedSubId, 7_000],
+    [settledSubId, 7_000],
+    [completedSubId, 7_000],
+  ];
+  let written = -1;
+  await updateStore((store) => {
+    written = applyPolledViews(store, pending, nowIso);
+  });
+  assert.equal(written, 1);
+  assert.ok(written < pending.length);
+  const afterWrite = await readStore();
+  assert.equal(afterWrite.submissions.find((item) => item.id === subId)?.views, 5_000);
+  const unchanged: Array<[string, number]> = [
+    [sub2Id, 1_000],
+    [upheldId, 800],
+    [sameId, 1_500],
+    [lowerId, 2_200],
+    [closedSubId, 200],
+    [settledSubId, 300],
+    [completedSubId, 400],
+  ];
+  for (const [id, views] of unchanged) {
+    assert.equal(afterWrite.submissions.find((item) => item.id === id)?.views, views);
+  }
+  const directSnaps = afterWrite.viewSnapshots.filter((item) => item.source === "job");
+  assert.equal(directSnaps.length, 1);
+  assert.equal(directSnaps[0]?.submissionId, subId);
+
+  await seed([
+    submission({ id: subId, views: 100 }),
+    submission({ id: sub2Id, views: 1_000, payoutState: "clawed_back", postUrl: "https://www.tiktok.com/@kai/video/2" }),
+    submission({ id: upheldId, views: 800, fraudState: "upheld", postUrl: "https://www.tiktok.com/@kai/video/3" }),
+    submission({
+      id: closedSubId,
+      views: 200,
+      campaignId: closedCampId,
+      postUrl: "https://www.tiktok.com/@kai/video/6",
+    }),
+    submission({
+      id: settledSubId,
+      views: 300,
+      campaignId: settledCampId,
+      postUrl: "https://www.tiktok.com/@kai/video/7",
+    }),
+    submission({
+      id: completedSubId,
+      views: 400,
+      campaignId: completedCampId,
+      postUrl: "https://www.tiktok.com/@kai/video/8",
+    }),
+  ]);
+  await updateStore((store) => {
+    store.campaigns.push(
+      campaign({ id: closedCampId, status: "active", closedAt: nowIso }),
+      campaign({ id: settledCampId, status: "active", closedAt: null, settledAt: nowIso }),
+      campaign({ id: completedCampId, status: "completed", closedAt: null }),
+    );
+  });
+
+  const previousToken = process.env.APIFY_API_TOKEN;
+  delete process.env.APIFY_API_TOKEN;
+  let result: Awaited<ReturnType<typeof pollSubmissionViewsJob>>;
+  try {
+    result = await pollSubmissionViewsJob();
+  } finally {
+    if (previousToken === undefined) delete process.env.APIFY_API_TOKEN;
+    else process.env.APIFY_API_TOKEN = previousToken;
+  }
+  assert.equal(result.updated, 1);
+  assert.equal(result.mode, "simulated");
+  const afterPoll = await readStore();
+  const live = afterPoll.submissions.find((item) => item.id === subId);
+  assert.ok(live && live.views > 100);
+  assert.equal(afterPoll.submissions.find((item) => item.id === sub2Id)?.views, 1_000);
+  assert.equal(afterPoll.submissions.find((item) => item.id === upheldId)?.views, 800);
+  assert.equal(afterPoll.submissions.find((item) => item.id === closedSubId)?.views, 200);
+  assert.equal(afterPoll.submissions.find((item) => item.id === settledSubId)?.views, 300);
+  assert.equal(afterPoll.submissions.find((item) => item.id === completedSubId)?.views, 400);
+  const jobSnaps = afterPoll.viewSnapshots.filter((item) => item.source === "job");
+  assert.equal(jobSnaps.length, result.updated);
+  assert.equal(jobSnaps[0]?.submissionId, subId);
 });
