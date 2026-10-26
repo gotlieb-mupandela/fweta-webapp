@@ -5,6 +5,7 @@ import test from "node:test";
 import type { BrandDeposit, DatabaseStore, Wallet } from "../../lib/db/types";
 import { brandDepositFileSchema, payInRequestSchema } from "../../lib/validations/accounts";
 import {
+  OTHER_BRAND_REFERENCE_WARNING,
   confirmPendingPayIn,
   fileManualPayIn,
   payInRowView,
@@ -12,6 +13,7 @@ import {
 } from "../../lib/wallet/brand-deposit";
 
 const brand = "11111111-1111-4111-8111-111111111111";
+const otherBrand = "33333333-3333-4333-8333-333333333333";
 const admin = "22222222-2222-4222-8222-222222222222";
 const now = "2026-10-25T12:00:00.000Z";
 const amountCents = 250050;
@@ -298,6 +300,85 @@ test("a duplicate reference is refused, except on a rejected pay-in", () => {
   assert.equal(afterCancel.ok, false);
   assert.equal(store.brandDeposits.length, 2);
   assert.equal(store.brandDeposits[1]?.amountCents, 10000);
+});
+
+test("same-brand reference variants are refused", () => {
+  const store = emptyStore();
+  const first = fileManualPayIn(store, filing("dep-space", "ABC 123"));
+  assert.equal(first.ok, true);
+  assert.equal(store.brandDeposits[0]?.bankReference, "ABC 123");
+  assert.equal(store.brandDeposits[0]?.amountCents, 10000);
+  assert.notEqual(store.brandDeposits[0]?.referenceMatchesOtherBrand, true);
+
+  for (const variant of ["ABC123", "ABC-123", "ABC/123"]) {
+    const again = fileManualPayIn(store, filing(`dep-${variant}`, variant));
+    assert.equal(again.ok, false);
+    if (again.ok) continue;
+    assert.equal(again.error, "That bank reference is already used on another pay-in.");
+  }
+  assert.equal(store.brandDeposits.length, 1);
+
+  store.brandDeposits[0]!.status = "expired";
+  const expired = fileManualPayIn(store, filing("dep-expired", "abc/123"));
+  assert.equal(expired.ok, false);
+  assert.equal(store.brandDeposits.length, 1);
+  assert.equal(store.brandDeposits[0]?.amountCents, 10000);
+});
+
+test("another brand can reuse a reference and the pay-in is flagged", () => {
+  const store = emptyStore();
+  const theirs = fileManualPayIn(store, { ...filing("dep-other", "ABC-123"), brandId: otherBrand });
+  assert.equal(theirs.ok, true);
+  assert.equal(store.brandDeposits[0]?.bankReference, "ABC-123");
+  assert.notEqual(store.brandDeposits[0]?.referenceMatchesOtherBrand, true);
+
+  const saved = fileManualPayIn(store, filing("dep-ours", "  ABC/123  "));
+  assert.equal(saved.ok, true);
+  assert.equal(store.brandDeposits.length, 2);
+  assert.equal(store.brandDeposits[1]?.bankReference, "ABC/123");
+  assert.equal(store.brandDeposits[1]?.referenceMatchesOtherBrand, true);
+  assert.equal(store.brandDeposits[1]?.amountCents, 10000);
+  assert.equal(store.brandDeposits[1]?.brandId, brand);
+});
+
+test("the admin pay-ins page shows another brand's reference warning", () => {
+  const flagged = payInRowView({
+    amountCents: 10000,
+    note: "Manual EFT pay-in",
+    status: "pending",
+    bankReference: "ABC/123",
+    referenceMatchesOtherBrand: true,
+  });
+  assert.equal(flagged.reference, "ABC/123");
+  assert.equal(flagged.otherBrandWarning, OTHER_BRAND_REFERENCE_WARNING);
+  assert.equal(flagged.amountCents, 10000);
+
+  const plain = payInRowView({
+    amountCents: 10000,
+    note: "Manual EFT pay-in",
+    status: "pending",
+    bankReference: "ABC/123",
+  });
+  assert.equal(plain.otherBrandWarning, null);
+
+  const page = readFileSync(new URL("../../app/dashboard/admin/payins/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /view\.otherBrandWarning/);
+  assert.match(page, /OTHER_BRAND_REFERENCE_WARNING|otherBrandWarning/);
+  assert.match(page, /text-danger/);
+});
+
+test("a rejected pay-in reference can be used again by the same brand", () => {
+  const store = emptyStore();
+  const first = fileManualPayIn(store, filing("dep-old", "ABC-123"));
+  assert.equal(first.ok, true);
+  store.brandDeposits[0]!.status = "rejected";
+
+  const reused = fileManualPayIn(store, filing("dep-new", "ABC 123"));
+  assert.equal(reused.ok, true);
+  assert.equal(store.brandDeposits.length, 2);
+  assert.equal(store.brandDeposits[1]?.bankReference, "ABC 123");
+  assert.equal(store.brandDeposits[1]?.amountCents, 10000);
+  assert.notEqual(store.brandDeposits[1]?.referenceMatchesOtherBrand, true);
 });
 
 test("confirm keeps the brand reference and an admin cannot confirm their own pay-in", () => {

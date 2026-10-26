@@ -395,6 +395,8 @@ export type BrandDeposit = {
   status: "pending" | "credited" | "rejected" | "cancelled" | "expired";
   /** EFT reference the brand enters when filing. Older rows may be null. */
   bankReference: string | null;
+  /** True when another brand already filed this reference. Rejected rows do not count. */
+  referenceMatchesOtherBrand?: boolean;
   confirmedBy: string | null;
   confirmedAt: string | null;
   createdAt: string;

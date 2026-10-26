@@ -32,24 +32,43 @@ function assertAdmin(roles: readonly string[]) {
   if (!roles.includes("admin")) throw new Error("Admin only.");
 }
 
+/** Trim, lowercase, then drop spaces, hyphens, and slashes. Trailing newlines stay a trim. */
 function referenceKey(value: string): string {
-  return value.trim().toLowerCase();
+  return value.trim().toLowerCase().replace(/[ /\-]/g, "");
 }
 
-/** Rejected pay-ins do not hold their reference. Every other status does. */
+function referenceMatches(
+  item: BrandDeposit,
+  key: string,
+  exceptId?: string,
+): boolean {
+  if (!key) return false;
+  if (item.status === "rejected") return false;
+  if (exceptId && item.id === exceptId) return false;
+  if (typeof item.bankReference !== "string") return false;
+  return referenceKey(item.bankReference) === key;
+}
+
+/** Same-brand duplicate. Rejected pay-ins do not hold their reference. */
 export function duplicatePayInReference(
   store: DatabaseStore,
   reference: string,
+  brandId: string,
   exceptId?: string,
 ): boolean {
   const key = referenceKey(reference);
   if (!key) return false;
-  return store.brandDeposits.some((item) => {
-    if (item.status === "rejected") return false;
-    if (exceptId && item.id === exceptId) return false;
-    if (typeof item.bankReference !== "string") return false;
-    return referenceKey(item.bankReference) === key;
-  });
+  return store.brandDeposits.some(
+    (item) => item.brandId === brandId && referenceMatches(item, key, exceptId),
+  );
+}
+
+function otherBrandUsesReference(store: DatabaseStore, reference: string, brandId: string): boolean {
+  const key = referenceKey(reference);
+  if (!key) return false;
+  return store.brandDeposits.some(
+    (item) => item.brandId !== brandId && referenceMatches(item, key),
+  );
 }
 
 const DUPLICATE_REFERENCE = "That bank reference is already used on another pay-in.";
@@ -76,9 +95,10 @@ export function fileManualPayIn(
       error: parsed.error.issues[0]?.message ?? "Enter the bank reference from your EFT.",
     };
   }
-  if (duplicatePayInReference(store, parsed.data)) {
+  if (duplicatePayInReference(store, parsed.data, input.brandId)) {
     return { ok: false, error: DUPLICATE_REFERENCE };
   }
+  const matchesOtherBrand = otherBrandUsesReference(store, parsed.data, input.brandId);
   store.brandDeposits.push({
     id: input.id,
     brandId: input.brandId,
@@ -86,6 +106,7 @@ export function fileManualPayIn(
     note: input.note,
     status: "pending",
     bankReference: parsed.data,
+    referenceMatchesOtherBrand: matchesOtherBrand ? true : undefined,
     confirmedBy: null,
     confirmedAt: null,
     createdAt: input.createdAt,
@@ -109,10 +130,13 @@ function applyConfirmReference(
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message ?? "Enter the bank reference from your EFT.");
   }
-  if (duplicatePayInReference(store, parsed.data, row.id)) {
+  if (duplicatePayInReference(store, parsed.data, row.brandId, row.id)) {
     throw new Error(DUPLICATE_REFERENCE);
   }
   row.bankReference = parsed.data;
+  if (otherBrandUsesReference(store, parsed.data, row.brandId)) {
+    row.referenceMatchesOtherBrand = true;
+  }
 }
 
 /**
@@ -203,21 +227,27 @@ export function payInStatusLabel(status: string): string {
   }
 }
 
+export const OTHER_BRAND_REFERENCE_WARNING =
+  "This reference matches another brand. Check it before confirming.";
+
 export function payInRowView(deposit: {
   amountCents: number;
   note: string;
   status: string;
   bankReference: string | null;
+  referenceMatchesOtherBrand?: boolean;
 }): {
   amountCents: number;
   note: string;
   statusLabel: string;
   reference: string | null;
+  otherBrandWarning: string | null;
 } {
   return {
     amountCents: deposit.amountCents,
     note: deposit.note,
     statusLabel: payInStatusLabel(deposit.status),
     reference: payInReferenceLabel(deposit.bankReference),
+    otherBrandWarning: deposit.referenceMatchesOtherBrand ? OTHER_BRAND_REFERENCE_WARNING : null,
   };
 }

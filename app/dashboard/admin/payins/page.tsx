@@ -47,6 +47,9 @@ export default async function AdminPayinsPage() {
                   {view.reference ? (
                     <p className="text-xs text-muted">Reference {view.reference}</p>
                   ) : null}
+                  {view.otherBrandWarning ? (
+                    <p className="text-xs font-medium text-danger">{view.otherBrandWarning}</p>
+                  ) : null}
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <Badge tone={tone}>{view.statusLabel}</Badge>
