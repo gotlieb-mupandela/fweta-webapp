@@ -2,7 +2,8 @@
 -- and check the catalog grants match the original.
 -- The transaction is rolled back. Nothing is committed.
 --
--- The wrapper creates a private directory and passes it as snapdir.
+-- The operator creates a private directory by hand with mktemp -d and
+-- chmod 700, and passes it as snapdir.
 -- mktemp -d creates the directory. chmod 700 keeps it private.
 -- pg_read_file reads the snapshot files on the database server, so the
 -- server OS user must be able to read that directory. Create the
