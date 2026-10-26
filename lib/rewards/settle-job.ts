@@ -34,6 +34,9 @@ export function settleRewardsInStore(store: DatabaseStore, nowMs: number): Settl
   }
 
   for (const campaign of store.campaigns) {
+    // Housekeeping skips a row once settledAt is set. A closed campaign
+    // already returned its pot, so this pass skips that row too.
+    if (campaign.settledAt || campaign.closedAt) continue;
     finalizeCampaign(store, campaign, nowMs);
   }
 

@@ -542,9 +542,14 @@ function settlePoolChecked(world: World, camp: Campaign, label: string) {
   assert.ok(sum <= camp.budgetTotalCents, `${label} pool shares ${sum} exceed budget ${camp.budgetTotalCents}`);
   const reservedBefore = new Map(clips.map((sub) => [sub.id, sub.reservedCents]));
   const already = Boolean(camp.poolSettledAt);
+  const payoutClosed = Boolean(camp.closedAt || camp.settledAt) || !isCampaignFunded(world.store, camp.id);
   settlePool(world.store, camp, world.now);
-  if (already) {
-    assert.equal(snapshotMoney(world.store), beforeMoney, `${label} settling twice paid again`);
+  if (already || payoutClosed) {
+    assert.equal(
+      snapshotMoney(world.store),
+      beforeMoney,
+      already ? `${label} settling twice paid again` : `${label} closed or unfunded pool paid creators`,
+    );
     return;
   }
   for (const sub of clips) {
@@ -962,7 +967,7 @@ function pickSubmission(world: World, biasApproved: boolean): Submission | undef
   return all[int(world.rand, 0, all.length - 1)];
 }
 
-// accrueCpm credits the clipper even when the brand was never debited.
+// A view save must not credit the clipper when the brand was never debited.
 test("an unfunded cpm campaign does not pay creators", () => {
   const world = makeWorld("cpm", 100_000, 5_000);
   submit(world);
@@ -973,7 +978,7 @@ test("an unfunded cpm campaign does not pay creators", () => {
   assertInvariants(world.store, world.moneyIn, "unfunded cpm views");
 });
 
-// settlePool credits shares without a campaign_fund debit.
+// settlePool must not credit shares without a campaign_fund debit.
 test("an unfunded pool does not pay creators when it settles", () => {
   const world = makeWorld("pool", 10_000, 0);
   submit(world);
@@ -985,7 +990,7 @@ test("an unfunded pool does not pay creators when it settles", () => {
   assertInvariants(world.store, world.moneyIn, "unfunded pool settle");
 });
 
-// An open pool can be refunded before settlePool. settlePool ignores closedAt and pays the pot again.
+// An open pool is refunded on close. A later settlePool must not pay that pot again.
 test("settling a closed pool does not mint a second copy of the budget", () => {
   const world = makeWorld("pool", 10_000, 0);
   const steps: ScriptOp[] = ["fund", "submit", "approve", "views-up", "close", "pool-settle"];
@@ -994,4 +999,38 @@ test("settling a closed pool does not mint a second copy of the budget", () => {
     runScriptOp(world, op, label);
     assertInvariants(world.store, world.moneyIn, label);
   });
+});
+
+test("finalizeCampaign on a closed campaign pays nothing and changes no wallet", () => {
+  const world = makeWorld("pool", 10_000, 0);
+  const steps: ScriptOp[] = ["fund", "submit", "approve", "views-up", "close"];
+  steps.forEach((op, index) => {
+    const label = `closed finalize setup ${index + 1} ${op}`;
+    runScriptOp(world, op, label);
+    assertInvariants(world.store, world.moneyIn, label);
+  });
+  assert.ok(world.campaign.closedAt);
+  assert.equal(world.campaign.poolSettledAt, null);
+  const before = snapshotMoney(world.store);
+  const walletsBefore = world.store.wallets.map((row) => ({
+    userId: row.userId,
+    availableCents: row.availableCents,
+    pendingCents: row.pendingCents,
+  }));
+  finalizeCampaign(world.store, world.campaign, world.now);
+  assert.equal(snapshotMoney(world.store), before);
+  assert.deepEqual(
+    world.store.wallets.map((row) => ({
+      userId: row.userId,
+      availableCents: row.availableCents,
+      pendingCents: row.pendingCents,
+    })),
+    walletsBefore,
+  );
+  assert.equal(world.campaign.budgetSpentCents, 0);
+  assert.equal(world.campaign.feeChargedCents, 0);
+  assert.equal(world.campaign.unspentReturnedCents, 10_000);
+  assert.equal(creatorTotals(world.store).pending, 0);
+  assert.equal(creatorTotals(world.store).available, 0);
+  assertInvariants(world.store, world.moneyIn, "finalize closed pool");
 });
