@@ -43,6 +43,17 @@ $revoke_guard$;
 revoke insert, update, delete, truncate, references, trigger on table public.fweta_app_store from service_role;
 grant select on table public.fweta_app_store to service_role;
 
+-- MAINTAIN is part of GRANT ALL on PostgreSQL 17 and newer. Revoke it there
+-- so the rollback can grant the same set back. PostgreSQL 16 has no such privilege.
+do $revoke_maintain$
+begin
+  if current_setting('server_version_num')::int < 170000 then
+    return;
+  end if;
+  execute 'revoke maintain on table public.fweta_app_store from service_role';
+end
+$revoke_maintain$;
+
 do $revoke_json_store_set$
 begin
   if to_regprocedure('public.fweta_json_store_set(jsonb)') is null then

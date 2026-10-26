@@ -4,14 +4,30 @@
 -- applied twice. Additive objects are still present.
 
 select rehearsal.ok(
-  has_table_privilege('service_role', 'public.fweta_app_store', 'select')
-  and has_table_privilege('service_role', 'public.fweta_app_store', 'insert')
-  and has_table_privilege('service_role', 'public.fweta_app_store', 'update')
-  and has_table_privilege('service_role', 'public.fweta_app_store', 'delete')
-  and not has_table_privilege('service_role', 'public.fweta_app_store', 'truncate')
-  and not has_table_privilege('service_role', 'public.fweta_app_store', 'references')
-  and not has_table_privilege('service_role', 'public.fweta_app_store', 'trigger'),
-  'pass ' || :'pass' || ' revoke rollback restored insert, update, and delete only'
+  (select result from rehearsal.scratch where id = 'tableacl:service_role')
+    = rehearsal.service_role_table_privs('public.fweta_app_store'::regclass),
+  'pass ' || :'pass' || ' service_role table privileges match the pre-revoke set: '
+    || rehearsal.service_role_table_privs('public.fweta_app_store'::regclass)
+);
+
+select rehearsal.ok(
+  (select count(*) from rehearsal.scratch where id like 'fnacl:%') > 0
+  and not exists (
+    select 1
+    from rehearsal.scratch s
+    join pg_catalog.pg_proc p on s.id = 'fnacl:' || p.oid::text
+    where s.id like 'fnacl:%'
+      and coalesce(p.proacl::text, '<null>') is distinct from s.result
+  )
+  and (
+    select count(*) from rehearsal.scratch where id like 'fnacl:%'
+  ) = (
+    select count(*)
+    from rehearsal.scratch s
+    join pg_catalog.pg_proc p on s.id = 'fnacl:' || p.oid::text
+    where s.id like 'fnacl:%'
+  ),
+  'pass ' || :'pass' || ' function ACLs match the pre-revoke snapshot'
 );
 
 select revision as rev_before_restore from public.fweta_app_store where id = 'default' \gset

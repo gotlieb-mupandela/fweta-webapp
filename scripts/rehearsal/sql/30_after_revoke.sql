@@ -9,8 +9,9 @@ select rehearsal.ok(
   and not has_table_privilege('service_role', 'public.fweta_app_store', 'delete')
   and not has_table_privilege('service_role', 'public.fweta_app_store', 'truncate')
   and not has_table_privilege('service_role', 'public.fweta_app_store', 'references')
-  and not has_table_privilege('service_role', 'public.fweta_app_store', 'trigger'),
-  'pass ' || :'pass' || ' revoke keeps select and removes insert, update, delete, truncate, references, trigger'
+  and not has_table_privilege('service_role', 'public.fweta_app_store', 'trigger')
+  and rehearsal.service_role_lacks_maintain('public.fweta_app_store'::regclass),
+  'pass ' || :'pass' || ' revoke keeps select and removes insert, update, delete, truncate, references, trigger, and maintain when that privilege exists'
 );
 
 select revision as rev_before_denied from public.fweta_app_store where id = 'default' \gset

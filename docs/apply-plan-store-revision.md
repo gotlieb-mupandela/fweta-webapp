@@ -4,6 +4,8 @@ Live must never execute `20261021165036_fweta_app_store_revision.sql`. This pull
 
 If live's migration history has no row for `20261021165036`, no repair is needed. If that version is already recorded as applied, leave the record and do not run the SQL.
 
+Never re-run the PR 28 grants (`supabase/migrations/20261021100752_security_lockdown.sql`) or File 1 of PR 41 (`supabase/migrations/20261026120000_revoke_client_table_grants.sql`) after the revoke file. They grant `service_role` or client roles privileges back.
+
 ## Order
 
 1. Mark `20261021165036` applied without running it only if a runner would otherwise run it: `supabase migration repair --status applied 20261021165036`. This pull request deletes the file, so a runner that only sees the files in the repo will not try to run it. Skip the repair unless that version is still pending.
@@ -20,7 +22,7 @@ Until a build that saves through `fweta_cas_save_store` is live, the revision ch
 
 6. Later, you may drop `fweta_json_store_set` if it is still present. Step 4 already revokes execute when the function exists.
 
-7. Never apply the PR 28 migration after the client-grant revoke File 1 of PR 41. PR 28 is `supabase/migrations/20261021100752_security_lockdown.sql`. File 1 of PR 41 is `supabase/migrations/20261026120000_revoke_client_table_grants.sql`. The PR 28 migration grants `authenticated` access back on `fweta_` tables. The same file grants all privileges on `public.fweta_app_store` to `service_role`, so applying it after step 4 hands direct table writes back.
+7. Never re-run the PR 28 grants (`supabase/migrations/20261021100752_security_lockdown.sql`) or File 1 of PR 41 (`supabase/migrations/20261026120000_revoke_client_table_grants.sql`) after the revoke file. They grant `service_role` or client roles privileges back.
 
 ## Before the revoke
 

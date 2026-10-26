@@ -420,3 +420,34 @@ select rehearsal.ok(
     = '{"profiles":[{"id":"cas-1"}]}'::jsonb,
   'pass ' || :'pass' || ' conflicts left revision 6 and the cas document in place'
 );
+
+-- Privilege baseline for the revoke file. The shell applies the revoke next.
+-- Pass 1 and pass 2 each take a fresh snapshot, then roll the revoke back.
+delete from rehearsal.scratch
+where id = 'tableacl:service_role'
+   or id like 'fnacl:%';
+
+insert into rehearsal.scratch (id, result)
+values (
+  'tableacl:service_role',
+  rehearsal.service_role_table_privs('public.fweta_app_store'::regclass)
+);
+
+insert into rehearsal.scratch (id, result)
+select 'fnacl:' || p.oid::text, coalesce(p.proacl::text, '<null>')
+from pg_catalog.pg_proc p
+join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname like 'fweta\_%' escape '\';
+
+select rehearsal.ok(
+  (select result from rehearsal.scratch where id = 'tableacl:service_role')
+    = 'DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE'
+  or (
+    current_setting('server_version_num')::int >= 170000
+    and (select result from rehearsal.scratch where id = 'tableacl:service_role')
+      = 'DELETE,INSERT,MAINTAIN,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE'
+  ),
+  'pass ' || :'pass' || ' pre-revoke service_role table privileges are the grant-all baseline: '
+    || (select result from rehearsal.scratch where id = 'tableacl:service_role')
+);
