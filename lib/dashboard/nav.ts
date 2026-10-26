@@ -708,6 +708,6 @@ export function getScreenTitle(pathname: string): string {
   if (/\/campaigns\/[^/]+\/edit$/.test(pathname)) return "Edit campaign";
   if (/\/campaigns\/[^/]+\/submissions$/.test(pathname)) return "Review queue";
   if (/\/campaigns\/[^/]+$/.test(pathname)) return "Campaign";
-  const last = pathname.split("/").filter(Boolean).pop() || "fweta";
+  const last = pathname.split("/").filter(Boolean).pop() || "Fweta";
   return last.replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 }

@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const base = appBase();
   const lines = [
-    "# fweta",
+    "# Fweta",
     "",
     "> Fweta is a Windhoek-built marketplace for African creators. Brands fund view-based campaigns and can also license UGC for their own ads. This file lists the public trust directory.",
     "",

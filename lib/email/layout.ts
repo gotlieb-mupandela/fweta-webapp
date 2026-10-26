@@ -169,7 +169,7 @@ export function renderEmail(doc: EmailDocument): RenderedEmail {
                   <td valign="middle" style="padding-right:10px;">
                     <img src="${escapeHtml(logo)}" width="28" height="31" alt="" style="display:block;border:0;outline:none;" />
                   </td>
-                  <td valign="middle" style="font-family:'Karla',Helvetica,Arial,sans-serif;font-size:18px;font-weight:700;letter-spacing:-0.02em;color:#12110f;">fweta</td>
+                  <td valign="middle" style="font-family:'Karla',Helvetica,Arial,sans-serif;font-size:18px;font-weight:700;letter-spacing:-0.02em;color:#12110f;">Fweta</td>
                 </tr>
               </table>
               <p style="margin:28px 0 0;font-family:'Karla',Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#b8962e;">${escapeHtml(doc.eyebrow)}</p>
@@ -200,7 +200,7 @@ export function renderEmail(doc: EmailDocument): RenderedEmail {
 </html>`;
 
   const textParts = [
-    "fweta",
+    "Fweta",
     "",
     doc.eyebrow,
     doc.headline,

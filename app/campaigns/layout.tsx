@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   title: "Open campaigns",
   description: "Browse Fweta content rewards campaigns and submit clips on allowed platforms.",
   openGraph: {
-    title: "Open campaigns · fweta",
+    title: "Open campaigns · Fweta",
     description: "Browse content rewards campaigns and submit clips.",
   },
 };

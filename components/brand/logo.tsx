@@ -62,14 +62,14 @@ export function Logo({
 
   if (external) {
     return (
-      <a href={href} className={classes} aria-label="fweta">
+      <a href={href} className={classes} aria-label="Fweta">
         {content}
       </a>
     );
   }
 
   return (
-    <Link href={href} className={classes} aria-label="fweta">
+    <Link href={href} className={classes} aria-label="Fweta">
       {content}
     </Link>
   );
