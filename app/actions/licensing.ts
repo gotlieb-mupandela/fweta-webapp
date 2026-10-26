@@ -5,7 +5,7 @@ import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
-import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
+import { newId, nowIso, updateStore } from "@/lib/db/store";
 import type { UploadGrant } from "@/lib/db/types";
 import type { SocialPlatform } from "@/types/enums";
 import {
@@ -30,7 +30,7 @@ import { DELIVERY_FILE_LIMIT, SERVER_ACTION_FILE_MAX } from "@/lib/storage/const
 import { isStorageConfigured } from "@/lib/storage/driver";
 import { inspectFile } from "@/lib/storage/inspect";
 import { plannedObjectPath, putCheckedObject } from "@/lib/storage/objects";
-import { appendGrantsIfAllowed, newStagedGrant, type StoredGrant } from "@/lib/storage/policy";
+import { appendGrantsIfAllowed, claimStagedFiles, newStagedGrant, type StoredGrant } from "@/lib/storage/policy";
 import { writeReservedGrants } from "@/lib/storage/stage";
 import { safeOriginalName } from "@/lib/ugc/files";
 import { submitStagedDeliverySchema } from "@/lib/validations/uploads";
@@ -466,23 +466,19 @@ export async function submitStagedDeliveryAction(raw: unknown) {
   const session = await requireSession();
   const parsed = submitStagedDeliverySchema.safeParse(raw);
   if (!parsed.success) return { ok: false as const, error: "Choose a file to upload." };
-  const store = await readStore();
-  for (const file of parsed.data.files) {
-    const grant = (store.uploadGrants ?? []).find((item) => item.path === file.name && item.userId === session.id);
-    if (!grant?.finalizedAt || (grant.targetId && grant.targetId !== parsed.data.applicationId)) {
-      return { ok: false as const, error: "Upload the file before finishing." };
-    }
-  }
   try {
     let briefId = "";
     await updateStore((draft) => {
+      const claimed = claimStagedFiles({
+        grants: draft.uploadGrants ?? [],
+        userId: session.id,
+        applicationId: parsed.data.applicationId,
+        paths: parsed.data.files.map((file) => file.name),
+        now: nowIso(),
+      });
+      if (!claimed.ok) throw new Error(claimed.error);
+      draft.uploadGrants = claimed.grants;
       const delivery = submitDelivery(draft, session, parsed.data.applicationId, parsed.data.files, clock());
-      markGrantsAttached(
-        draft.uploadGrants,
-        session.id,
-        parsed.data.files.map((file) => file.name),
-        nowIso(),
-      );
       briefId = delivery.briefId;
       const brief = draft.ugcBriefs.find((item) => item.id === briefId);
       if (brief) {

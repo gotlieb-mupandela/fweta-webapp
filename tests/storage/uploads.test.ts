@@ -26,7 +26,9 @@ import type { StorageDriver } from "../../lib/storage/driver";
 import { inspectFile } from "../../lib/storage/inspect";
 import {
   appendGrantsIfAllowed,
+  claimStagedFiles,
   claimStoredGrant,
+  STAGED_FILE_IN_USE_ERROR,
   deliveryUploadDecision,
   downloadHeaders,
   finalizeStoredGrant,
@@ -697,4 +699,93 @@ test("an unattached staged file is swept after its retention and an attached fil
     storageConfigured: true,
   });
   assert.equal(removed.length, 0);
+});
+
+test("a later delivery cannot re-attach a file that is already attached", () => {
+  const attachedAt = new Date(nowMs - 1000).toISOString();
+  const grants = [asStaged(fileId, nowMs - 60_000, { attachedAt })];
+  const before = grants.map((grant) => ({ ...grant }));
+  const deliveries: string[] = ["delivery-1"];
+  const claimed = claimStagedFiles({
+    grants,
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    paths: [grants[0]!.path],
+    now: new Date(nowMs).toISOString(),
+  });
+  assert.equal(claimed.ok, false);
+  if (claimed.ok) return;
+  assert.equal(claimed.error, STAGED_FILE_IN_USE_ERROR);
+  assert.deepEqual(grants, before);
+  assert.equal(deliveries.length, 1);
+  assert.equal(grants[0]?.attachedAt, attachedAt);
+
+  const fresh = asStaged("44444444-4444-4444-8444-444444444444", nowMs - 60_000);
+  const batch = [grants[0]!, fresh];
+  const batchBefore = batch.map((grant) => ({ ...grant }));
+  const mixed = claimStagedFiles({
+    grants: batch,
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    paths: [grants[0]!.path, fresh.path],
+    now: new Date(nowMs).toISOString(),
+  });
+  assert.equal(mixed.ok, false);
+  assert.deepEqual(batch, batchBefore);
+});
+
+test("two parallel deliveries attach the same staged file once", async () => {
+  let grants = [asStaged(fileId, nowMs - 60_000)];
+  const deliveries: string[] = [];
+  let chain = Promise.resolve();
+
+  function deliver(deliveryId: string) {
+    const run = chain.then(() => {
+      const claimed = claimStagedFiles({
+        grants,
+        userId: userA,
+        applicationId: acceptedApplication.id,
+        paths: [grants[0]!.path],
+        now: new Date(nowMs).toISOString(),
+      });
+      if (!claimed.ok) return claimed;
+      grants = claimed.grants;
+      deliveries.push(deliveryId);
+      return claimed;
+    });
+    chain = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  const results = await Promise.all([deliver("delivery-a"), deliver("delivery-b")]);
+  assert.equal(results.filter((result) => result.ok).length, 1);
+  assert.equal(results.filter((result) => !result.ok && result.error === STAGED_FILE_IN_USE_ERROR).length, 1);
+  assert.deepEqual(deliveries, ["delivery-a"]);
+  assert.equal(grants.filter((grant) => grant.attachedAt).length, 1);
+});
+
+test("the sweep rechecks attachment inside the write before deleting", () => {
+  const pending = readFileSync("lib/storage/pending.ts", "utf8");
+  const writeAt = pending.indexOf("await updateStore");
+  const recheckAt = pending.indexOf("grantsAfterSweep(draft.uploadGrants", writeAt);
+  const deleteAt = pending.indexOf("deleteObject", writeAt);
+  assert.ok(writeAt > 0 && recheckAt > writeAt && deleteAt > recheckAt);
+
+  const stale = asStaged(fileId, nowMs - STAGED_GRANT_RETENTION_MS);
+  const preview = grantsAfterSweep([stale], nowMs);
+  assert.equal(preview.deleteObjects.length, 1);
+  const attached = { ...stale, attachedAt: new Date(nowMs).toISOString() };
+  const insideWrite = grantsAfterSweep([attached], nowMs);
+  assert.equal(insideWrite.deleteObjects.length, 0);
+  const kept = retainAfterSweep({
+    grants: [attached],
+    nowMs,
+    deletedIds: new Set([stale.id]),
+    storageConfigured: true,
+  });
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0]?.attachedAt, attached.attachedAt);
 });

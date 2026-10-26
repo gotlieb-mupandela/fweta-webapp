@@ -171,6 +171,32 @@ export function grantIsSpent(grant: StoredGrant): boolean {
   return Boolean(grant.spentAt) || grant.tokenHash.startsWith("spent:");
 }
 
+export const STAGED_FILE_IN_USE_ERROR = "That file is already part of a delivery.";
+
+/**
+ * Claims staged files for one delivery. Refuses the whole set when any file
+ * is already attached, spent, owned by someone else, or for another application.
+ * The input list is not changed. Callers assign the returned list in the same write as the delivery.
+ */
+export function claimStagedFiles(input: {
+  grants: StoredGrant[];
+  userId: string;
+  applicationId: string;
+  paths: string[];
+  now: string;
+}): { ok: true; grants: StoredGrant[] } | { ok: false; error: string } {
+  const next = input.grants.map((grant) => ({ ...grant }));
+  for (const objectPath of input.paths) {
+    const grant = next.find((item) => item.path === objectPath && item.userId === input.userId);
+    if (!grant || grantIsSpent(grant) || grant.targetId !== input.applicationId || !grant.finalizedAt) {
+      return { ok: false, error: "Upload the file before finishing." };
+    }
+    if (grant.attachedAt) return { ok: false, error: STAGED_FILE_IN_USE_ERROR };
+    grant.attachedAt = input.now;
+  }
+  return { ok: true, grants: next };
+}
+
 /**
  * Spent and expired grants stay until SIGNED_UPLOAD_RETENTION_MS after they
  * were created. The signed URL can still PUT after a rejected finalize deletes

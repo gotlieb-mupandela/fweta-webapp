@@ -11,27 +11,32 @@ import { createSupabaseStorageDriver, isStorageConfigured, type StorageDriver } 
 export async function sweepUnfinalizedUploads(now = new Date(), driver?: StorageDriver): Promise<number> {
   const nowMs = now.getTime();
   const current = await readStore();
-  const swept = grantsAfterSweep(current.uploadGrants ?? [], nowMs);
-  if (swept.deleteObjects.length === 0) return 0;
+  if (grantsAfterSweep(current.uploadGrants ?? [], nowMs).deleteObjects.length === 0) return 0;
   const storage = driver ?? (isStorageConfigured() ? createSupabaseStorageDriver() : null);
-  const deleted = new Set<string>();
-  if (storage) {
-    for (const grant of swept.deleteObjects) {
-      try {
-        await storage.deleteObject(grant.bucket, grant.path);
-        deleted.add(grant.id);
-      } catch {
-        console.warn(`[fweta] upload sweep could not delete an object in ${grant.bucket}`);
+  let removed = 0;
+  await updateStore(async (draft) => {
+    // Recheck on the store being written. A delivery may have attached the file since the read.
+    const swept = grantsAfterSweep(draft.uploadGrants ?? [], nowMs);
+    const deleted = new Set<string>();
+    if (storage) {
+      for (const grant of swept.deleteObjects) {
+        if (grant.attachedAt) continue;
+        try {
+          await storage.deleteObject(grant.bucket, grant.path);
+          deleted.add(grant.id);
+        } catch {
+          console.warn(`[fweta] upload sweep could not delete an object in ${grant.bucket}`);
+        }
       }
     }
-  }
-  await updateStore((draft) => {
+    const before = draft.uploadGrants ?? [];
     draft.uploadGrants = retainAfterSweep({
-      grants: draft.uploadGrants ?? [],
+      grants: before,
       nowMs,
       deletedIds: deleted,
       storageConfigured: Boolean(storage),
     });
+    removed = before.length - draft.uploadGrants.length;
   });
-  return swept.deleteObjects.length;
+  return removed;
 }
