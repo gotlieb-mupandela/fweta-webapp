@@ -1,4 +1,5 @@
 import { nowIso, updateStore } from "@/lib/db/store";
+import { repairDiscoverableCreators } from "@/lib/influencer/discover";
 import { finalizeCampaign } from "@/lib/rewards/earnings";
 import { applyWalletDelta } from "@/lib/wallet/ledger";
 
@@ -10,11 +11,13 @@ export type HousekeepingResult = {
   campaignsSettled: number;
   budgetReturnedCents: number;
   holdsReleased: number;
+  creatorsRepaired: number;
 };
 
 /**
  * Ends campaigns whose end date has passed, returns unused budget and fee once,
- * and releases booking escrow that has sat in "requested" for 14 days.
+ * releases booking escrow that has sat in "requested" for 14 days, and creates
+ * a public profile for each finished creator who has none and has not hidden one.
  * Does not read social networks or change view counts.
  */
 export async function runHousekeepingJob(now = new Date()): Promise<HousekeepingResult> {
@@ -25,6 +28,7 @@ export async function runHousekeepingJob(now = new Date()): Promise<Housekeeping
     campaignsSettled: 0,
     budgetReturnedCents: 0,
     holdsReleased: 0,
+    creatorsRepaired: 0,
   };
 
   await updateStore((store) => {
@@ -63,6 +67,8 @@ export async function runHousekeepingJob(now = new Date()): Promise<Housekeeping
       booking.updatedAt = at;
       result.holdsReleased += 1;
     }
+
+    result.creatorsRepaired += repairDiscoverableCreators(store, at);
   });
 
   return result;

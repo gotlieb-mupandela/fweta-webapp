@@ -1,81 +1,83 @@
 import "server-only";
 
-import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
-import type { DatabaseStore, Profile } from "@/lib/db/types";
+import { newId, readStore } from "@/lib/db/store";
+import type { DatabaseStore, InfluencerProfile, Profile } from "@/lib/db/types";
 import { slugify } from "@/lib/utils";
 
-function isCreatorAccount(profile: Profile): boolean {
+/** Finished means the timestamp is stored. Null and missing both stay private. */
+export function onboardingFinished(profile: Profile): boolean {
+  return typeof profile.onboardingCompletedAt === "string" && profile.onboardingCompletedAt.trim().length > 0;
+}
+
+/** A saved profile with published off is a hide. A missing profile is not. */
+export function influencerProfileHidden(profile: InfluencerProfile): boolean {
+  return profile.published === false;
+}
+
+function canCreateDiscoverableProfile(account: Profile): boolean {
   return (
-    !profile.suspended &&
-    profile.onboardingCompletedAt !== null &&
-    (profile.roles.includes("influencer") || profile.roles.includes("clipper"))
+    !account.suspended &&
+    onboardingFinished(account) &&
+    (account.roles.includes("influencer") || account.roles.includes("clipper"))
   );
 }
 
-function needsDiscoverableRepair(store: DatabaseStore): boolean {
-  return store.profiles.some((account) => {
-    if (!isCreatorAccount(account)) return false;
-    const existing = store.influencerProfiles.find((profile) => profile.userId === account.id);
-    if (!existing) return true;
-    // Onboarding used to save published:false without a later edit.
-    return !existing.published && existing.updatedAt === existing.createdAt;
-  });
+/**
+ * Create a published profile for one finished creator who does not have one
+ * and has not hidden an existing profile. Does not read or write the store
+ * itself. Callers run this inside their own updateStore.
+ * Returns true when a profile row was created.
+ */
+export function repairDiscoverableCreator(store: DatabaseStore, userId: string, now: string): boolean {
+  const account = store.profiles.find((profile) => profile.id === userId);
+  if (!account || !canCreateDiscoverableProfile(account)) return false;
+  const existing = store.influencerProfiles.find((profile) => profile.userId === account.id);
+  if (existing && influencerProfileHidden(existing)) return false;
+  if (existing) return false;
+  return insertDiscoverableProfile(store, account, now);
 }
 
-/**
- * Brands can only book a published profile. Create one for finished creators
- * who never got one. Server-only so a client cannot invoke the write.
- */
-export async function ensureDiscoverableCreators() {
-  const snapshot = await readStore();
-  if (!needsDiscoverableRepair(snapshot)) return;
+/** Same gate as repairDiscoverableCreator, for every account. Housekeeping only. */
+export function repairDiscoverableCreators(store: DatabaseStore, now: string): number {
+  let created = 0;
+  for (const account of store.profiles) {
+    if (repairDiscoverableCreator(store, account.id, now)) created += 1;
+  }
+  return created;
+}
 
-  const now = nowIso();
-  await updateStore((store) => {
-    for (const account of store.profiles) {
-      if (!isCreatorAccount(account)) continue;
-      const existing = store.influencerProfiles.find((profile) => profile.userId === account.id);
-      if (existing) {
-        if (!existing.published && existing.updatedAt === existing.createdAt) {
-          existing.published = true;
-        }
-        continue;
-      }
+function insertDiscoverableProfile(store: DatabaseStore, account: Profile, now: string): boolean {
+  const base = slugify(account.displayName) || `creator-${account.id.slice(0, 6)}`;
+  let slug = base;
+  let n = 1;
+  while (store.influencerProfiles.some((profile) => profile.slug === slug)) {
+    slug = `${base}-${n++}`;
+  }
+  const niche = account.niche?.trim() || (account.roles.includes("influencer") ? "Creator" : "Clipper");
+  const headline = niche.length >= 5 ? niche : `${account.displayName} on fweta`;
+  const bioText = account.bio?.trim() ?? "";
+  const bio = bioText.length >= 10 ? bioText : `${account.displayName} creates on fweta.`;
 
-      const base = slugify(account.displayName) || `creator-${account.id.slice(0, 6)}`;
-      let slug = base;
-      let n = 1;
-      while (store.influencerProfiles.some((profile) => profile.slug === slug)) {
-        slug = `${base}-${n++}`;
-      }
-      const niche =
-        account.niche?.trim() || (account.roles.includes("influencer") ? "Creator" : "Clipper");
-      const headline = niche.length >= 5 ? niche : `${account.displayName} on fweta`;
-      const bio =
-        account.bio.trim().length >= 10 ? account.bio.trim() : `${account.displayName} creates on fweta.`;
-
-      store.influencerProfiles.push({
-        id: newId(),
-        userId: account.id,
-        slug,
-        displayName: account.displayName,
-        headline,
-        bio,
-        niche,
-        location: account.location?.trim() || "Namibia",
-        avatarUrl: account.avatarUrl,
-        socials: { ...(account.socials ?? {}) },
-        featuredWork: [],
-        published: true,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
+  store.influencerProfiles.push({
+    id: newId(),
+    userId: account.id,
+    slug,
+    displayName: account.displayName,
+    headline,
+    bio,
+    niche,
+    location: account.location?.trim() || "Namibia",
+    avatarUrl: account.avatarUrl,
+    socials: { ...(account.socials ?? {}) },
+    featuredWork: [],
+    published: true,
+    createdAt: now,
+    updatedAt: now,
   });
+  return true;
 }
 
 export async function listPublicInfluencers(filters?: { q?: string; niche?: string }) {
-  await ensureDiscoverableCreators();
   const store = await readStore();
   return store.influencerProfiles
     .filter((p) => p.published)
@@ -91,7 +93,6 @@ export async function listPublicInfluencers(filters?: { q?: string; niche?: stri
 }
 
 export async function getPublicInfluencer(slug: string) {
-  await ensureDiscoverableCreators();
   const store = await readStore();
   const profile = store.influencerProfiles.find((p) => p.slug === slug && p.published);
   if (!profile) return null;

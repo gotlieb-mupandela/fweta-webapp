@@ -11,7 +11,8 @@ export const runtime = "nodejs";
 
 /**
  * GET /api/jobs/housekeeping
- * Vercel Cron. Ends campaigns, settles unused budget, releases stale booking holds.
+ * Vercel Cron. Ends campaigns, settles unused budget, releases stale booking holds,
+ * and creates public profiles for finished creators who have none.
  * Does not fetch view counts.
  */
 export async function GET(request: NextRequest) {
