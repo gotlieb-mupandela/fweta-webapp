@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -12,6 +13,11 @@ import { getSession } from "@/lib/auth/session";
 import { isSocialPlatform } from "@/lib/platforms/guides";
 import { PLATFORM_LABEL } from "@/lib/social/platforms";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Active campaigns",
+  description: "Open campaigns you can join.",
+};
 
 export default async function ClipperCampaignsPage({
   searchParams,
@@ -75,7 +81,7 @@ export default async function ClipperCampaignsPage({
                       <div className="mt-3 flex flex-wrap gap-2">
                         <Badge tone="gold">{c.type}</Badge>
                         <Badge>{c.category}</Badge>
-                        <Badge tone="muted">CPM {formatMoney(c.cpmCents)}</Badge>
+                        <Badge tone="muted">Rate per 1,000 views {formatMoney(c.cpmCents)}</Badge>
                         <Badge tone="muted">Max {formatMoney(c.maxPayoutPerSubmissionCents)}</Badge>
                         <Badge tone="muted">Left {formatMoney(remaining)}</Badge>
                       </div>

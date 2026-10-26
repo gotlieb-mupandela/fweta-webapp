@@ -5,7 +5,7 @@ import { ABUSE_RULES } from "@/lib/rewards/content-rewards";
 
 export const metadata: Metadata = {
   title: "Abuse rules",
-  description: "Rules for clips, views, and appeals on fweta.",
+  description: "Rules for clips, views, and appeals on Fweta.",
 };
 
 export default function AbuseRulesPage() {
@@ -15,6 +15,7 @@ export default function AbuseRulesPage() {
       <p className="text-xs uppercase tracking-[0.14em] text-muted-light">
         Windhoek · Applied to every clip · Last updated 17 October 2026
       </p>
+      <p>Fweta Trading Enterprises CC, Reg. CC/2026/10254</p>
       <p>
         These rules sit on top of the{" "}
         <Link href="/legal/creator-terms" className="text-foreground underline-offset-2 hover:underline">
@@ -34,7 +35,7 @@ export default function AbuseRulesPage() {
         A creator can appeal a flagged clip once, with a short note. The appeal does not create a second clip and it does not move money by itself.
       </p>
       <p>
-        Questions go through{" "}
+        Questions: email hello@fweta.com, or use{" "}
         <Link href="/dashboard/support" className="text-foreground underline-offset-2 hover:underline">
           in-app support
         </Link>

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { markAllNotificationsReadAction } from "@/app/actions/notifications";
@@ -6,6 +7,11 @@ import { Button } from "@/components/ui/button";
 import { EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { listNotificationsForUser } from "@/lib/notifications/queries";
+
+export const metadata: Metadata = {
+  title: "Notifications",
+  description: "Updates on campaigns, bookings, and payouts.",
+};
 
 export const dynamic = "force-dynamic";
 

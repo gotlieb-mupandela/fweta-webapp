@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -8,6 +9,11 @@ import { PageHeader, SectionHeader, Stat, StatGrid } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Admin overview",
+  description: "Payouts, reviews, and platform health.",
+};
 
 const QUICK_LINKS = [
   { href: "/dashboard/admin/deposits", label: "EFT deposits" },

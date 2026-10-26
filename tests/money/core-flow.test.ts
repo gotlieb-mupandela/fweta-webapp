@@ -181,6 +181,47 @@ test("a pool splits the reserved budget at close", () => {
   assert.ok(camp.poolSettledAt || camp.closedAt);
 });
 
+test("closing a funded campaign returns the unspent budget to the brand wallet", () => {
+  const camp = campaign({
+    id: "abababab-abab-4bab-8bab-abababababab",
+    payModel: "cpm",
+    budgetTotalCents: 20_000,
+    cpmCents: 5_000,
+    title: "River",
+  });
+  const sub = submission({ id: "bcbcbcbc-bcbc-4cbc-8cbc-bcbcbcbcbcbc", campaignId: camp.id });
+  const db = store([camp], [sub]);
+  allocateCampaignFunds(db, camp);
+  applyConfirmedViews(db, sub.id, 1_000, null, null, now);
+  assert.equal(camp.budgetSpentCents, 5_000);
+  assert.equal(camp.feeChargedCents, 500);
+  assert.equal(camp.closedAt, null);
+
+  camp.endDate = new Date(now - 1000).toISOString();
+  finalizeCampaign(db, camp, now);
+
+  const brandWallet = db.wallets.find((row) => row.userId === brand)!;
+  assert.equal(camp.status, "completed");
+  assert.ok(camp.closedAt);
+  assert.equal(camp.unspentReturnedCents, 15_000);
+  assert.equal(camp.feeRefundedCents, 1_500);
+  assert.equal(brandWallet.availableCents, 200_000 - 5_000 - 500);
+
+  const returned = db.ledgerEntries.find(
+    (row) => row.referenceType === "campaign_fund" && row.type === "credit",
+  );
+  assert.ok(returned);
+  assert.equal(returned.amountCents, 15_000);
+  assert.equal(returned.reason, "Unspent campaign budget returned, River");
+
+  const fee = db.ledgerEntries.find(
+    (row) => row.referenceType === "campaign_fee" && row.type === "credit",
+  );
+  assert.ok(fee);
+  assert.equal(fee.amountCents, 1_500);
+  assert.equal(fee.reason, "Unused platform fee returned, River");
+});
+
 test("ledger rows stay paired with wallet changes", () => {
   const camp = campaign({
     id: "99999999-9999-4999-8999-999999999999",

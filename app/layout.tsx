@@ -28,21 +28,27 @@ const redHatMono = Red_Hat_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "fweta",
-    template: "%s · fweta",
+    default: "Fweta",
+    template: "%s · Fweta",
   },
-  description: "fweta workspace for campaigns, bookings, and payouts for African creators.",
+  description: "Fweta workspace for campaigns, bookings, and payouts for African creators.",
+  applicationName: "Fweta",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://app.fweta.com"),
   openGraph: {
-    title: "fweta",
+    title: "Fweta",
     description: "Campaigns, bookings, and payouts for African creators.",
-    siteName: "fweta",
+    siteName: "Fweta",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Fweta",
+    description: "Campaigns, bookings, and payouts for African creators.",
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "fweta",
+    title: "Fweta",
   },
 };
 

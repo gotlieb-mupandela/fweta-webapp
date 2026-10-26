@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -7,6 +8,11 @@ import { Badge, Card, EmptyState, PageHeader, SectionHeader } from "@/components
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Rate cards",
+  description: "Prices you publish for bookings.",
+};
 
 export default async function RateCardsPage() {
   const session = await getSession();

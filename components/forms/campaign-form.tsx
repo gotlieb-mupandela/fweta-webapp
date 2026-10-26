@@ -118,7 +118,7 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
-          <Label htmlFor="budgetTotal">Total budget (NAD)</Label>
+          <Label htmlFor="budgetTotal">Total budget (N$)</Label>
           <Input
             id="budgetTotal"
             name="budgetTotal"
@@ -131,7 +131,7 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
           />
         </div>
         <div>
-          <Label htmlFor="cpm">CPM (NAD)</Label>
+          <Label htmlFor="cpm">Rate per 1,000 views (N$)</Label>
           <Input
             id="cpm"
             name="cpm"
@@ -142,9 +142,10 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
             defaultValue={campaign ? (campaign.cpmCents / 100).toFixed(2) : ""}
             placeholder="50.00"
           />
+          <p className="mt-1 text-xs text-muted">For example, N$18 per 1,000 views.</p>
         </div>
         <div>
-          <Label htmlFor="maxPayout">Max per video (NAD)</Label>
+          <Label htmlFor="maxPayout">Max per video (N$)</Label>
           <Input
             id="maxPayout"
             name="maxPayout"
@@ -157,6 +158,8 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
           />
         </div>
       </div>
+      <p className="text-sm text-muted">All N$ prices exclude VAT.</p>
+      <p className="text-sm text-muted">Any unspent budget is returned to your wallet when the campaign closes.</p>
       <div>
         <Label>Platforms</Label>
         <div className="mt-2 flex flex-wrap gap-2">

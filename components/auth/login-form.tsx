@@ -20,7 +20,7 @@ export function LoginForm({ nextPath = "/dashboard" }: { nextPath?: string }) {
       <aside className="auth-brand animate-fade-in">
         <Logo href="https://fweta.com" light size="lg" className="relative z-10" />
         <div className="relative z-10 max-w-md space-y-5">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">fweta app</p>
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">Fweta app</p>
           <h2 className="font-display text-4xl leading-tight text-white xl:text-5xl">
             Your workspace for campaigns, bookings, and payouts.
           </h2>
@@ -56,7 +56,7 @@ export function LoginForm({ nextPath = "/dashboard" }: { nextPath?: string }) {
           <h1 className="font-display text-[2.35rem] leading-none text-foreground md:text-5xl">
             Sign in
           </h1>
-          <p className="mt-3 text-sm text-muted">Access your fweta workspace with email and password.</p>
+          <p className="mt-3 text-sm text-muted">Access your Fweta workspace with email and password.</p>
           <div className="hairline-gold my-7" />
 
           <form

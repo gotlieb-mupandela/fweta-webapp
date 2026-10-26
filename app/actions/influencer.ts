@@ -74,9 +74,9 @@ export async function ensureDiscoverableCreators() {
       }
       const niche =
         account.niche?.trim() || (account.roles.includes("influencer") ? "Creator" : "Clipper");
-      const headline = niche.length >= 5 ? niche : `${account.displayName} on fweta`;
+      const headline = niche.length >= 5 ? niche : `${account.displayName} on Fweta`;
       const bio =
-        account.bio.trim().length >= 10 ? account.bio.trim() : `${account.displayName} creates on fweta.`;
+        account.bio.trim().length >= 10 ? account.bio.trim() : `${account.displayName} creates on Fweta.`;
 
       store.influencerProfiles.push({
         id: newId(),

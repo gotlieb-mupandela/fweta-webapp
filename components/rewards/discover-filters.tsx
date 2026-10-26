@@ -33,8 +33,8 @@ export function DiscoverFilters({
         className="input-capsule col-span-2 h-11 sm:min-w-[180px] sm:flex-1"
       />
       <select name="payModel" defaultValue={payModel ?? ""} className="input-capsule h-11" aria-label="Pay model">
-        <option value="">CPM and pool</option>
-        <option value="cpm">CPM</option>
+        <option value="">Rate per 1,000 views and pool</option>
+        <option value="cpm">Rate per 1,000 views</option>
         <option value="pool">Pool</option>
       </select>
       <select name="country" defaultValue={country ?? "NA"} className="input-capsule h-11" aria-label="Country">

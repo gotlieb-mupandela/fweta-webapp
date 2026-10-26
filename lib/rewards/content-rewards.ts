@@ -47,7 +47,7 @@ export const ABUSE_RULES = [
   "No bought views, bots, view trades, or paid boosts.",
   "No duplicate posts, and no second account posting the same clip.",
   "The post stays public until the wallet release.",
-  "Disclose that the post is sponsored.",
+  "Mark the post as a paid partnership on the platform.",
   "At most 5 posts per linked account on one campaign in 24 hours.",
 ] as const;
 

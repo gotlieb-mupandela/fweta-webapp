@@ -24,7 +24,7 @@ export default async function CampaignsPage({
   return (
     <PublicChrome
       title="Open campaigns"
-      description="Browse content rewards campaigns and start earning."
+      description="Browse open campaigns and start earning."
     >
       <PlatformPicker basePath="/campaigns" params={params} />
       {isSocialPlatform(params.platform) ? (
@@ -73,7 +73,7 @@ export default async function CampaignsPage({
                     <div className="mt-4 flex flex-wrap gap-2">
                       <Badge tone="gold">{c.type}</Badge>
                       <Badge>{c.category}</Badge>
-                      <Badge tone="muted">CPM {formatMoney(c.cpmCents)}</Badge>
+                      <Badge tone="muted">Rate per 1,000 views {formatMoney(c.cpmCents)}</Badge>
                     </div>
                   </Card>
                 </Link>

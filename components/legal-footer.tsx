@@ -9,16 +9,19 @@ const links = [
 
 export function LegalFooter({ className = "" }: { className?: string }) {
   return (
-    <nav aria-label="Legal">
-      <ul className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted ${className}`}>
-        {links.map((link) => (
-          <li key={link.href}>
-            <Link href={link.href} className="underline-offset-2 hover:text-foreground hover:underline">
-              {link.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </nav>
+    <div className={className}>
+      <p className="text-xs text-muted">Fweta Trading Enterprises CC, Reg. CC/2026/10254</p>
+      <nav aria-label="Legal" className="mt-2">
+        <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
+          {links.map((link) => (
+            <li key={link.href}>
+              <Link href={link.href} className="underline-offset-2 hover:text-foreground hover:underline">
+                {link.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </div>
   );
 }

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -13,6 +14,11 @@ import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatLabel, platformLabel, usageLabel } from "@/lib/licensing/hub";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "UGC brief",
+  description: "Brief, applications, and deliveries.",
+};
 
 export default async function BrandUgcDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -44,6 +50,7 @@ export default async function BrandUgcDetailPage({ params }: { params: Promise<{
         <p className="mt-2 text-xs text-muted">
           Platforms: {brief.platforms.map(platformLabel).join(", ")}. Raw files: {brief.rawFiles ? "yes" : "no"}. Revisions: {brief.revisionLimit}.
         </p>
+        <p className="mt-2 text-xs text-muted">Any unspent budget is returned to your wallet when the campaign closes.</p>
         <div className="mt-4">
           <BriefLifecycle briefId={brief.id} status={brief.status} />
         </div>

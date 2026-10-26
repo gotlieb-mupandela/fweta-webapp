@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { PublicChrome } from "@/components/public-chrome";
@@ -5,6 +6,11 @@ import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { EmptyState } from "@/components/ui/card";
 import { readStore } from "@/lib/db/store";
 import { formatMoney, formatNumber } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Leaderboard",
+  description: "Approved clips on Fweta, ranked by checked views.",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +36,7 @@ export default async function LeaderboardPage() {
   return (
     <PublicChrome
       title="Leaderboard"
-      description="Approved clips, ranked by checked views. Earnings follow the campaign CPM."
+      description="Approved clips, ranked by checked views. Earnings follow the campaign rate per 1,000 views."
     >
       {rows.length === 0 ? (
         <EmptyState

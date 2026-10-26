@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getMyWallet } from "@/app/actions/wallet";
@@ -6,6 +7,11 @@ import { Badge, Card, EmptyState, PageHeader, SectionHeader } from "@/components
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Deposits",
+  description: "Add funds to your brand wallet.",
+};
 
 export default async function BrandDepositsPage() {
   const session = await getSession();
@@ -29,7 +35,7 @@ export default async function BrandDepositsPage() {
         <h2 className="font-display text-xl tracking-tight">Submit an EFT</h2>
         <p className="mt-1.5 text-sm text-muted">
           Available now: {formatMoney(wallet.availableCents)}. The wallet does not change until an
-          admin confirms the transfer. Manual EFT only.
+          admin confirms the transfer. Manual EFT only. All N$ prices exclude VAT.
         </p>
         <div className="mt-5">
           <BrandDepositForm />

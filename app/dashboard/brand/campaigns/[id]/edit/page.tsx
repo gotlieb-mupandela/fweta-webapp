@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { getCampaign } from "@/app/actions/campaigns";
@@ -7,6 +8,11 @@ import { getSession } from "@/lib/auth/session";
 import { isCampaignFunded } from "@/lib/campaigns/fund";
 import { readStore } from "@/lib/db/store";
 import { feeBpsFromStore } from "@/lib/rewards/content-rewards";
+
+export const metadata: Metadata = {
+  title: "Edit campaign",
+  description: "Update budget, rate, and rules.",
+};
 
 export default async function EditCampaignPage({
   params,

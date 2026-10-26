@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -7,6 +8,11 @@ import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "UGC briefs",
+  description: "Briefs for content you use in your own ads.",
+};
 
 export default async function BrandUgcPage() {
   const session = await getSession();
@@ -29,7 +35,7 @@ export default async function BrandUgcPage() {
       />
       <ContextHelp
         title="Budget is reserved from your wallet"
-        body="Opening a brief reserves the fee times the number of videos. Each approval pays that fee to the creator and writes a license. Closing the brief returns whatever is still reserved. Pay-in and payout stay manual EFT."
+        body="Opening a brief reserves the fee times the number of videos. Each approval pays that fee to the creator and writes a license. Any unspent budget is returned to your wallet when the campaign closes. Pay-in and payout stay manual EFT."
         hint="Drafts do not reserve money until you open them."
       />
       {briefs.length === 0 ? (

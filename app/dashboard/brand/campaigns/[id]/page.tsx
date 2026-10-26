@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -20,6 +21,11 @@ import {
   remainingBudgetCents,
 } from "@/lib/rewards/content-rewards";
 import { formatMoney, formatNumber } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Campaign",
+  description: "Campaign details, budget, and submissions.",
+};
 
 export default async function CampaignDetailPage({
   params,
@@ -81,7 +87,7 @@ export default async function CampaignDetailPage({
         <ContextHelp
           title="Going live spends the wallet"
           body="Activate this draft once an admin has confirmed your transfer and the wallet covers the budget. Creators can submit as soon as it is live."
-          hint="Pause stops new submissions. Mark completed when the campaign should close."
+          hint="Pause stops new submissions. Mark completed when the campaign should close. Any unspent budget is returned to your wallet when the campaign closes."
         />
       ) : (
         <ContextHelp
@@ -97,7 +103,7 @@ export default async function CampaignDetailPage({
       <Card>
         <BudgetBar campaign={campaign} />
         <p className="mt-2 text-xs text-muted">
-          {formatMoney(remainingBudgetCents(campaign))} still available for verified views.
+          {formatMoney(remainingBudgetCents(campaign))} still available for verified views. Any unspent budget is returned to your wallet when the campaign closes.
         </p>
       </Card>
 

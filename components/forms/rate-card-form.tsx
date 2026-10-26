@@ -79,7 +79,7 @@ export function RateCardForm() {
           </Select>
         </div>
         <div>
-          <Label htmlFor="price">Price (NAD)</Label>
+          <Label htmlFor="price">Price (N$)</Label>
           <Input id="price" name="price" type="number" step="0.01" min="0.01" required placeholder="500.00" />
         </div>
       </div>

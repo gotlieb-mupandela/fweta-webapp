@@ -41,7 +41,7 @@ export default async function DirectoryCategoryPage({
   return (
     <PublicChrome
       title={`${first.category} in ${first.city}`}
-      description={`Businesses in ${first.city} with public creator reviews on fweta.`}
+      description={`Businesses in ${first.city} with public creator reviews on Fweta.`}
     >
       <p className="mb-6 text-sm">
         <Link href="/directory" className="text-gold-deep hover:underline">

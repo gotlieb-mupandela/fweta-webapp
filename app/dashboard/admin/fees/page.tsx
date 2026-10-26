@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { FeeForm } from "@/components/forms/fee-form";
@@ -5,6 +6,11 @@ import { Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui/car
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { feeBpsFromStore } from "@/lib/rewards/content-rewards";
+
+export const metadata: Metadata = {
+  title: "Platform fee",
+  description: "Review the platform fee and recent admin actions.",
+};
 
 export default async function AdminFeesPage() {
   const session = await getSession();

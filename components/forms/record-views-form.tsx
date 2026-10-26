@@ -42,7 +42,7 @@ export function RecordViewsForm({
           setSuccess(
             res.creditedCents > 0
               ? `Views saved. Credited ${formatMoney(res.creditedCents)} to the clipper wallet.`
-              : "Views saved. No new earnings yet. CPM pays once per 1,000 views, up to the video cap.",
+              : "Views saved. No new earnings yet. The rate pays once per 1,000 views, up to the video cap.",
           );
           router.refresh();
         });

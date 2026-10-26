@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Creator terms",
-  description: "Earnings, submissions, and manual EFT withdrawals for fweta creators.",
+  description: "Earnings, submissions, and manual EFT withdrawals for Fweta creators.",
 };
 
 export default function CreatorTermsPage() {
@@ -13,8 +13,9 @@ export default function CreatorTermsPage() {
       <p className="text-xs uppercase tracking-[0.14em] text-muted-light">
         Draft for counsel review · Last updated 17 October 2026
       </p>
+      <p>Fweta Trading Enterprises CC, Reg. CC/2026/10254</p>
       <p>
-        These terms apply if you join fweta as a clipper, an influencer, or both. They sit alongside
+        These terms apply if you join Fweta as a clipper, an influencer, or both. They sit alongside
         the{" "}
         <Link href="/legal/terms" className="text-foreground underline-offset-2 hover:underline">
           terms of use
@@ -23,11 +24,11 @@ export default function CreatorTermsPage() {
       </p>
       <h2 className="font-display text-2xl text-foreground">Clip campaigns</h2>
       <p>
-        Open campaigns pay from the brand&apos;s budget at the CPM the brand set, up to the
+        Open campaigns pay from the brand&apos;s budget at the rate per 1,000 views the brand set, up to the
         per-video cap, and only while the campaign is active and still funded. You submit a public
         link on an allowed platform. Views that look non-genuine, paid, or outside the rules are
         not payable. Approval is manual in this version. Posting a clip does not by itself create
-        a debt owed by fweta.
+        a debt owed by Fweta.
       </p>
       <h2 className="font-display text-2xl text-foreground">Influencer bookings</h2>
       <p>
@@ -40,7 +41,7 @@ export default function CreatorTermsPage() {
         You can request a withdrawal from available balance once you have saved a payout method and
         the amount is at least N$100. The request moves that amount from available to pending.
         An admin pays it by manual EFT to the account you saved, then marks it paid. If the request
-        is rejected, the amount returns to available balance. fweta does not store your card and
+        is rejected, the amount returns to available balance. Fweta does not store your card and
         does not push payouts through a payment gateway in this version.
       </p>
       <h2 className="font-display text-2xl text-foreground">View counts</h2>

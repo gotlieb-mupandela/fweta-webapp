@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getSession } from "@/lib/auth/session";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+  description: "Open your Fweta workspace.",
+};
 
 export default async function DashboardIndexPage() {
   const session = await getSession();

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -6,6 +7,11 @@ import { BookingRequestForm } from "@/components/forms/booking-request-form";
 import { PublicChrome } from "@/components/public-chrome";
 import { Card, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
+
+export const metadata: Metadata = {
+  title: "Book a creator",
+  description: "Request a booking at the creator's listed rate.",
+};
 
 export default async function BookInfluencerPage({
   params,

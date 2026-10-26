@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -8,6 +9,11 @@ import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { splitCreatorIncome } from "@/lib/licensing/hub";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "UGC work",
+  description: "Briefs you can deliver without posting on your feed.",
+};
 
 export default async function CreatorUgcPage() {
   const session = await getSession();

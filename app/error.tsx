@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
 
+import { TryAgain } from "@/components/errors/try-again";
 import { Button } from "@/components/ui/button";
 
 export default function RootError({
@@ -12,7 +15,6 @@ export default function RootError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[fweta] route error:", error);
     void fetch("/api/observability", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -25,20 +27,30 @@ export default function RootError({
   }, [error]);
 
   return (
-    <div className="bg-atmosphere flex min-h-[50vh] flex-col items-center justify-center px-6 text-center">
-      <h1 className="font-display text-3xl tracking-tight text-foreground md:text-4xl">
-        Page unavailable
+    <div className="bg-atmosphere flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
+      <Link href="/" className="inline-flex items-center gap-2" aria-label="Fweta">
+        <Image
+          src="/brand/fweta-mark.png"
+          alt=""
+          width={29}
+          height={32}
+          className="shrink-0 object-contain"
+          aria-hidden
+        />
+        <span className="text-[1.05rem] font-semibold tracking-tight text-foreground">fweta</span>
+      </Link>
+      <h1 className="mt-6 font-display text-3xl tracking-tight text-foreground md:text-4xl">
+        This page did not load
       </h1>
       <p className="mt-3 max-w-md text-sm leading-relaxed text-muted">
-        Something went wrong loading this page. Try again. If it persists, check your connection
-        and Supabase configuration.
+        Something went wrong on Fweta. Try again, or go back home.
       </p>
-      {error.digest ? (
-        <p className="mt-2 text-xs text-muted-light">Error ID: {error.digest}</p>
-      ) : null}
-      <Button type="button" onClick={() => reset()} className="mt-6">
-        Try again
-      </Button>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <TryAgain reset={reset} />
+        <Link href="/">
+          <Button variant="secondary">Back home</Button>
+        </Link>
+      </div>
     </div>
   );
 }

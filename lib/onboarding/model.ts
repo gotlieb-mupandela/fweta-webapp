@@ -69,7 +69,7 @@ export const STEP_COPY: Record<OnboardingStepId, StepCopy> = {
   name: {
     id: "name",
     title: "What should we call you?",
-    subtitle: "This name shows on your fweta profile and on payout records.",
+    subtitle: "This name shows on your Fweta profile and on payout records.",
     nextLabel: "Continue",
   },
   interests: {

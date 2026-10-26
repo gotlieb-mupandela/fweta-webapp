@@ -21,7 +21,7 @@ export function parseEmailScope(value: string | null | undefined): EmailScope | 
 export function unsubscribeLabel(scope: EmailScope): string {
   if (scope === "bookings") return "Turn off booking emails";
   if (scope === "withdrawals") return "Turn off withdrawal emails";
-  return "Turn off all fweta emails";
+  return "Turn off all Fweta emails";
 }
 
 export async function signPrefsToken(userId: string): Promise<string> {

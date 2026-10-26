@@ -32,7 +32,8 @@ export function campaignClipperVisibility(status: CampaignStatus): {
     return {
       visible: false,
       label: "Hidden from clippers",
-      detail: "Completed campaigns are closed and do not appear in the clipper list.",
+      detail:
+        "Completed campaigns are closed and do not appear in the clipper list. Any unspent budget is returned to your wallet when the campaign closes.",
     };
   }
   return {

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Privacy notice",
-  description: "How fweta handles account, wallet, and bank-detail data.",
+  description: "How Fweta handles account, wallet, and bank-detail data.",
 };
 
 export default function PrivacyPage() {
@@ -12,10 +12,11 @@ export default function PrivacyPage() {
       <p className="text-xs uppercase tracking-[0.14em] text-muted-light">
         Draft for counsel review · POPIA-aligned practices · Last updated 17 October 2026
       </p>
+      <p>Fweta Trading Enterprises CC, Reg. CC/2026/10254</p>
       <p>
-        fweta processes personal information to run accounts, campaigns, bookings, and manual
-        payouts for users in Namibia and elsewhere in the region. The operator is the fweta
-        business published on fweta.com, based in Windhoek.
+        Fweta processes personal information to run accounts, campaigns, bookings, and manual
+        payouts for users in Namibia and elsewhere in the region. The operator is Fweta Trading
+        Enterprises CC, Reg. CC/2026/10254.
       </p>
       <h2 className="font-display text-2xl text-foreground">What we store</h2>
       <ul className="list-disc space-y-2 pl-5">
@@ -52,7 +53,7 @@ export default function PrivacyPage() {
       <p>
         Ledger and withdrawal records are kept so balances can be explained later. You may ask for
         a copy of your account data or for deletion of profile fields that we do not have to keep
-        for a payout, dispute, or legal duty. Email the contact address on fweta.com. We will not
+        for a payout, dispute, or legal duty. Email hello@fweta.com. We will not
         delete a ledger row that is the only record of a balance movement.
       </p>
       <p>

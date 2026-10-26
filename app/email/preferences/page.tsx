@@ -38,7 +38,7 @@ export default async function EmailPreferencesPage({
           <p className="mt-6 text-sm text-muted">We could not find that account.</p>
         ) : !token ? (
           <div className="mt-6 space-y-3 text-sm text-muted">
-            <p>Open the link from an fweta email, or manage preferences after you sign in.</p>
+            <p>Open the link from a Fweta email, or manage preferences after you sign in.</p>
             <Link href="/login?next=/dashboard/settings/notifications" className="font-medium text-foreground">
               Sign in
             </Link>

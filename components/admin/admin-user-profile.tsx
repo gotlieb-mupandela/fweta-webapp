@@ -538,7 +538,7 @@ export function AdminUserProfile({ dossier }: { dossier: AdminUserDossier }) {
                 <div className="min-w-0">
                   <p className="font-medium">{campaign.title}</p>
                   <p className="text-sm text-muted">
-                    {campaign.type} · {campaign.category} · CPM {formatMoney(campaign.cpmCents)}
+                    {campaign.type} · {campaign.category} · Rate per 1,000 views {formatMoney(campaign.cpmCents)}
                   </p>
                   <p className="mt-1 text-xs text-muted-light">
                     Spent {formatMoney(campaign.budgetSpentCents)} of {formatMoney(campaign.budgetTotalCents)}

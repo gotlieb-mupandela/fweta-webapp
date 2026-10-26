@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { KycReviewButtons } from "@/components/forms/kyc-review-buttons";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+
+export const metadata: Metadata = {
+  title: "Identity checks",
+  description: "Review identity files before a payout.",
+};
 
 export default async function AdminKycPage() {
   const session = await getSession();

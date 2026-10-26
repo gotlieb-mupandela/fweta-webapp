@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -16,6 +17,11 @@ import {
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
 import { readStore } from "@/lib/db/store";
+
+export const metadata: Metadata = {
+  title: "Brand overview",
+  description: "Wallet, campaigns, and bookings.",
+};
 
 export default async function BrandDashboardPage() {
   const session = await getSession();
@@ -59,6 +65,18 @@ export default async function BrandDashboardPage() {
         <Stat label="Pending reviews" value={String(pendingSubs)} />
         <Stat label="Wallet" value={formatMoney(wallet.availableCents)} hint="For bookings & deposits" />
       </StatGrid>
+
+      <section className="panel px-4 py-3 sm:px-5">
+        <p className="text-sm text-muted">
+          Want help running a campaign?{" "}
+          <a
+            href="mailto:hello@fweta.com?subject=Managed%20Campaigns%20enquiry"
+            className="font-medium text-foreground underline-offset-2 hover:underline"
+          >
+            Ask about Managed Campaigns.
+          </a>
+        </p>
+      </section>
 
       <div className="dash-split">
         <section>

@@ -23,7 +23,7 @@ export function CampaignCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
-            {pool ? "Pool" : "CPM"} · {campaign.type === "clipping" ? "Clipping" : "UGC"} · {campaign.category}
+            {pool ? "Pool" : "Rate per 1,000 views"} · {campaign.type === "clipping" ? "Clipping" : "UGC"} · {campaign.category}
           </p>
           <h2 className="mt-1 font-display text-[1.55rem] leading-tight tracking-tight md:text-[1.75rem]">
             {campaign.title}

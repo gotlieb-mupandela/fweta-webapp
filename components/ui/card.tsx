@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
@@ -48,8 +49,15 @@ export function EmptyState({
 }) {
   return (
     <div className={cn("empty-panel", className)}>
-      <div className="flex size-9 items-center justify-center rounded-full bg-gold-soft text-sm font-semibold text-gold-deep">
-        ··
+      <div className="flex size-9 items-center justify-center rounded-full bg-gold-soft">
+        <Image
+          src="/brand/fweta-mark.png"
+          alt=""
+          width={18}
+          height={20}
+          className="object-contain"
+          aria-hidden
+        />
       </div>
       <div className="space-y-1.5">
         <h3 className="font-display text-[1.65rem] leading-none tracking-tight text-foreground">

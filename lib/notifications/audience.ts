@@ -51,5 +51,5 @@ export function publicName(profile: Pick<Profile, "displayName" | "email" | "com
   const display = profile?.displayName?.trim();
   const local = profile?.email.split("@")[0]?.trim().toLowerCase();
   if (display && display.toLowerCase() !== local) return display;
-  return "A fweta member";
+  return "A Fweta member";
 }

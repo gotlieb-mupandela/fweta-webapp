@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title,
     description,
     alternates: { canonical: path },
-    openGraph: { title, description, url: path, type: "website", siteName: "fweta" },
+    openGraph: { title, description, url: path, type: "website", siteName: "Fweta" },
   };
 }
 

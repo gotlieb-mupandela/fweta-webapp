@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -7,6 +8,11 @@ import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { qualifiedViewCount } from "@/lib/rewards/content-rewards";
 import { formatMoney, formatNumber } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Analytics",
+  description: "Spend, views, and creator results.",
+};
 
 export default async function BrandAnalyticsPage() {
   const session = await getSession();
