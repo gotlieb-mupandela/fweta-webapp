@@ -21,7 +21,7 @@
 --
 --   snapdir=$(mktemp -d)
 --   chmod 700 "$snapdir"
---   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+--   psql -X "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 --     -f scripts/ops/snapshot-client-grants.sql \
 --     -o "$snapdir/client-grants.snapshot.sql"
 --   sha256sum "$snapdir/client-grants.snapshot.sql" \
