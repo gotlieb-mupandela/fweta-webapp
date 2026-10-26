@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+import { securityHeaders } from "./lib/security/headers";
+
 const supabaseHost = (() => {
   const raw =
     process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
@@ -18,16 +20,14 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/:path*",
-        headers: [
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "X-Frame-Options", value: "DENY" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-        ],
+        headers: securityHeaders({
+          nodeEnv: process.env.NODE_ENV,
+          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL,
+        }),
       },
     ];
   },
-  // Fail builds on type errors — surfacing breakage in CI, not prod.
+  // Fail builds on type errors. Surface breakage in CI, not prod.
   typescript: { ignoreBuildErrors: false },
   images: {
     remotePatterns: supabaseHost

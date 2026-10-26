@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { listPublicInfluencers } from "@/app/actions/influencer";
+import { listPublicInfluencers } from "@/lib/influencer/discover";
 import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
 

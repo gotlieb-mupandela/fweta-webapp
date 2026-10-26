@@ -7,6 +7,7 @@ import {
   refreshSessionFromProfile,
   requireSession,
 } from "@/lib/auth/session";
+import { repairDiscoverableCreator } from "@/lib/influencer/discover";
 import { needsOnboarding } from "@/lib/onboarding/steps";
 import { encryptSecret, newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { InfluencerProfile, ProfileSocials } from "@/lib/db/types";
@@ -176,6 +177,7 @@ export async function completeOnboardingAction(raw: unknown) {
       }
     }
 
+    repairDiscoverableCreator(s, profile.id, now);
     updatedId = profile.id;
   });
 
@@ -306,7 +308,7 @@ function upsertInfluencer(store: DatabaseStore, profile: Profile, draft: Onboard
       avatarUrl: profile.avatarUrl,
       socials,
       featuredWork: [],
-      published: false,
+      published: true,
       createdAt: now,
       updatedAt: now,
     };
@@ -325,9 +327,12 @@ function upsertInfluencer(store: DatabaseStore, profile: Profile, draft: Onboard
 function finalize(store: DatabaseStore, profile: Profile, now: string) {
   const draft = ensureDraft(profile, now);
   applyProfileFields(profile, draft);
-  if (isCreatorRole(profile.roles)) upsertInfluencer(store, profile, draft, now);
   if (!profile.onboardingCompletedAt) profile.onboardingCompletedAt = now;
   profile.updatedAt = now;
+  // Before the draft profile insert, so a brand-new row is published.
+  // An existing hidden profile is left unpublished.
+  repairDiscoverableCreator(store, profile.id, now);
+  if (isCreatorRole(profile.roles)) upsertInfluencer(store, profile, draft, now);
 }
 
 async function readPublicHtml(url: string): Promise<string | null> {

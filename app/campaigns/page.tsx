@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { listActiveCampaignsPublic } from "@/app/actions/campaigns";
+import { listActiveCampaignsPublic } from "@/lib/campaigns/browse";
 import { PlatformPicker } from "@/components/platforms/platform-picker";
 import { PostingGuide } from "@/components/platforms/posting-guide";
 import { PublicChrome } from "@/components/public-chrome";

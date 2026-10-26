@@ -307,6 +307,8 @@ export async function adminReviewSocialAccountAction(raw: unknown) {
 }
 
 export async function adminVerifySocialAccountAction(accountId: string) {
+  const session = await requireSession();
+  if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
   return adminReviewSocialAccountAction({ accountId, decision: "verified" });
 }
 

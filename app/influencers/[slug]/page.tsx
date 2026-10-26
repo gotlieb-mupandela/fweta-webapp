@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getPublicInfluencer } from "@/app/actions/influencer";
+import { getPublicInfluencer } from "@/lib/influencer/discover";
 import { PlatformChip } from "@/components/platforms/platform-chip";
 import { PublicChrome } from "@/components/public-chrome";
 import { AvatarCircle } from "@/components/ui/avatar-circle";

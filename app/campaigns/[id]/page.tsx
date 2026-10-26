@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getCampaign } from "@/app/actions/campaigns";
+import { getCampaign } from "@/lib/campaigns/browse";
 import { listClipperSubmissions } from "@/app/actions/submissions";
 import { PlatformChip } from "@/components/platforms/platform-chip";
 import { PostingGuide } from "@/components/platforms/posting-guide";
