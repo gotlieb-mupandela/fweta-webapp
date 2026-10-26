@@ -154,3 +154,8 @@ test("error page logo links use the Fweta aria-label", () => {
   }
   assert.deepEqual(violations, []);
 });
+
+test("the main logo links use aria-label Fweta", () => {
+  const source = readFileSync(path.join(process.cwd(), "components/brand/logo.tsx"), "utf8");
+  assert.equal(source.match(/aria-label="Fweta"/g)?.length, 2);
+});
