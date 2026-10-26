@@ -14,6 +14,7 @@ export const runtime = "nodejs";
  * Vercel Cron. Ends campaigns, settles unused budget, releases stale booking holds,
  * creates public profiles for finished creators who have none,
  * and creates the env admin when ADMIN_EMAIL is not already a profile.
+ * duplicateProfileCount is a number. Email addresses are not included.
  * Does not fetch view counts.
  */
 export async function GET(request: NextRequest) {

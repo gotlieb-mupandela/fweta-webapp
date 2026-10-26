@@ -108,8 +108,17 @@ test("a discoverable profile is created only after onboarding and only when it i
   assert.equal(onboardingFinished(legacy), false);
   assert.equal(influencerProfileHidden(hidden), true);
 
+  const shortCopy = profile({
+    id: "clip-short",
+    displayName: "Bo",
+    roles: ["clipper"],
+    primaryRole: "clipper",
+    onboardingCompletedAt: "2026-02-01T00:00:00.000Z",
+    bio: "hi",
+    niche: "Ad",
+  });
   const store = memoryStore(
-    [finished, unfinished, legacy, hiddenAccount, brand, suspended],
+    [finished, unfinished, legacy, hiddenAccount, brand, suspended, shortCopy],
     [hidden],
   );
   assert.equal(repairDiscoverableCreator(store, finished.id, now), true);
@@ -118,12 +127,16 @@ test("a discoverable profile is created only after onboarding and only when it i
   assert.equal(repairDiscoverableCreator(store, hiddenAccount.id, now), false);
   assert.equal(repairDiscoverableCreator(store, brand.id, now), false);
   assert.equal(repairDiscoverableCreator(store, suspended.id, now), false);
+  assert.equal(repairDiscoverableCreator(store, shortCopy.id, now), true);
 
-  assert.equal(store.influencerProfiles.length, 2);
+  assert.equal(store.influencerProfiles.length, 3);
   const created = store.influencerProfiles.find((row) => row.userId === finished.id);
   assert.ok(created);
   assert.equal(created?.published, true);
   assert.equal(created?.slug, "kai-clips");
+  const shortProfile = store.influencerProfiles.find((row) => row.userId === shortCopy.id);
+  assert.equal(shortProfile?.headline, "Bo on Fweta");
+  assert.equal(shortProfile?.bio, "Bo creates on Fweta.");
   const stillHidden = store.influencerProfiles.find((row) => row.userId === hiddenAccount.id);
   assert.equal(stillHidden?.published, false);
   assert.equal(store.influencerProfiles.some((row) => row.userId === unfinished.id), false);

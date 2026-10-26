@@ -237,12 +237,12 @@ describe("ensureAdminAccount", { concurrency: false }, () => {
     try {
       const report = await ensureAdminAccount();
       assert.equal(report.seeded, false);
-      assert.deepEqual(report.duplicateEmails, ["dup@fweta.com"]);
+      assert.equal(report.duplicateProfileCount, 2);
       assert.equal(readFileSync(file).equals(before), true);
 
       const house = await runHousekeepingJob(new Date("2026-04-01T00:00:00.000Z"));
       assert.equal(house.adminSeeded, false);
-      assert.deepEqual(house.duplicateProfileEmails, ["dup@fweta.com"]);
+      assert.equal(house.duplicateProfileCount, 2);
       const { readStore } = await import("../../lib/db/store");
       const store = await readStore();
       const ids = store.profiles.map((item) => item.id).sort();
@@ -282,7 +282,7 @@ describe("ensureAdminAccount", { concurrency: false }, () => {
     try {
       const house = await runHousekeepingJob(new Date("2026-04-01T00:00:00.000Z"));
       assert.equal(house.adminSeeded, true);
-      assert.deepEqual(house.duplicateProfileEmails, []);
+      assert.equal(house.duplicateProfileCount, 0);
       const { readStore } = await import("../../lib/db/store");
       const store = await readStore();
       const created = store.profiles.find((item) => item.email === "ops@fweta.com");
