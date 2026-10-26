@@ -103,7 +103,7 @@ Default (unset) = JSON blob only — safer for MVP.
 |----------|------|------------|
 | `AUTH_SECRET` | Secret | `openssl rand -base64 32` |
 | `PAYOUT_ENCRYPTION_KEY` | Secret | `openssl rand -base64 32`. Required on Vercel before deploy. At least 32 characters and different from `AUTH_SECRET`. |
-| `ADMIN_EMAIL` | Plain | Admin login email. Seeded on the login page. |
+| `ADMIN_EMAIL` | Plain | Admin login email. `POST /api/jobs/housekeeping` creates it when that email is missing. |
 | `ADMIN_PASSWORD` | **Secret** | Admin password (8+ characters). Bcrypt-hashed at seed time. |
 | `NEXT_PUBLIC_SUPABASE_URL` | Plain | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Plain | Supabase publishable key |
@@ -163,7 +163,7 @@ These accounts are off by default. They are created only when `FWETA_SEED_DEMO` 
 | `clipper@fweta.test` | Clipper | `password123` |
 | `creator@fweta.test` | Influencer + clipper | `password123` |
 
-Admin login is **not** a shared password. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in the environment (local `.env.local`, and Production + Preview on Vercel). The login page hashes `ADMIN_PASSWORD` and creates or updates that admin account. Until those variables are set, no admin is created. If demo accounts were already written to production, delete the `*@fweta.test` profiles before go-live.
+Admin login is **not** a shared password. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in the environment (local `.env.local`, and Production + Preview on Vercel). `POST /api/jobs/housekeeping` hashes `ADMIN_PASSWORD` and creates that admin only when no profile already uses `ADMIN_EMAIL`. It does not change an existing password, email, or role, and it does not delete duplicate profiles. After a fresh deploy, run that route once with `Authorization: Bearer $CRON_SECRET`. Local dev with `CRON_SECRET` unset may POST it with no bearer. The daily cron is 05:00 UTC. Opening `/login` or submitting the login form does not seed the admin. Until those variables are set, no admin is created. If demo accounts were already written to production, delete the `*@fweta.test` profiles before go-live.
 
 ---
 
@@ -175,7 +175,7 @@ Admin login is **not** a shared password. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD`
    - The public check does not write. A save probe is `?probe=1` with the same bearer. It does not write a store row.
    - The probe reports whether `fweta_app_store.revision` and `fweta_cas_save_store` exist. If not, apply `supabase/migrations/20261021165036_fweta_app_store_revision.sql`.
    - `POST /api/webhooks` returns 404. Gateway posts are rejected.
-2. Log in with `ADMIN_EMAIL`
+2. `POST /api/jobs/housekeeping` once with the cron bearer, then log in with `ADMIN_EMAIL`
 3. As a brand (or a brand you create), **Deposits** → record a manual amount
 4. Log out, log in again → the wallet should still show that credit  
    - If it reset → persistence is still broken (re-check §1)

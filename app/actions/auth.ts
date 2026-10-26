@@ -9,7 +9,6 @@ import {
   getSession,
   getProfileById,
   refreshSessionFromProfile,
-  ensureAdminAccount,
 } from "@/lib/auth/session";
 import { loginSchema, signupSchema } from "@/lib/validations/auth";
 import { updateStore, nowIso } from "@/lib/db/store";
@@ -24,7 +23,6 @@ export async function loginAction(input: { email: string; password: string }) {
   if (!burst.ok) {
     return { ok: false as const, error: `Too many attempts. Try again in ${burst.retryAfterSec}s.` };
   }
-  await ensureAdminAccount().catch(() => undefined);
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: "Invalid email or password." };
   const loginCap = process.env.NODE_ENV === "production" ? 8 : 40;
