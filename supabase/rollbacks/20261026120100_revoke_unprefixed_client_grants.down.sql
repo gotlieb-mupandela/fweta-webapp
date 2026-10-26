@@ -8,32 +8,34 @@
 -- campaigns, influencer_profiles, and rate_cards.
 --
 -- Run this file only through scripts/ops/replay-client-grants.sh.
--- Record the sha256 when the snapshot is taken, and pass that digest
--- at restore. The wrapper refuses a missing or bad digest, a missing
--- file, a relative path, and an empty file. It copies the snapshot to
--- a private temp file, checks that copy, and runs psql on that same
--- copy. A direct psql replay is not supported. It runs whatever the
--- file contains.
+-- Copy the sha256 from the terminal when the snapshot is taken, keep
+-- it outside the snapshot directory, and type it at restore. The
+-- wrapper refuses a missing or bad digest, a missing file, a relative
+-- path, and an empty file. It copies the snapshot to a private temp
+-- file, checks that copy, and runs psql on that same copy. It does
+-- not read a checksum file. A direct psql replay is not supported.
+-- It runs whatever the file contains.
 --
 -- Supported snapshot source: scripts/ops/snapshot-client-grants.sql in
 -- this repo. Run it before any forward file. That script includes the
 -- global postgres function default privilege row. QA's gen_restore.py v3
 -- is an alternative that now also restores that global row.
 --
--- Put the snapshot and the recorded sha256 in a private directory.
--- mktemp -d creates it. chmod 700 keeps it private.
+-- Put only the snapshot in a private directory. mktemp -d creates it.
+-- chmod 700 keeps it private. sha256sum prints the digest. Copy that
+-- hash from the terminal and keep it outside the snapshot directory,
+-- for example in a password manager or a note. Do not write it beside
+-- the snapshot. Type it as the wrapper argument.
 --
 --   snapdir=$(mktemp -d)
 --   chmod 700 "$snapdir"
 --   psql -X "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 --     -f scripts/ops/snapshot-client-grants.sql \
 --     -o "$snapdir/client-grants.snapshot.sql"
---   sha256sum "$snapdir/client-grants.snapshot.sql" \
---     > "$snapdir/client-grants.snapshot.sha256"
---   digest=$(awk 'NR==1 { print $1 }' "$snapdir/client-grants.snapshot.sha256")
+--   sha256sum "$snapdir/client-grants.snapshot.sql"
 --   scripts/ops/replay-client-grants.sh \
 --     "$snapdir/client-grants.snapshot.sql" \
---     "$digest" \
+--     <paste-the-hash> \
 --     supabase/rollbacks/20261026120100_revoke_unprefixed_client_grants.down.sql
 --
 -- One replay of that absolute snapshot restores the grants for all three

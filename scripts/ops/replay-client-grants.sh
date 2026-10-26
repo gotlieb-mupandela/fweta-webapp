@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Replay one saved client-grant snapshot through a rollback file.
-# Run this instead of psql. The expected sha256 is an argument, recorded
-# when the snapshot was taken. This script does not read a checksum file.
+# Run this instead of psql. The expected sha256 is an argument. Copy it
+# from the terminal when the snapshot is taken and keep it outside the
+# snapshot directory. This script does not read a checksum file.
 #
 # The snapshot is copied to a private temp file before the digest is
 # checked. psql replays that same copy, so the original cannot change

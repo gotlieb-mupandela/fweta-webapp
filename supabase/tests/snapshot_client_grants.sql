@@ -2,9 +2,28 @@
 -- and check the catalog grants match the original.
 -- The transaction is rolled back. Nothing is committed.
 --
---   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/snapshot_client_grants.sql
+-- The wrapper creates a private directory and passes it as snapdir.
+-- mktemp -d creates the directory. chmod 700 keeps it private.
+-- pg_read_file reads the snapshot files on the database server, so the
+-- server OS user must be able to read that directory. Create the
+-- directory as that user. Do not widen the mode.
+--
+--   snapdir=$(mktemp -d)
+--   chmod 700 "$snapdir"
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v snapdir="$snapdir" \
+--     -f supabase/tests/snapshot_client_grants.sql
 
 \set ON_ERROR_STOP on
+
+\if :{?snapdir}
+\else
+\echo 'Refusing snapshot test: pass snapdir, a private directory from mktemp -d and chmod 700. The database server must be able to read it.'
+do $missing_snapdir$
+begin
+  raise exception 'snapdir is not set';
+end
+$missing_snapdir$;
+\endif
 
 begin;
 
@@ -223,10 +242,12 @@ create temp table before_acl as
 select kind, obj, grantee, privilege_type, is_grantable
 from pg_temp.client_acl();
 
-\o /tmp/fweta-client-grants.snapshot.sql
+\set snap_file :snapdir '/fweta-client-grants.snapshot.sql'
+\set snap_again :snapdir '/fweta-client-grants.snapshot.again.sql'
+\o :snap_file
 \ir ../../scripts/ops/snapshot-client-grants.sql
 \o
-\o /tmp/fweta-client-grants.snapshot.again.sql
+\o :snap_again
 \ir ../../scripts/ops/snapshot-client-grants.sql
 \o
 
@@ -234,13 +255,25 @@ from pg_temp.client_acl();
 \pset format aligned
 \pset footer on
 
+-- psql substitutes :'snap_file' in this statement. It does not substitute
+-- inside the dollar-quoted block below. pg_read_file runs on the database
+-- server, which must be able to read snapdir.
+create temp table snapshot_output (
+  label text primary key,
+  contents text not null
+);
+
+insert into snapshot_output (label, contents) values
+  ('body', pg_read_file(:'snap_file')),
+  ('again', pg_read_file(:'snap_again'));
+
 do $snapshot_file$
 declare
   body text;
   again text;
 begin
-  body := pg_read_file('/tmp/fweta-client-grants.snapshot.sql');
-  again := pg_read_file('/tmp/fweta-client-grants.snapshot.again.sql');
+  select contents into body from snapshot_output where label = 'body';
+  select contents into again from snapshot_output where label = 'again';
   if body is distinct from again then
     raise exception 'snapshot output is not deterministic';
   end if;
@@ -324,7 +357,7 @@ begin
 end
 $revoked$;
 
-\set snapshot /tmp/fweta-client-grants.snapshot.sql
+\set snapshot :snap_file
 \ir ../rollbacks/20261026120000_revoke_client_table_grants.down.sql
 
 create temp table after_acl as

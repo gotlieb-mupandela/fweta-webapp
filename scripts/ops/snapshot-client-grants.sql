@@ -2,16 +2,18 @@
 -- Run this and save the output BEFORE applying the client-grant revokes.
 -- It does not GRANT, REVOKE, or write catalog rows.
 --
--- From the repo root. Keep the snapshot and the recorded sha256 in a
--- private directory. mktemp -d creates it. chmod 700 keeps it private.
+-- From the repo root. Keep only the snapshot in a private directory.
+-- mktemp -d creates it. chmod 700 keeps it private. sha256sum prints
+-- the digest. Copy that hash from the terminal and keep it outside the
+-- snapshot directory, for example in a password manager or a note.
+-- Do not write it beside the snapshot.
 --
 --   snapdir=$(mktemp -d)
 --   chmod 700 "$snapdir"
 --   psql -X "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 --     -f scripts/ops/snapshot-client-grants.sql \
 --     -o "$snapdir/client-grants.snapshot.sql"
---   sha256sum "$snapdir/client-grants.snapshot.sql" \
---     > "$snapdir/client-grants.snapshot.sha256"
+--   sha256sum "$snapdir/client-grants.snapshot.sql"
 --
 -- Sources, via aclexplode:
 --   pg_class tables and views (relkind r, p, v, m, f) in schema public
@@ -43,18 +45,18 @@
 -- postgres function default privilege row. QA's gen_restore.py v3 is an
 -- alternative that now also restores that global row.
 --
--- Save the output under the private directory above. Record the sha256
--- in that same directory when the snapshot is taken. Restore only
--- through scripts/ops/replay-client-grants.sh, and pass that digest as
--- an argument. The wrapper copies the snapshot, checks the copy, and
+-- Save the output under the private directory above. Copy the sha256
+-- from the terminal when the snapshot is taken and keep it outside
+-- that directory. Restore only through
+-- scripts/ops/replay-client-grants.sh, and type that digest as an
+-- argument. The wrapper copies the snapshot, checks the copy, and
 -- runs psql on that copy. It does not read a checksum file. A direct
 -- psql replay is not supported. It runs whatever the file contains.
 -- One replay restores the grants for all three files.
 --
---   digest=$(awk 'NR==1 { print $1 }' "$snapdir/client-grants.snapshot.sha256")
 --   scripts/ops/replay-client-grants.sh \
 --     "$snapdir/client-grants.snapshot.sql" \
---     "$digest"
+--     <paste-the-hash>
 
 \pset tuples_only on
 \pset format unaligned
