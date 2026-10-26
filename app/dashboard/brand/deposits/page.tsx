@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getMyWallet } from "@/app/actions/wallet";
@@ -6,6 +7,11 @@ import { Badge, Card, EmptyState, PageHeader, SectionHeader } from "@/components
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Deposits",
+  description: "Add funds to your brand wallet.",
+};
 
 export default async function BrandDepositsPage() {
   const session = await getSession();

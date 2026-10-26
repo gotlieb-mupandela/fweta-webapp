@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { ResolveDisputeForm } from "@/components/forms/licensing-forms";
 import { Badge, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+
+export const metadata: Metadata = {
+  title: "License disputes",
+  description: "Review UGC license disputes.",
+};
 
 export default async function AdminDisputesPage() {
   const session = await getSession();

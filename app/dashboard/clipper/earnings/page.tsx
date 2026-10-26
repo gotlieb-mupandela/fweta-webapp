@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { listClipperSubmissions } from "@/app/actions/submissions";
@@ -8,6 +9,11 @@ import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { splitCreatorIncome } from "@/lib/licensing/hub";
 import { formatMoney, formatNumber } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Earnings",
+  description: "Views and earnings from your clips.",
+};
 
 export default async function ClipperEarningsPage() {
   const session = await getSession();

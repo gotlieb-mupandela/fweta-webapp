@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -12,6 +13,11 @@ import { getSession } from "@/lib/auth/session";
 import { isSocialPlatform } from "@/lib/platforms/guides";
 import { PLATFORM_LABEL } from "@/lib/social/platforms";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Active campaigns",
+  description: "Open campaigns you can join.",
+};
 
 export default async function ClipperCampaignsPage({
   searchParams,

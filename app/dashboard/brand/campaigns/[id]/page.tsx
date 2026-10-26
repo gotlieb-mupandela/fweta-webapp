@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -20,6 +21,11 @@ import {
   remainingBudgetCents,
 } from "@/lib/rewards/content-rewards";
 import { formatMoney, formatNumber } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Campaign",
+  description: "Campaign details, budget, and submissions.",
+};
 
 export default async function CampaignDetailPage({
   params,

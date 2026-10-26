@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,11 @@ import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { usageLabel } from "@/lib/licensing/hub";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Licenses",
+  description: "Review UGC licenses.",
+};
 
 export default async function AdminLicensesPage() {
   const session = await getSession();

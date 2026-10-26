@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,11 @@ import { UgcBriefForm } from "@/components/forms/licensing-forms";
 import { Card, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "New UGC brief",
+  description: "Ask for videos you will use yourself.",
+};
 
 export default async function NewUgcBriefPage() {
   const session = await getSession();

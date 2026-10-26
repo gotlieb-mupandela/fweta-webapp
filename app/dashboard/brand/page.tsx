@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -16,6 +17,11 @@ import {
 import { getSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/utils";
 import { readStore } from "@/lib/db/store";
+
+export const metadata: Metadata = {
+  title: "Brand overview",
+  description: "Wallet, campaigns, and bookings.",
+};
 
 export default async function BrandDashboardPage() {
   const session = await getSession();

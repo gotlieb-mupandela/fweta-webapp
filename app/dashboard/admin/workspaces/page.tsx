@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AdminMemberActions } from "@/components/onboarding/admin-account-actions";
@@ -5,6 +6,11 @@ import { ContextHelp } from "@/components/onboarding/context-help";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+
+export const metadata: Metadata = {
+  title: "Workspaces",
+  description: "Brand workspaces on Fweta.",
+};
 
 export default async function AdminWorkspacesPage() {
   const session = await getSession();

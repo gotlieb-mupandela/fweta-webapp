@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -19,6 +20,11 @@ import {
   qualifiedViewCount,
 } from "@/lib/rewards/content-rewards";
 import { formatMoney, formatNumber } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "My submissions",
+  description: "Track review status and earnings.",
+};
 
 export default async function ClipperSubmissionsPage() {
   const session = await getSession();

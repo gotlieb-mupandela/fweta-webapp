@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { PayoutMethodForm } from "@/components/forms/payout-method-form";
 import { Card, PageHeader } from "@/components/ui/card";
 import { getMyPayoutMethodMasked } from "@/app/actions/wallet";
 import { getSession } from "@/lib/auth/session";
+
+export const metadata: Metadata = {
+  title: "Payout method",
+  description: "Bank details for withdrawals.",
+};
 
 export default async function SettingsPayoutPage() {
   const session = await getSession();

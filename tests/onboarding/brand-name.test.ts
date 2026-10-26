@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 
 const FIELD =
-  /\b(?:title|template|default|siteName|description)\s*:\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)/g;
+  /\b(?:title|template|default|absolute|siteName|applicationName|description)\s*:\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)/g;
 
 /** Lowercase product name is allowed only inside a URL, a domain, or an email address. */
 export function brandNameHits(text: string): string[] {

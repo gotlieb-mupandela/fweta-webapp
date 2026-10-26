@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getMyLedger, getMyWallet } from "@/app/actions/wallet";
@@ -5,6 +6,11 @@ import { EmptyState, PageHeader, SectionHeader, Stat, StatGrid } from "@/compone
 import { getSession } from "@/lib/auth/session";
 import { splitCreatorIncome } from "@/lib/licensing/hub";
 import { formatMoney } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Earnings",
+  description: "Money from bookings and clips.",
+};
 
 export default async function InfluencerEarningsPage() {
   const session = await getSession();

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -14,6 +15,11 @@ import {
   type UserTab,
 } from "@/lib/admin/directory";
 import { formatMoney, formatNumber } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Users",
+  description: "Accounts in the Fweta workspace.",
+};
 
 function joinedLabel(iso: string): string {
   const date = new Date(iso);

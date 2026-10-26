@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,11 @@ import { getSession } from "@/lib/auth/session";
 import { EMAIL_TEMPLATES, isEmailTemplateId, renderEmailPreview } from "@/lib/email/catalog";
 import { appUrl } from "@/lib/email/config";
 import { cn } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Email previews",
+  description: "Preview Fweta email templates.",
+};
 
 function previewSrcDoc(html: string): string {
   const base = appUrl();
