@@ -20,12 +20,17 @@ export type AdminCreditResult =
  * Credit a wallet and record the acting admin. Must run inside updateStore
  * so the ledger row and the audit row commit together, or not at all.
  * A request key already stored on a ledger row returns that first credit
- * when the user, amount, and acting admin match. Any difference credits
- * nothing.
+ * when the user, amount, and acting admin match. The key is compared and
+ * stored in lower case, so a different case of the same UUID is the same
+ * key. Any other difference credits nothing.
  */
 export function creditWalletInStore(store: DatabaseStore, input: AdminCreditWrite): AdminCreditResult {
+  const requestKey = input.requestKey.toLowerCase();
   const existing = store.ledgerEntries.find(
-    (entry) => entry.referenceType === "admin_credit" && entry.requestKey === input.requestKey,
+    (entry) =>
+      entry.referenceType === "admin_credit" &&
+      typeof entry.requestKey === "string" &&
+      entry.requestKey.toLowerCase() === requestKey,
   );
   if (existing) {
     const sameCredit =
@@ -54,7 +59,7 @@ export function creditWalletInStore(store: DatabaseStore, input: AdminCreditWrit
     actorId: input.adminId,
     actorEmail: input.adminEmail,
   });
-  entry.requestKey = input.requestKey;
+  entry.requestKey = requestKey;
   pushAudit(store, {
     actorId: input.adminId,
     actorEmail: input.adminEmail,

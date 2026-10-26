@@ -318,7 +318,7 @@ export type LedgerEntry = {
   /** Admin who recorded an admin_credit. Absent on other rows and older credits. */
   actorId?: string | null;
   actorEmail?: string | null;
-  /** Idempotency key for an admin credit. The same key returns the first credit when the user, amount, and acting admin match. */
+  /** Idempotency key for an admin credit, stored in lower case. The same UUID returns the first credit when the user, amount, and acting admin match. */
   requestKey?: string | null;
 };
 
