@@ -45,6 +45,24 @@ function lockedFeeBps(campaign: Campaign): number | undefined {
   return Number.isInteger(campaign.feeBps) ? campaign.feeBps : undefined;
 }
 
+/**
+ * Creator credits run only while the campaign is still open and this store
+ * already holds the brand's campaign_fund debit. closedAt or settledAt means
+ * the unused pot was returned. fund.ts and campaign publish record that debit.
+ * isCampaignFunded matches the same row, including after a later refund credit.
+ * feeReservedCents is stamped beside the debit and is not a separate fund.
+ */
+function campaignPayoutOpen(store: DatabaseStore, campaign: Campaign): boolean {
+  if (campaign.closedAt || campaign.settledAt) return false;
+  const hasFundDebit = store.ledgerEntries.some(
+    (entry) =>
+      entry.type === "debit" &&
+      entry.referenceType === "campaign_fund" &&
+      entry.referenceId === campaign.id,
+  );
+  return hasFundDebit || isCampaignFunded(store, campaign.id);
+}
+
 function rememberFeeCharge(campaign: Campaign, deliveredCents: number) {
   const fee = Math.min(
     feeOnDelivered(deliveredCents, lockedFeeBps(campaign)),
@@ -145,6 +163,8 @@ function accrueCpm(store: DatabaseStore, sub: Submission, camp: Campaign, nowMs:
     camp.updatedAt = atIso(nowMs);
   }
   if (delta <= 0) return 0;
+  // No brand debit, or the pot was already returned: do not credit, charge a fee, or move a wallet.
+  if (!campaignPayoutOpen(store, camp)) return 0;
   const at = atIso(nowMs);
   applyWalletDelta(store, {
     userId: sub.clipperId,
@@ -194,6 +214,7 @@ export function applyConfirmedViews(
   if (sub.status === "approved" && camp.payModel === "cpm" && sub.payoutState !== "clawed_back" && sub.fraudState !== "upheld") {
     const earningUntilMs = sub.earningUntil ? Date.parse(sub.earningUntil) : null;
     const canIncrease =
+      campaignPayoutOpen(store, camp) &&
       camp.status === "active" &&
       remainingBudgetCents(camp) > 0 &&
       campaignWindowOpen(camp, nowMs) &&
@@ -347,6 +368,9 @@ export function settleSubmission(
 
 export function settlePool(store: DatabaseStore, campaign: Campaign, nowMs: number) {
   if (campaign.payModel !== "pool" || campaign.poolSettledAt) return;
+  // Closed counts as already refunded. Unfunded has no campaign_fund debit.
+  // Either way the pot is not paid and the fee is not marked charged.
+  if (!campaignPayoutOpen(store, campaign)) return;
   const clips = store.submissions.filter(
     (sub) =>
       sub.campaignId === campaign.id &&
@@ -411,6 +435,8 @@ export function refundUnspentCampaign(store: DatabaseStore, campaign: Campaign, 
 }
 
 export function finalizeCampaign(store: DatabaseStore, campaign: Campaign, nowMs: number) {
+  // Already returned. Do not settle the pot again or move a wallet.
+  if (campaign.closedAt || campaign.settledAt) return;
   if (campaign.status === "draft" || campaign.status === "pending") return;
   const end = endInstant(campaign.endDate);
   const endPassed = end != null && nowMs > end;
