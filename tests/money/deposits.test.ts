@@ -3,9 +3,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import type { BrandDeposit, DatabaseStore, Wallet } from "../../lib/db/types";
-import { brandDepositFileSchema } from "../../lib/validations/accounts";
+import { brandDepositFileSchema, payInRequestSchema } from "../../lib/validations/accounts";
 import {
   confirmPendingPayIn,
+  fileManualPayIn,
   payInRowView,
   rejectPendingPayIn,
 } from "../../lib/wallet/brand-deposit";
@@ -115,6 +116,15 @@ test("a missing or too short bank reference is refused", () => {
   assert.equal(parsed.success, true);
   if (!parsed.success) return;
   assert.equal(parsed.data.bankReference, "AB-12/3");
+
+  for (const value of ["=ABCD", "+ABCD", "-ABCD", "@ABCD", "  -ABCD  "]) {
+    assert.equal(referenceError(value), "Bank reference cannot start with =, +, - or @.");
+  }
+  assert.equal(referenceError("AB\nCD12"), "Bank reference cannot contain a line break.");
+  assert.equal(referenceError("AB\rCD12"), "Bank reference cannot contain a line break.");
+  const hyphen = brandDepositFileSchema.safeParse({ bankReference: "FWETA-1842" });
+  assert.equal(hyphen.success, true);
+  if (hyphen.success) assert.equal(hyphen.data.bankReference, "FWETA-1842");
 });
 
 test("confirm after reject is refused and the wallet amount stays put", () => {
@@ -239,6 +249,104 @@ test("an older pay-in without a reference still displays and can be confirmed", 
   assert.equal(store.ledgerEntries.length, 1);
 });
 
+function filing(id: string, bankReference: string) {
+  return {
+    id,
+    brandId: brand,
+    amountCents: 10000,
+    note: "Manual EFT pay-in",
+    bankReference,
+    createdAt: now,
+  };
+}
+
+test("a pay-in request with no reference or an invalid one saves nothing", () => {
+  const store = emptyStore();
+  const missing = payInRequestSchema.safeParse({ amountCents: 10000 });
+  assert.equal(missing.success, false);
+  for (const reference of ["", "   ", "ab", "=ABCD", "+ABCD", "-ABCD", "@ABCD", "AB\nCD12", "AB\rCD12"]) {
+    const parsed = payInRequestSchema.safeParse({ amountCents: 10000, bankReference: reference });
+    assert.equal(parsed.success, false);
+    const filed = fileManualPayIn(store, filing(`bad-${reference.length}`, reference));
+    assert.equal(filed.ok, false);
+  }
+  assert.equal(store.brandDeposits.length, 0);
+  assert.equal(store.ledgerEntries.length, 0);
+  assert.equal(store.wallets.length, 0);
+});
+
+test("a duplicate reference is refused, except on a rejected pay-in", () => {
+  const store = emptyStore();
+  const first = fileManualPayIn(store, filing("dep-a", "  Ab-12  "));
+  assert.equal(first.ok, true);
+  assert.equal(store.brandDeposits[0]?.bankReference, "Ab-12");
+  assert.equal(store.brandDeposits[0]?.amountCents, 10000);
+
+  const duplicate = fileManualPayIn(store, filing("dep-b", "ab-12"));
+  assert.equal(duplicate.ok, false);
+  if (duplicate.ok) return;
+  assert.equal(duplicate.error, "That bank reference is already used on another pay-in.");
+  assert.equal(store.brandDeposits.length, 1);
+
+  store.brandDeposits[0]!.status = "rejected";
+  const afterReject = fileManualPayIn(store, filing("dep-c", "AB-12"));
+  assert.equal(afterReject.ok, true);
+  assert.equal(store.brandDeposits.length, 2);
+
+  store.brandDeposits[1]!.status = "cancelled";
+  const afterCancel = fileManualPayIn(store, filing("dep-d", "ab-12"));
+  assert.equal(afterCancel.ok, false);
+  assert.equal(store.brandDeposits.length, 2);
+  assert.equal(store.brandDeposits[1]?.amountCents, 10000);
+});
+
+test("confirm keeps the brand reference and an admin cannot confirm their own pay-in", () => {
+  const kept = readyStore({ bankReference: "  FWETA-1842  " });
+  confirmPendingPayIn(kept, { ...adminActor, bankReference: "ADMIN-9999", reason: "Brand pay-in confirmed" });
+  assert.equal(kept.brandDeposits[0]?.bankReference, "  FWETA-1842  ");
+  assert.equal(kept.brandDeposits[0]?.amountCents, amountCents);
+  assert.equal(kept.wallets[0]?.availableCents, 5000 + amountCents);
+  assert.equal(kept.ledgerEntries.length, 1);
+
+  const filled = readyStore({ bankReference: null }, 0);
+  confirmPendingPayIn(filled, { ...adminActor, bankReference: "  old-ref1  ", reason: "Brand pay-in confirmed" });
+  assert.equal(filled.brandDeposits[0]?.bankReference, "old-ref1");
+  assert.equal(filled.brandDeposits[0]?.amountCents, amountCents);
+  assert.equal(filled.ledgerEntries.length, 1);
+
+  const invalid = readyStore({ bankReference: null }, 0);
+  assert.throws(
+    () => confirmPendingPayIn(invalid, { ...adminActor, bankReference: "-BAD12", reason: "Brand pay-in confirmed" }),
+    (err: unknown) => err instanceof Error && err.message === "Bank reference cannot start with =, +, - or @.",
+  );
+  assert.equal(invalid.brandDeposits[0]?.status, "pending");
+  assert.equal(invalid.brandDeposits[0]?.bankReference, null);
+  assert.equal(invalid.brandDeposits[0]?.amountCents, amountCents);
+  assert.equal(invalid.wallets[0]?.availableCents, 0);
+  assert.equal(invalid.ledgerEntries.length, 0);
+
+  const taken = readyStore({ id: "dep-1", bankReference: null }, 0);
+  taken.brandDeposits.push(deposit({ id: "dep-2", bankReference: "Taken-1", status: "credited" }));
+  assert.throws(
+    () => confirmPendingPayIn(taken, { ...adminActor, bankReference: "taken-1", reason: "Brand pay-in confirmed" }),
+    (err: unknown) => err instanceof Error && err.message === "That bank reference is already used on another pay-in.",
+  );
+  assert.equal(taken.brandDeposits[0]?.status, "pending");
+  assert.equal(taken.ledgerEntries.length, 0);
+  assert.equal(taken.wallets[0]?.availableCents, 0);
+
+  const own = readyStore();
+  assert.throws(
+    () => confirmPendingPayIn(own, { ...adminActor, actorId: brand, reason: "Brand pay-in confirmed" }),
+    (err: unknown) => err instanceof Error && err.message === "You cannot confirm your own pay-in.",
+  );
+  assert.equal(own.brandDeposits[0]?.status, "pending");
+  assert.equal(own.brandDeposits[0]?.bankReference, "FWETA-1842");
+  assert.equal(own.brandDeposits[0]?.amountCents, amountCents);
+  assert.equal(own.wallets[0]?.availableCents, 5000);
+  assert.equal(own.ledgerEntries.length, 0);
+});
+
 test("filing and crediting keep the deposit amount and run inside the store write", () => {
   const walletSrc = readFileSync(new URL("../../app/actions/wallet.ts", import.meta.url), "utf8");
   const payinSrc = readFileSync(new URL("../../app/actions/payin.ts", import.meta.url), "utf8");
@@ -265,6 +373,22 @@ test("filing and crediting keep the deposit amount and run inside the store writ
     walletSrc.indexOf("export async function currentUserId"),
   );
   const confirmPayIn = payinSrc.slice(payinSrc.indexOf("export async function confirmPayInAction"));
+  const requestAction = payinSrc.slice(
+    payinSrc.indexOf("export async function requestPayInAction"),
+    payinSrc.indexOf("export async function confirmPayInAction"),
+  );
+  const requestParse = requestAction.indexOf("payInRequestSchema.safeParse");
+  const requestUpdate = requestAction.indexOf("updateStore");
+  const requestFile = requestAction.indexOf("fileManualPayIn");
+  assert.ok(requestParse !== -1 && requestParse < requestUpdate && requestFile > requestUpdate);
+  assert.equal(requestAction.includes("bankReference: null"), false);
+  const payinForm = readFileSync(
+    new URL("../../components/onboarding/payin-form.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(payinForm, /name="bankReference"/);
+  assert.match(payinForm, /required/);
+  assert.match(payinForm, /setError\(res\.error\)/);
 
   assert.match(fileAction, /nadToCents\(amountCents \/ 100\)/);
   assert.match(fileAction, /cents !== amountCents/);
@@ -284,8 +408,10 @@ test("filing and crediting keep the deposit amount and run inside the store writ
 
   const confirmHelper = helperSrc.slice(helperSrc.indexOf("export function confirmPendingPayIn"));
   const statusAt = confirmHelper.indexOf("payInConfirmError(row.status)");
+  const selfAt = confirmHelper.indexOf("input.actorId === row.brandId");
   const ledgerAt = confirmHelper.indexOf("applyWalletDelta(store");
-  assert.ok(statusAt !== -1 && ledgerAt > statusAt);
+  assert.ok(statusAt !== -1 && selfAt > statusAt && ledgerAt > selfAt);
+  assert.match(helperSrc, /if \(existing\) return;/);
   assert.match(formSrc, /name="bankReference"/);
   assert.match(formSrc, /required/);
   assert.match(formSrc, /setError\(res\.error\)/);
@@ -294,7 +420,7 @@ test("filing and crediting keep the deposit amount and run inside the store writ
 
   const accountsSrc = readFileSync(new URL("../../lib/validations/accounts.ts", import.meta.url), "utf8");
   const referenceSchema = accountsSrc.slice(accountsSrc.indexOf("export const bankReferenceSchema"));
-  for (const src of [fileAction, confirmAction, rejectAction, confirmPayIn, helperSrc, formSrc, payinsPage, referenceSchema]) {
+  for (const src of [fileAction, confirmAction, rejectAction, requestAction, confirmPayIn, helperSrc, formSrc, payinForm, payinsPage, referenceSchema]) {
     assert.equal(src.includes("\u2014"), false);
     assert.equal(src.includes("\u2013"), false);
   }

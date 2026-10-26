@@ -20,11 +20,6 @@ export const recordViewsSchema = z.object({
   views: z.number().int().min(0).max(2_000_000_000),
 });
 
-export const payInRequestSchema = z.object({
-  amountCents: z.number().int().positive().max(100_000_000_00),
-  note: z.string().trim().max(240).optional(),
-});
-
 /** Bank reference a brand enters when filing a manual EFT. Older rows may omit it. */
 export const bankReferenceSchema = z
   .string({ error: "Enter the bank reference from your EFT." })
@@ -38,6 +33,17 @@ export const bankReferenceSchema = z
       ctx.addIssue({ code: "custom", message: "Bank reference must be 4 to 64 characters." });
       return;
     }
+    if (/^[=+\-@]/.test(value)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Bank reference cannot start with =, +, - or @.",
+      });
+      return;
+    }
+    if (/[\r\n]/.test(value)) {
+      ctx.addIssue({ code: "custom", message: "Bank reference cannot contain a line break." });
+      return;
+    }
     if (!/^[A-Za-z0-9 /-]+$/.test(value)) {
       ctx.addIssue({
         code: "custom",
@@ -45,6 +51,12 @@ export const bankReferenceSchema = z
       });
     }
   });
+
+export const payInRequestSchema = z.object({
+  amountCents: z.number().int().positive().max(100_000_000_00),
+  note: z.string().trim().max(240).optional(),
+  bankReference: bankReferenceSchema,
+});
 
 export const brandDepositFileSchema = z.object({
   bankReference: bankReferenceSchema,

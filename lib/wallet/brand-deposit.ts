@@ -1,4 +1,5 @@
 import type { BrandDeposit, DatabaseStore } from "@/lib/db/types";
+import { bankReferenceSchema } from "@/lib/validations/accounts";
 import { applyWalletDelta } from "@/lib/wallet/ledger";
 
 const CONFIRM_CLOSED: Record<string, string> = {
@@ -31,6 +32,89 @@ function assertAdmin(roles: readonly string[]) {
   if (!roles.includes("admin")) throw new Error("Admin only.");
 }
 
+function referenceKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+/** Rejected pay-ins do not hold their reference. Every other status does. */
+export function duplicatePayInReference(
+  store: DatabaseStore,
+  reference: string,
+  exceptId?: string,
+): boolean {
+  const key = referenceKey(reference);
+  if (!key) return false;
+  return store.brandDeposits.some((item) => {
+    if (item.status === "rejected") return false;
+    if (exceptId && item.id === exceptId) return false;
+    if (typeof item.bankReference !== "string") return false;
+    return referenceKey(item.bankReference) === key;
+  });
+}
+
+const DUPLICATE_REFERENCE = "That bank reference is already used on another pay-in.";
+
+/**
+ * Append a manual pay-in. An invalid reference returns an error and does not write.
+ * Call this inside updateStore so a duplicate check sees the same document.
+ */
+export function fileManualPayIn(
+  store: DatabaseStore,
+  input: {
+    id: string;
+    brandId: string;
+    amountCents: number;
+    note: string;
+    bankReference: string;
+    createdAt: string;
+  },
+): { ok: true } | { ok: false; error: string } {
+  const parsed = bankReferenceSchema.safeParse(input.bankReference);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Enter the bank reference from your EFT.",
+    };
+  }
+  if (duplicatePayInReference(store, parsed.data)) {
+    return { ok: false, error: DUPLICATE_REFERENCE };
+  }
+  store.brandDeposits.push({
+    id: input.id,
+    brandId: input.brandId,
+    amountCents: input.amountCents,
+    note: input.note,
+    status: "pending",
+    bankReference: parsed.data,
+    confirmedBy: null,
+    confirmedAt: null,
+    createdAt: input.createdAt,
+  });
+  return { ok: true };
+}
+
+/**
+ * Keep a reference the brand already filed.
+ * An empty brand reference may take the admin's trimmed value when that value is valid.
+ */
+function applyConfirmReference(
+  store: DatabaseStore,
+  row: BrandDeposit,
+  supplied: string | null | undefined,
+) {
+  const existing = typeof row.bankReference === "string" ? row.bankReference.trim() : "";
+  if (existing) return;
+  if (typeof supplied !== "string" || !supplied.trim()) return;
+  const parsed = bankReferenceSchema.safeParse(supplied);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? "Enter the bank reference from your EFT.");
+  }
+  if (duplicatePayInReference(store, parsed.data, row.id)) {
+    throw new Error(DUPLICATE_REFERENCE);
+  }
+  row.bankReference = parsed.data;
+}
+
 /**
  * Credit a manual EFT only while it is still pending.
  * Call this inside the same updateStore write as the ledger row.
@@ -52,6 +136,10 @@ export function confirmPendingPayIn(
   if (!row) throw new Error("Pay-in not found.");
   const statusError = payInConfirmError(row.status);
   if (statusError) throw new Error(statusError);
+  if (input.actorId === row.brandId) {
+    throw new Error("You cannot confirm your own pay-in.");
+  }
+  applyConfirmReference(store, row, input.bankReference);
 
   const reason = typeof input.reason === "function" ? input.reason(row) : input.reason;
   applyWalletDelta(store, {
@@ -63,8 +151,6 @@ export function confirmPendingPayIn(
     referenceId: row.id,
   });
   row.status = "credited";
-  const reference = input.bankReference?.trim();
-  if (reference) row.bankReference = reference;
   row.confirmedBy = input.actorId;
   row.confirmedAt = input.now;
   return row;

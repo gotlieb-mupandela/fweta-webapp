@@ -16,6 +16,7 @@ export function PayInRequestForm() {
   return (
     <form
       className="max-w-md space-y-4"
+      noValidate
       onSubmit={(event) => {
         event.preventDefault();
         const form = event.currentTarget;
@@ -28,7 +29,11 @@ export function PayInRequestForm() {
         setError(null);
         setSuccess(null);
         startTransition(async () => {
-          const res = await requestPayInAction(Math.round(amount * 100), String(fd.get("note") || "") || undefined);
+          const res = await requestPayInAction(
+            Math.round(amount * 100),
+            String(fd.get("note") || "") || undefined,
+            String(fd.get("bankReference") || ""),
+          );
           if (!res.ok) setError(res.error);
           else {
             form.reset();
@@ -39,12 +44,23 @@ export function PayInRequestForm() {
       }}
     >
       <div>
-        <Label htmlFor="amount">Amount (NAD)</Label>
-        <Input id="amount" name="amount" type="number" step="0.01" min="0.01" required placeholder="1000.00" />
+        <Label htmlFor="payin-amount">Amount (NAD)</Label>
+        <Input id="payin-amount" name="amount" type="number" step="0.01" min="0.01" required placeholder="1000.00" />
       </div>
       <div>
-        <Label htmlFor="note">EFT reference (optional)</Label>
-        <Textarea id="note" name="note" placeholder="The reference you put on the transfer" />
+        <Label htmlFor="payin-reference">Bank reference</Label>
+        <Input
+          id="payin-reference"
+          name="bankReference"
+          required
+          maxLength={64}
+          autoComplete="off"
+          placeholder="As it appears on the EFT"
+        />
+      </div>
+      <div>
+        <Label htmlFor="payin-note">Note (optional)</Label>
+        <Textarea id="payin-note" name="note" placeholder="Memo for the admin" />
       </div>
       <FieldError>{error}</FieldError>
       <FieldSuccess>{success}</FieldSuccess>

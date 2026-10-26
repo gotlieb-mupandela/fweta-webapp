@@ -17,7 +17,7 @@ import { payoutMethodSchema } from "@/lib/validations/payout-method";
 import { brandDepositFileSchema } from "@/lib/validations/accounts";
 import { kycSchema, withdrawalSchema } from "@/lib/validations/withdrawal";
 import { nadToCents } from "@/lib/money/cents";
-import { confirmPendingPayIn, rejectPendingPayIn } from "@/lib/wallet/brand-deposit";
+import { confirmPendingPayIn, fileManualPayIn, rejectPendingPayIn } from "@/lib/wallet/brand-deposit";
 import { maskAccountNumber } from "@/lib/utils";
 
 const MIN_WITHDRAWAL_CENTS = 10000; // N$100
@@ -305,17 +305,15 @@ export async function brandDepositAction(amountCents: number, note?: string, ban
   const id = newId();
   try {
     await updateStore((s) => {
-      s.brandDeposits.push({
+      const filed = fileManualPayIn(s, {
         id,
         brandId: session.id,
         amountCents: cents,
         note: note?.trim() || "Manual EFT deposit",
-        status: "pending",
         bankReference: parsed.data.bankReference,
-        confirmedBy: null,
-        confirmedAt: null,
         createdAt: nowIso(),
       });
+      if (!filed.ok) throw new Error(filed.error);
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Could not submit the deposit." };
