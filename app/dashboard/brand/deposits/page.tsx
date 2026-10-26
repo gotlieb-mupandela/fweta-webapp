@@ -6,6 +6,7 @@ import { Badge, Card, EmptyState, PageHeader, SectionHeader } from "@/components
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
+import { payInReferenceLabel } from "@/lib/wallet/brand-deposit";
 
 export default async function BrandDepositsPage() {
   const session = await getSession();
@@ -45,23 +46,24 @@ export default async function BrandDepositsPage() {
           />
         ) : (
           <ul className="space-y-2.5">
-            {deposits.map((d) => (
-              <li key={d.id} className="list-row items-start">
-                <div>
-                  <p className="font-medium">{formatMoney(d.amountCents)}</p>
-                  <p className="text-sm text-muted">{d.note}</p>
-                  {d.bankReference ? (
-                    <p className="text-xs text-muted">Reference {d.bankReference}</p>
-                  ) : null}
-                  <p className="text-xs text-muted-light">
-                    {new Date(d.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-                <Badge tone={d.status === "credited" ? "success" : d.status === "rejected" ? "danger" : "muted"}>
-                  {d.status === "pending" ? "Waiting for confirmation" : d.status}
-                </Badge>
-              </li>
-            ))}
+            {deposits.map((d) => {
+              const reference = payInReferenceLabel(d.bankReference);
+              return (
+                <li key={d.id} className="list-row items-start">
+                  <div>
+                    <p className="font-medium">{formatMoney(d.amountCents)}</p>
+                    <p className="text-sm text-muted">{d.note}</p>
+                    {reference ? <p className="text-xs text-muted">Reference {reference}</p> : null}
+                    <p className="text-xs text-muted-light">
+                      {new Date(d.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <Badge tone={d.status === "credited" ? "success" : d.status === "rejected" ? "danger" : "muted"}>
+                    {d.status === "pending" ? "Waiting for confirmation" : d.status}
+                  </Badge>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
