@@ -133,3 +133,24 @@ test("page metadata, llms.txt, and the email layout capitalise Fweta", () => {
   }
   assert.deepEqual(violations, []);
 });
+
+test("error page logo links use the Fweta aria-label", () => {
+  const pages = [
+    "app/error.tsx",
+    "app/global-error.tsx",
+    "app/not-found.tsx",
+    "app/dashboard/error.tsx",
+  ];
+  assert.ok(brandNameHits('aria-label="fweta"').length > 0);
+  const violations: string[] = [];
+  for (const file of pages) {
+    const source = readFileSync(path.join(process.cwd(), file), "utf8");
+    const labels = [...source.matchAll(/aria-label="([^"]*)"/g)].map((match) => match[1]);
+    assert.ok(labels.length > 0, file);
+    for (const label of labels) {
+      for (const hit of brandNameHits(label)) violations.push(`${file}: ${hit}`);
+    }
+    assert.match(source, />fweta</, file);
+  }
+  assert.deepEqual(violations, []);
+});

@@ -16,7 +16,7 @@ export default function NotFound() {
       id="main"
       className="bg-atmosphere flex min-h-[70vh] flex-col items-center justify-center px-6 text-center"
     >
-      <Link href="/" className="inline-flex items-center gap-2" aria-label="fweta">
+      <Link href="/" className="inline-flex items-center gap-2" aria-label="Fweta">
         <Image
           src="/brand/fweta-mark.png"
           alt=""

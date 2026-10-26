@@ -28,7 +28,7 @@ export default function DashboardError({
 
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center px-6 text-center">
-      <Link href="/" className="inline-flex items-center gap-2" aria-label="fweta">
+      <Link href="/" className="inline-flex items-center gap-2" aria-label="Fweta">
         <Image
           src="/brand/fweta-mark.png"
           alt=""

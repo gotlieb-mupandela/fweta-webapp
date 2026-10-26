@@ -52,7 +52,7 @@ export default function GlobalError({
         className={`${karla.className} flex min-h-full flex-col bg-background text-foreground antialiased`}
       >
         <div className="bg-atmosphere flex min-h-dvh flex-col items-center justify-center px-6 text-center">
-          <Link href="/" className="inline-flex items-center gap-2" aria-label="fweta">
+          <Link href="/" className="inline-flex items-center gap-2" aria-label="Fweta">
             <Image
               src="/brand/fweta-mark.png"
               alt=""
