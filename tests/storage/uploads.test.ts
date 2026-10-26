@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { rm } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+
+import { readStore, updateStore } from "../../lib/db/store";
 
 import { uploadAvatarFile } from "../../lib/storage/avatars";
 import {
@@ -23,6 +26,7 @@ import {
   withinLimit,
 } from "../../lib/storage/constants";
 import type { StorageDriver } from "../../lib/storage/driver";
+import { sweepUnfinalizedUploads } from "../../lib/storage/pending";
 import { inspectFile } from "../../lib/storage/inspect";
 import {
   appendGrantsIfAllowed,
@@ -770,12 +774,15 @@ test("two parallel deliveries attach the same staged file once", async () => {
 
 test("the sweep rechecks attachment inside the write before deleting", () => {
   const pending = readFileSync("lib/storage/pending.ts", "utf8");
-  const writeAt = pending.indexOf("await updateStore");
-  const pathsAt = pending.indexOf("deliveryReferencedPaths(draft", writeAt);
-  const recheckAt = pending.indexOf("grantsAfterSweep(draft.uploadGrants", writeAt);
-  const deleteAt = pending.indexOf("deleteObject", writeAt);
-  const retainAt = pending.indexOf("retainAfterSweep", writeAt);
-  assert.ok(writeAt > 0 && pathsAt > writeAt && recheckAt > pathsAt && deleteAt > recheckAt && retainAt > deleteAt);
+  const fn = pending.slice(pending.indexOf("export async function sweepUnfinalizedUploads"));
+  const writeAt = fn.indexOf("await updateStore");
+  const closeAt = fn.indexOf("\n  });", writeAt);
+  const deleteAt = fn.indexOf("deleteObject", closeAt);
+  const writeBody = fn.slice(writeAt, closeAt);
+  assert.ok(writeAt >= 0 && closeAt > writeAt && deleteAt > closeAt);
+  assert.equal(writeBody.includes("deleteObject"), false);
+  assert.match(writeBody, /deliveryReferencedPaths\(draft/);
+  assert.match(writeBody, /rowsAfterSweepWrite\(/);
 
   const stale = asStaged(fileId, nowMs - STAGED_GRANT_RETENTION_MS);
   const preview = grantsAfterSweep([stale], nowMs);
@@ -814,4 +821,102 @@ test("a delivery that references the object just before the sweep keeps the obje
   assert.equal(kept.length, 1);
   assert.equal(kept[0]?.id, stale.id);
   assert.equal(kept[0]?.path, stale.path);
+});
+
+function sweepDriver(deleteObject: StorageDriver["deleteObject"]): StorageDriver {
+  return {
+    uploadObject: async () => undefined,
+    downloadObject: async () => null,
+    deleteObject,
+    createSignedUploadUrl: async () => ({ signedUrl: "", token: "" }),
+    createSignedReadUrl: async () => "",
+  };
+}
+
+async function resetSweepStore() {
+  globalThis.__fwetaStore = undefined;
+  await rm("data/store.json", { force: true });
+}
+
+test("a delivery that attaches a staged file older than 24h wins the race and kept rows are not deleted", async () => {
+  const raced = asStaged(fileId, nowMs - STAGED_GRANT_RETENTION_MS);
+  const keptId = "55555555-5555-4555-8555-555555555555";
+  const doomedId = "66666666-6666-4666-8666-666666666666";
+  const kept = asStaged(keptId, nowMs - STAGED_GRANT_RETENTION_MS, {
+    attachedAt: new Date(nowMs - 1000).toISOString(),
+  });
+  const doomed = asStaged(doomedId, nowMs - STAGED_GRANT_RETENTION_MS);
+  const calls: string[] = [];
+  await resetSweepStore();
+  try {
+    await updateStore((draft) => {
+      draft.uploadGrants = [raced, kept, doomed];
+      draft.ugcDeliveries = [];
+      draft.pendingUploadDeletes = [];
+    });
+    const attaching = updateStore((draft) => {
+      const grant = draft.uploadGrants?.find((item) => item.id === raced.id);
+      if (!grant) throw new Error("missing grant");
+      grant.attachedAt = new Date(nowMs).toISOString();
+      draft.ugcDeliveries.push({
+        id: "delivery-race",
+        briefId: acceptedApplication.briefId,
+        applicationId: acceptedApplication.id,
+        creatorId: userA,
+        files: [{ id: raced.id, name: raced.path, originalName: "clip.png", kind: "raw" }],
+        status: "submitted",
+        revisionCount: 0,
+        revisionNote: null,
+        createdAt: new Date(nowMs).toISOString(),
+        updatedAt: new Date(nowMs).toISOString(),
+      });
+    });
+    const sweeping = sweepUnfinalizedUploads(new Date(nowMs), sweepDriver(async (_bucket, path) => {
+      calls.push(path);
+    }));
+    await Promise.all([attaching, sweeping]);
+    assert.equal(calls.includes(raced.path), false);
+    assert.equal(calls.includes(kept.path), false);
+    assert.deepEqual(calls, [doomed.path]);
+    const after = await readStore();
+    assert.equal(after.uploadGrants?.some((grant) => grant.id === raced.id && grant.attachedAt), true);
+    assert.equal(after.uploadGrants?.some((grant) => grant.id === kept.id), true);
+    assert.equal(after.uploadGrants?.some((grant) => grant.id === doomed.id), false);
+  } finally {
+    await resetSweepStore();
+  }
+});
+
+test("a failed object delete leaves the row removed and the next sweep retries it", async () => {
+  const doomed = asStaged(fileId, nowMs - STAGED_GRANT_RETENTION_MS);
+  await resetSweepStore();
+  try {
+    await updateStore((draft) => {
+      draft.uploadGrants = [doomed];
+      draft.ugcDeliveries = [];
+      draft.pendingUploadDeletes = [];
+    });
+    await sweepUnfinalizedUploads(
+      new Date(nowMs),
+      sweepDriver(async () => {
+        throw new Error("provider down");
+      }),
+    );
+    const mid = await readStore();
+    assert.equal(mid.uploadGrants?.some((grant) => grant.id === doomed.id), false);
+    assert.equal(mid.pendingUploadDeletes?.some((item) => item.id === doomed.id && item.path === doomed.path), true);
+    const calls: string[] = [];
+    await sweepUnfinalizedUploads(
+      new Date(nowMs),
+      sweepDriver(async (_bucket, path) => {
+        calls.push(path);
+      }),
+    );
+    assert.deepEqual(calls, [doomed.path]);
+    const done = await readStore();
+    assert.equal(done.pendingUploadDeletes?.length ?? 0, 0);
+    assert.equal(done.uploadGrants?.some((grant) => grant.id === doomed.id), false);
+  } finally {
+    await resetSweepStore();
+  }
 });

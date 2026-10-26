@@ -750,4 +750,15 @@ export type DatabaseStore = {
   creatorReviews: CreatorReview[];
   /** Absent on stores saved before private uploads. */
   uploadGrants?: UploadGrant[];
+  /**
+   * Grant rows already removed whose provider delete still needs a retry.
+   * Absent on stores saved before this list existed.
+   */
+  pendingUploadDeletes?: PendingUploadDelete[];
+};
+
+export type PendingUploadDelete = {
+  id: string;
+  bucket: "fweta-media" | "fweta-kyc";
+  path: string;
 };

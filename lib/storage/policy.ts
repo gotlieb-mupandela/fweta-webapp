@@ -215,9 +215,13 @@ export function deliveryReferencedPaths(
 export function objectIsInUse(grant: StoredGrant, referencedPaths?: ReadonlySet<string>): boolean {
   if (grant.attachedAt) return true;
   if (!referencedPaths || referencedPaths.size === 0) return false;
-  if (referencedPaths.has(grant.path)) return true;
-  const slash = grant.path.lastIndexOf("/");
-  const base = slash >= 0 ? grant.path.slice(slash + 1) : "";
+  return pathIsReferenced(grant.path, referencedPaths);
+}
+
+export function pathIsReferenced(path: string, referencedPaths: ReadonlySet<string>): boolean {
+  if (referencedPaths.has(path)) return true;
+  const slash = path.lastIndexOf("/");
+  const base = slash >= 0 ? path.slice(slash + 1) : "";
   return Boolean(base) && referencedPaths.has(base);
 }
 
@@ -227,7 +231,7 @@ export function objectIsInUse(grant: StoredGrant, referencedPaths?: ReadonlySet<
  * the object, so the row has to remain until that URL is dead.
  * A staged grant that was never attached is deleted after STAGED_GRANT_RETENTION_MS.
  * A grant with attachedAt, or whose path any delivery names, is never swept.
- * Each sweep deletes the object first. The row is removed only after that delete succeeds.
+ * The store write removes the row first. The object delete happens only after that write commits.
  */
 export function grantsAfterSweep(
   grants: StoredGrant[],
@@ -284,6 +288,20 @@ export function retainAfterSweep(input: {
     if (!input.storageConfigured) return false;
     return !input.deletedIds.has(grant.id);
   });
+}
+
+/** Rows removed by the sweep write. In-use grants stay. The caller deletes objects only after this commit. */
+export function rowsAfterSweepWrite(input: {
+  grants: StoredGrant[];
+  deliveries?: readonly { files?: readonly { name?: string | null }[] | null }[] | null;
+  nowMs: number;
+}): { grants: StoredGrant[]; removed: StoredGrant[] } {
+  const referencedPaths = deliveryReferencedPaths(input.deliveries);
+  const staying = new Set(grantsAfterSweep(input.grants, input.nowMs, referencedPaths).keep.map((grant) => grant.id));
+  return {
+    grants: input.grants.filter((grant) => staying.has(grant.id)),
+    removed: input.grants.filter((grant) => !staying.has(grant.id)),
+  };
 }
 
 function stagedRetainUntil(grant: StoredGrant): number {

@@ -58,6 +58,7 @@ const emptyStore = (): DatabaseStore => ({
   businessListings: [],
   creatorReviews: [],
   uploadGrants: [],
+  pendingUploadDeletes: [],
 });
 
 function supabaseUrl(): string | undefined {
@@ -277,6 +278,7 @@ export async function loadStoreFromSupabase(): Promise<DatabaseStore | null> {
         fill("businessListings");
         fill("creatorReviews");
         fill("uploadGrants");
+        fill("pendingUploadDeletes");
       }
       return relational;
     }

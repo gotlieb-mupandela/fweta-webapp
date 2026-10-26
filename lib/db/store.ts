@@ -62,6 +62,7 @@ const emptyStore = (): DatabaseStore => ({
   businessListings: [],
   creatorReviews: [],
   uploadGrants: [],
+  pendingUploadDeletes: [],
 });
 
 declare global {
