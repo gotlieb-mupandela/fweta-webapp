@@ -114,8 +114,108 @@ test("finishing onboarding twice does not duplicate the creator", () => {
   assert.equal(store.influencerProfiles.length, 1);
   assert.equal(store.influencerProfiles[0]?.slug, "amara-nangolo");
   assert.equal(store.influencerProfiles[0]?.userId, "user-1");
-  assert.equal(store.profiles[0]?.onboardingCompletedAt, "2026-10-25T12:00:05.000Z");
+  assert.equal(store.profiles[0]?.onboardingCompletedAt, "2026-10-25T12:00:00.000Z");
+  assert.equal(store.influencerProfiles[0]?.createdAt, "2026-10-25T12:00:00.000Z");
+  assert.equal(store.profiles[0]?.updatedAt, "2026-10-25T12:00:05.000Z");
   assert.equal(store.profiles[0]?.socials?.tiktok, "https://www.tiktok.com/@amara");
+});
+
+test("a retried finish keeps the first completion time for creator and brand", () => {
+  const first = "2026-10-25T12:00:00.000Z";
+  const retry = "2026-10-25T12:00:05.000Z";
+
+  const creatorStore = withProfile(creator());
+  creatorStore.wallets.push({
+    userId: "user-1",
+    availableCents: 2500,
+    pendingCents: 100,
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  });
+  creatorStore.notifications.push({
+    id: "note-creator",
+    userId: "user-1",
+    kind: "welcome",
+    title: "Welcome to fweta",
+    body: "Your workspace is ready.",
+    href: "/campaigns",
+    readAt: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  });
+  const creatorWallet = structuredClone(creatorStore.wallets);
+  const creatorNotes = structuredClone(creatorStore.notifications);
+  const creatorLedger = structuredClone(creatorStore.ledgerEntries);
+  const creatorInput = {
+    firstName: "Amara",
+    lastName: "Nangolo",
+    phone: "+264 81 000 0000",
+    socials: { tiktok: "https://www.tiktok.com/@amara" },
+    niche: "Lifestyle",
+    location: "Windhoek",
+    primaryPlatform: "tiktok" as const,
+  };
+  applyWizardCompletion(creatorStore, "user-1", creatorInput, first);
+  const creatorProfileId = creatorStore.influencerProfiles[0]?.id;
+  applyWizardCompletion(creatorStore, "user-1", { ...creatorInput, niche: "Music" }, retry);
+
+  assert.equal(creatorStore.profiles.length, 1);
+  assert.equal(creatorStore.profiles[0]?.onboardingCompletedAt, first);
+  assert.equal(creatorStore.profiles[0]?.createdAt, "2026-01-01T00:00:00.000Z");
+  assert.equal(creatorStore.profiles[0]?.updatedAt, retry);
+  assert.deepEqual(creatorStore.profiles[0]?.roles, ["influencer"]);
+  assert.equal(creatorStore.profiles[0]?.primaryRole, "influencer");
+  assert.equal(creatorStore.profiles[0]?.niche, "Music");
+  assert.equal(creatorStore.influencerProfiles.length, 1);
+  assert.equal(creatorStore.influencerProfiles[0]?.id, creatorProfileId);
+  assert.equal(creatorStore.influencerProfiles[0]?.createdAt, first);
+  assert.equal(creatorStore.influencerProfiles[0]?.updatedAt, retry);
+  assert.equal(creatorStore.influencerProfiles[0]?.niche, "Music");
+  assert.deepEqual(creatorStore.wallets, creatorWallet);
+  assert.deepEqual(creatorStore.notifications, creatorNotes);
+  assert.deepEqual(creatorStore.ledgerEntries, creatorLedger);
+
+  const brandStore = withProfile(brand());
+  brandStore.wallets.push({
+    userId: "brand-1",
+    availableCents: 10000,
+    pendingCents: 0,
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  });
+  brandStore.notifications.push({
+    id: "note-brand",
+    userId: "brand-1",
+    kind: "welcome",
+    title: "Welcome to fweta",
+    body: "Fund your wallet, then post a campaign.",
+    href: "/dashboard/brand/deposits",
+    readAt: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  });
+  const brandWallet = structuredClone(brandStore.wallets);
+  const brandNotes = structuredClone(brandStore.notifications);
+  const brandLedger = structuredClone(brandStore.ledgerEntries);
+  const brandInput = {
+    firstName: "Lena",
+    lastName: "Shipanga",
+    phone: "+264 81 111 1111",
+    socials: {},
+    companyName: "Desert Brands",
+    website: "desertbrands.com",
+  };
+  applyWizardCompletion(brandStore, "brand-1", brandInput, first);
+  applyWizardCompletion(brandStore, "brand-1", { ...brandInput, website: "https://desertbrands.com/about" }, retry);
+
+  assert.equal(brandStore.profiles.length, 1);
+  assert.equal(brandStore.influencerProfiles.length, 0);
+  assert.equal(brandStore.profiles[0]?.onboardingCompletedAt, first);
+  assert.equal(brandStore.profiles[0]?.createdAt, "2026-01-01T00:00:00.000Z");
+  assert.equal(brandStore.profiles[0]?.updatedAt, retry);
+  assert.deepEqual(brandStore.profiles[0]?.roles, ["brand"]);
+  assert.equal(brandStore.profiles[0]?.primaryRole, "brand");
+  assert.equal(brandStore.profiles[0]?.companyName, "Desert Brands");
+  assert.equal(brandStore.profiles[0]?.website, "https://desertbrands.com/about");
+  assert.deepEqual(brandStore.wallets, brandWallet);
+  assert.deepEqual(brandStore.notifications, brandNotes);
+  assert.deepEqual(brandStore.ledgerEntries, brandLedger);
 });
 
 test("store failures shown to the user do not name Supabase", () => {

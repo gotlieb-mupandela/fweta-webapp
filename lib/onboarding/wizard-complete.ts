@@ -24,7 +24,8 @@ function firstFilledPlatform(socials: ProfileSocials): SocialPlatform | undefine
 
 /**
  * Apply a finished wizard onto the store. Running it twice updates the same
- * profile and influencer row. It does not insert a second one.
+ * profile and influencer row. The first completion time stays put. It does
+ * not insert a second row.
  */
 export function applyWizardCompletion(
   store: DatabaseStore,
@@ -44,7 +45,8 @@ export function applyWizardCompletion(
   const pickedPlatform = data.primaryPlatform ?? firstFilledPlatform(data.socials);
   if (pickedPlatform) profile.primaryPlatform = pickedPlatform;
   profile.updatedAt = now;
-  profile.onboardingCompletedAt = now;
+  // A timed-out Finish can still commit. The retry must keep that first moment.
+  if (!profile.onboardingCompletedAt) profile.onboardingCompletedAt = now;
 
   if (profile.roles.includes("brand")) {
     const company = data.companyName?.trim();
@@ -100,6 +102,7 @@ export function applyWizardCompletion(
         niche,
         location,
         socials: { ...existing.socials, ...data.socials },
+        createdAt: existing.createdAt,
         updatedAt: now,
       });
     }
