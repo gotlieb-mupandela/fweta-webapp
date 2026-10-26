@@ -14,7 +14,7 @@ Never re-run the PR 28 grants (`supabase/migrations/20261021100752_security_lock
 
 Until a build that saves through `fweta_cas_save_store` is live, the revision check is not enforced on any write path, whichever function is used.
 
-3. Deploy a build that saves through `fweta_cas_save_store`. Verify one compare-and-swap save.
+3. Deploy a build that saves through `fweta_cas_save_store`. Verify one compare-and-swap save. After a fresh deploy, run `POST /api/jobs/housekeeping` with the header `Authorization: Bearer $CRON_SECRET` once. This creates the first env admin from `ADMIN_EMAIL` and `ADMIN_PASSWORD`, and only when no profile already uses `ADMIN_EMAIL`. It never changes an existing account and never deletes duplicate profiles. Opening `/login` does not create the admin. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` before this step.
 
 4. Only after that save is verified, apply `supabase/migrations/20261026140000_store_revision_revoke_writes.sql`. Repeat the two read-only checks under "Before the revoke" first. The file removes direct table writes from `service_role`, so an earlier apply fails the live upsert. It also revokes execute on `public.fweta_json_store_set(jsonb)` from `service_role`, `public`, `anon`, and `authenticated` if that function exists. That function revoke is a hardening step against bypassing the revision check. The live build does not need `fweta_json_store_set`. The only risk of running that function revoke early is if the live build turns out to call `fweta_json_store_set`. The deployed-commit grep answers that. The revoke covers only `fweta_json_store_set(jsonb)`. Anything else the catalog query finds must be reviewed first.
 
@@ -84,6 +84,8 @@ Roll back the revoke (`supabase/rollbacks/20261026140000_store_revision_revoke_w
 
 ## Before deploy
 
-Set `PAYOUT_ENCRYPTION_KEY`, `AUTH_SECRET`, `CRON_SECRET`, and `NEXT_PUBLIC_APP_URL`. Use Vercel Node 22 or newer.
+Set `PAYOUT_ENCRYPTION_KEY`, `AUTH_SECRET`, `CRON_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `NEXT_PUBLIC_APP_URL`. Use Vercel Node 22 or newer.
+
+After a fresh deploy, run `POST /api/jobs/housekeeping` with the header `Authorization: Bearer $CRON_SECRET` once. This creates the first env admin from `ADMIN_EMAIL` and `ADMIN_PASSWORD`, and only when no profile already uses `ADMIN_EMAIL`. It never changes an existing account and never deletes duplicate profiles. Opening `/login` does not create the admin. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` before this step.
 
 Rehearsals for these files ran on local Postgres 16, not on hosted Supabase.
