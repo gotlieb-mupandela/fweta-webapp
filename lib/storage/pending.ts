@@ -22,6 +22,7 @@ export async function sweepUnfinalizedUploads(now = new Date(), driver?: Storage
   const preview = grantsAfterSweep(current.uploadGrants ?? [], nowMs);
   if (preview.deleteObjects.length === 0 && !(current.pendingUploadDeletes?.length)) return 0;
   const storage = driver ?? (isStorageConfigured() ? createSupabaseStorageDriver() : null);
+  if (!storage) return 0;
   let removedCount = 0;
   let scheduled: PendingUploadDelete[] = [];
   await updateStore((draft) => {

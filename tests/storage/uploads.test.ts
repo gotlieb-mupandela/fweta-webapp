@@ -25,7 +25,7 @@ import {
   friendlyStorageError,
   withinLimit,
 } from "../../lib/storage/constants";
-import type { StorageDriver } from "../../lib/storage/driver";
+import { isStorageConfigured, type StorageDriver } from "../../lib/storage/driver";
 import { sweepUnfinalizedUploads } from "../../lib/storage/pending";
 import { inspectFile } from "../../lib/storage/inspect";
 import {
@@ -916,6 +916,34 @@ test("a failed object delete leaves the row removed and the next sweep retries i
     const done = await readStore();
     assert.equal(done.pendingUploadDeletes?.length ?? 0, 0);
     assert.equal(done.uploadGrants?.some((grant) => grant.id === doomed.id), false);
+  } finally {
+    await resetSweepStore();
+  }
+});
+
+test("storage not configured leaves an unattached expired grant and the retry list, and deletes nothing", async () => {
+  assert.equal(isStorageConfigured(), false);
+  const stale = asStaged(fileId, nowMs - STAGED_GRANT_RETENTION_MS);
+  const retry = [
+    {
+      id: "77777777-7777-4777-8777-777777777777",
+      bucket: "fweta-kyc" as const,
+      path: `${userA}/kyc/77777777-7777-4777-8777-777777777777`,
+    },
+  ];
+  await resetSweepStore();
+  try {
+    await updateStore((draft) => {
+      draft.uploadGrants = [stale];
+      draft.ugcDeliveries = [];
+      draft.pendingUploadDeletes = retry.map((item) => ({ ...item }));
+    });
+    const removed = await sweepUnfinalizedUploads(new Date(nowMs));
+    assert.equal(removed, 0);
+    const after = await readStore();
+    assert.equal(after.uploadGrants?.some((grant) => grant.id === stale.id), true);
+    assert.equal(after.uploadGrants?.find((grant) => grant.id === stale.id)?.attachedAt ?? null, null);
+    assert.deepEqual(after.pendingUploadDeletes, retry);
   } finally {
     await resetSweepStore();
   }
