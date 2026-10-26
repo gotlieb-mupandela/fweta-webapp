@@ -5,14 +5,24 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import test from "node:test";
 
 import { earningsDataDir } from "./earnings-env";
-import { settleRewardsJob } from "../../app/actions/jobs";
+import { pollSubmissionViewsJob, settleRewardsJob } from "../../app/actions/jobs";
 import { allocateCampaignFunds } from "../../lib/campaigns/fund";
+import { applyPolledViews } from "../../lib/jobs/apply-polled-views";
 import { readStore, updateStore } from "../../lib/db/store";
-import type { Campaign, DatabaseStore, Submission } from "../../lib/db/types";
+import type { Campaign, DatabaseStore, Submission, ViewSnapshot } from "../../lib/db/types";
 import { hydrateCampaign, hydrateSubmission } from "../../lib/rewards/content-rewards";
 import { forfeitUpheldSubmission } from "../../lib/rewards/earnings";
 import { reviewSubmissionForActor } from "../../lib/rewards/review-submission";
-import { recordCheckedViewsForActor, saveAdminViewForActor } from "../../lib/rewards/view-entry";
+import {
+  confirmCreatorViewForActor,
+  recordCheckedViewsForActor,
+  recordSubmissionViewsForActor,
+  recordSubmissionViewsInStore,
+  saveAdminViewForActor,
+  saveBulkViewsForActor,
+  saveBulkViewsInStore,
+  setManualViewsForActor,
+} from "../../lib/rewards/view-entry";
 
 const brand = "11111111-1111-4111-8111-111111111111";
 const clipper = "22222222-2222-4222-8222-222222222222";
@@ -20,6 +30,7 @@ const admin = "33333333-3333-4333-8333-333333333333";
 const campId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const subId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const sub2Id = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const snapId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const now = Date.parse("2026-10-17T12:00:00.000Z");
 const nowIso = new Date(now).toISOString();
 
@@ -99,6 +110,23 @@ function submission(partial: Partial<Submission> & Pick<Submission, "id">): Subm
   });
 }
 
+function creatorReport(partial: Partial<ViewSnapshot> = {}): ViewSnapshot {
+  return {
+    id: snapId,
+    submissionId: subId,
+    views: 9_000,
+    likes: null,
+    comments: null,
+    note: "creator count",
+    screenshotPath: null,
+    recordedAt: nowIso,
+    checkedBy: null,
+    source: "creator",
+    status: "pending",
+    ...partial,
+  };
+}
+
 function balances(store: DatabaseStore) {
   const clipperWallet = store.wallets.find((row) => row.userId === clipper);
   const brandWallet = store.wallets.find((row) => row.userId === brand);
@@ -148,6 +176,12 @@ test("the old earnings module is gone and jobs use the rewards engine", () => {
   assert.match(submissions, /reviewSubmissionForActor/);
   assert.equal(submissions.includes("creditSubmissionEarnings"), false);
   assert.match(views, /saveAdminViewForActor/);
+  assert.match(views, /saveBulkViewsForActor/);
+  assert.match(views, /confirmCreatorViewForActor/);
+  assert.match(views, /recordSubmissionViewsForActor/);
+  assert.match(views, /creditedCents: saved\.creditedCents/);
+  assert.equal(views.includes("creditedCents: 0"), false);
+  assert.equal(views.includes("commitConfirmed"), false);
 });
 
 test("claw back a clip, then settle-rewards does not credit it again", async () => {
@@ -350,4 +384,582 @@ test("saveAdminViewAction refuses a lower view count and leaves balances unchang
     after.ledgerEntries.some((entry) => entry.reason.includes("View count corrected")),
     false,
   );
+});
+
+test("recordSubmissionViewsAction refuses a settled or closed campaign before any write", async () => {
+  await seed([submission({ id: subId, views: 0 })], true);
+  const before = balances(await readStore());
+  const settled = await recordSubmissionViewsForActor(adminActor, { submissionId: subId, views: 5_000 }, now);
+  assert.equal(settled.ok, false);
+  if (!settled.ok) assert.equal(settled.error, "This campaign is already settled. Further views are not paid.");
+  const afterSettled = await readStore();
+  assert.equal(afterSettled.submissions.find((item) => item.id === subId)?.views, 0);
+  assert.equal(balances(afterSettled).clipperPending, 0);
+  assert.deepEqual(balances(afterSettled), before);
+  assert.equal(afterSettled.viewSnapshots.length, 0);
+
+  await seed([submission({ id: subId, views: 0 })]);
+  await updateStore((store) => {
+    const camp = store.campaigns.find((item) => item.id === campId);
+    if (!camp) throw new Error("missing campaign");
+    camp.closedAt = nowIso;
+    camp.settledAt = null;
+  });
+  const closedBefore = balances(await readStore());
+  const closed = await recordSubmissionViewsForActor(adminActor, { submissionId: subId, views: 5_000 }, now);
+  assert.equal(closed.ok, false);
+  if (!closed.ok) assert.equal(closed.error, "This campaign is already settled. Further views are not paid.");
+  const afterClosed = await readStore();
+  assert.equal(afterClosed.submissions.find((item) => item.id === subId)?.views, 0);
+  assert.equal(balances(afterClosed).clipperPending, 0);
+  assert.deepEqual(balances(afterClosed), closedBefore);
+  assert.equal(afterClosed.viewSnapshots.length, 0);
+});
+
+test("recordSubmissionViewsAction refuses a forfeited clip before any write", async () => {
+  for (const partial of [
+    { payoutState: "clawed_back" as const },
+    { fraudState: "upheld" as const },
+  ]) {
+    await seed([submission({ id: subId, views: 1_000, ...partial })]);
+    await updateStore((store) => {
+      store.viewSnapshots.push(creatorReport({ views: 9_000 }));
+    });
+    const before = await readStore();
+    const beforeBalances = balances(before);
+    assert.equal(before.viewSnapshots.length, 1);
+
+    const draft = await readStore();
+    assert.throws(
+      () => recordSubmissionViewsInStore(draft, adminActor, { submissionId: subId, views: 5_000 }, now),
+      /This clip was forfeited\./,
+    );
+    assert.equal(draft.submissions.find((item) => item.id === subId)?.views, 1_000);
+    assert.equal(draft.viewSnapshots.length, 1);
+    assert.equal(draft.viewSnapshots[0]?.status, "pending");
+
+    const refused = await recordSubmissionViewsForActor(adminActor, { submissionId: subId, views: 5_000 }, now);
+    assert.equal(refused.ok, false);
+    if (!refused.ok) assert.equal(refused.error, "This clip was forfeited.");
+    const after = await readStore();
+    assert.equal(after.submissions.find((item) => item.id === subId)?.views, 1_000);
+    assert.equal(after.viewSnapshots.length, 1);
+    assert.equal(after.viewSnapshots[0]?.status, "pending");
+    assert.equal(
+      after.viewSnapshots.some((item) => item.status === "confirmed"),
+      false,
+    );
+    assert.deepEqual(balances(after), beforeBalances);
+  }
+});
+
+test("saveBulkViewsAction refuses one forfeited row and writes nothing", async () => {
+  for (const partial of [
+    { payoutState: "clawed_back" as const },
+    { fraudState: "upheld" as const },
+  ]) {
+    await seed([
+      submission({ id: subId, views: 0 }),
+      submission({
+        id: sub2Id,
+        views: 1_000,
+        postUrl: "https://www.tiktok.com/@kai/video/2",
+        ...partial,
+      }),
+    ]);
+    const before = await readStore();
+    const beforeBalances = balances(before);
+
+    const draft = await readStore();
+    assert.throws(
+      () =>
+        saveBulkViewsInStore(
+          draft,
+          adminActor,
+          [
+            { submissionId: subId, views: 5_000 },
+            { submissionId: sub2Id, views: 4_000 },
+          ],
+          now,
+        ),
+      /This clip was forfeited\./,
+    );
+    assert.equal(draft.submissions.find((item) => item.id === subId)?.views, 0);
+    assert.equal(draft.submissions.find((item) => item.id === sub2Id)?.views, 1_000);
+    assert.equal(draft.viewSnapshots.length, 0);
+
+    const refused = await saveBulkViewsForActor(
+      adminActor,
+      [
+        { submissionId: subId, views: 5_000 },
+        { submissionId: sub2Id, views: 4_000 },
+      ],
+      now,
+    );
+    assert.equal(refused.ok, false);
+    if (!refused.ok) assert.equal(refused.error, "This clip was forfeited.");
+    const after = await readStore();
+    assert.equal(after.submissions.find((item) => item.id === subId)?.views, 0);
+    assert.equal(after.submissions.find((item) => item.id === sub2Id)?.views, 1_000);
+    assert.equal(after.viewSnapshots.length, 0);
+    assert.deepEqual(balances(after), beforeBalances);
+    assert.equal(balances(after).clipperPending, 0);
+  }
+});
+
+test("recordSubmissionViewsAction reports the pending change and refuses a lower count", async () => {
+  await seed([submission({ id: subId, views: 0 })]);
+  const saved = await recordSubmissionViewsForActor(adminActor, { submissionId: subId, views: 5_000 }, now);
+  assert.equal(saved.ok, true);
+  if (!saved.ok) return;
+  const after = await readStore();
+  assert.equal(after.submissions.find((item) => item.id === subId)?.views, 5_000);
+  assert.equal(balances(after).clipperPending, 25_000);
+  assert.equal(saved.creditedCents, 25_000);
+  assert.equal(balances(after).clipperAvailable, 0);
+
+  const same = await recordSubmissionViewsForActor(adminActor, { submissionId: subId, views: 5_000 }, now);
+  assert.equal(same.ok, true);
+  if (!same.ok) return;
+  assert.equal(same.creditedCents, 0);
+  const held = await readStore();
+  assert.equal(held.submissions.find((item) => item.id === subId)?.views, 5_000);
+  assert.equal(balances(held).clipperPending, 25_000);
+
+  const lowered = await recordSubmissionViewsForActor(adminActor, { submissionId: subId, views: 100 }, now);
+  assert.equal(lowered.ok, false);
+  if (!lowered.ok) assert.equal(lowered.error, "Views cannot go backwards.");
+  const afterLower = await readStore();
+  assert.equal(afterLower.submissions.find((item) => item.id === subId)?.views, 5_000);
+  assert.equal(balances(afterLower).clipperPending, 25_000);
+
+  const higher = await recordSubmissionViewsForActor(adminActor, { submissionId: subId, views: 6_000 }, now);
+  assert.equal(higher.ok, true);
+  if (!higher.ok) return;
+  const raised = await readStore();
+  assert.equal(raised.submissions.find((item) => item.id === subId)?.views, 6_000);
+  assert.equal(balances(raised).clipperPending, 30_000);
+  assert.equal(higher.creditedCents, 5_000);
+  assert.equal(balances(raised).clipperAvailable, 0);
+});
+
+test("a completed campaign refuses view saves and does not close out", async () => {
+  await seed([submission({ id: subId, views: 0 })]);
+  const opened = await saveAdminViewForActor(adminActor, { submissionId: subId, views: 1_000 }, now);
+  assert.equal(opened.ok, true);
+  await updateStore((store) => {
+    const camp = store.campaigns.find((item) => item.id === campId);
+    if (!camp) throw new Error("missing campaign");
+    camp.status = "completed";
+    camp.closedAt = null;
+    camp.settledAt = null;
+    store.viewSnapshots.push(creatorReport());
+  });
+  const before = await readStore();
+  const beforeBalances = balances(before);
+  const beforeViews = before.submissions.find((item) => item.id === subId)?.views;
+  const beforeLedger = before.ledgerEntries.length;
+  assert.equal(before.campaigns.find((item) => item.id === campId)?.closedAt, null);
+  assert.ok(beforeBalances.clipperPending > 0);
+
+  const adminSave = await saveAdminViewForActor(adminActor, { submissionId: subId, views: 2_000 }, now);
+  const manualSave = await setManualViewsForActor(adminActor, { submissionId: subId, views: 2_000 }, now);
+  const recorded = await recordSubmissionViewsForActor(adminActor, { submissionId: subId, views: 5_000 }, now);
+  const bulk = await saveBulkViewsForActor(adminActor, [{ submissionId: subId, views: 2_000 }], now);
+  const confirmed = await confirmCreatorViewForActor(
+    adminActor,
+    { snapshotId: snapId, submissionId: subId, views: 2_000 },
+    now,
+  );
+  for (const refused of [adminSave, manualSave, recorded, bulk, confirmed]) {
+    assert.equal(refused.ok, false);
+    if (!refused.ok) assert.equal(refused.error, "This campaign is already settled. Further views are not paid.");
+  }
+
+  const after = await readStore();
+  const camp = after.campaigns.find((item) => item.id === campId);
+  assert.equal(camp?.status, "completed");
+  assert.equal(camp?.closedAt, null);
+  assert.deepEqual(balances(after), beforeBalances);
+  assert.equal(after.submissions.find((item) => item.id === subId)?.views, beforeViews);
+  assert.equal(after.ledgerEntries.length, beforeLedger);
+  assert.equal(after.viewSnapshots.find((item) => item.id === snapId)?.status, "pending");
+});
+
+test("an admin view save still closes a campaign when the budget is spent", async () => {
+  await seed([submission({ id: subId, views: 0 })]);
+  const saved = await saveAdminViewForActor(adminActor, { submissionId: subId, views: 40_000 }, now);
+  assert.equal(saved.ok, true);
+  const after = await readStore();
+  const camp = after.campaigns.find((item) => item.id === campId);
+  assert.equal(camp?.status, "completed");
+  assert.ok(camp?.closedAt);
+  assert.equal(balances(after).clipperPending, 200_000);
+  assert.equal(balances(after).clipperAvailable, 0);
+});
+
+test("saveBulkViewsAction refuses a lower row and writes nothing", async () => {
+  await seed([
+    submission({ id: subId, views: 0 }),
+    submission({ id: sub2Id, views: 8_000, postUrl: "https://www.tiktok.com/@kai/video/2" }),
+  ]);
+  const before = balances(await readStore());
+  const refused = await saveBulkViewsForActor(
+    adminActor,
+    [
+      { submissionId: subId, views: 5_000 },
+      { submissionId: sub2Id, views: 100 },
+    ],
+    now,
+  );
+  assert.equal(refused.ok, false);
+  if (!refused.ok) assert.equal(refused.error, "Views cannot go backwards.");
+  const after = await readStore();
+  assert.equal(after.submissions.find((item) => item.id === subId)?.views, 0);
+  assert.equal(after.submissions.find((item) => item.id === sub2Id)?.views, 8_000);
+  assert.equal(after.viewSnapshots.length, 0);
+  assert.deepEqual(balances(after), before);
+  assert.equal(balances(after).clipperPending, 0);
+});
+
+test("saveBulkViewsAction accepts an equal count and a higher count", async () => {
+  await seed([
+    submission({ id: subId, views: 0 }),
+    submission({ id: sub2Id, views: 0, postUrl: "https://www.tiktok.com/@kai/video/2" }),
+  ]);
+  const first = await saveAdminViewForActor(adminActor, { submissionId: subId, views: 1_000 }, now);
+  assert.equal(first.ok, true);
+  const held = balances(await readStore());
+
+  const saved = await saveBulkViewsForActor(
+    adminActor,
+    [
+      { submissionId: subId, views: 1_000 },
+      { submissionId: sub2Id, views: 2_000 },
+    ],
+    now,
+  );
+  assert.equal(saved.ok, true);
+  const after = await readStore();
+  assert.equal(after.submissions.find((item) => item.id === subId)?.views, 1_000);
+  assert.equal(after.submissions.find((item) => item.id === sub2Id)?.views, 2_000);
+  assert.ok(balances(after).clipperPending > held.clipperPending);
+  assert.equal(balances(after).clipperAvailable, 0);
+});
+
+test("saveBulkViewsAction refuses a settled campaign and writes nothing", async () => {
+  await seed(
+    [
+      submission({ id: subId, views: 0 }),
+      submission({ id: sub2Id, views: 0, postUrl: "https://www.tiktok.com/@kai/video/2" }),
+    ],
+    true,
+  );
+  const before = balances(await readStore());
+  const refused = await saveBulkViewsForActor(
+    adminActor,
+    [
+      { submissionId: subId, views: 1_000 },
+      { submissionId: sub2Id, views: 2_000 },
+    ],
+    now,
+  );
+  assert.equal(refused.ok, false);
+  if (!refused.ok) assert.equal(refused.error, "This campaign is already settled. Further views are not paid.");
+  const after = await readStore();
+  assert.equal(after.submissions.find((item) => item.id === subId)?.views, 0);
+  assert.equal(after.submissions.find((item) => item.id === sub2Id)?.views, 0);
+  assert.equal(after.viewSnapshots.length, 0);
+  assert.deepEqual(balances(after), before);
+});
+
+test("confirmCreatorViewAction refuses a lower count and accepts equal or higher", async () => {
+  await seed([submission({ id: subId, views: 0 })]);
+  const opened = await saveAdminViewForActor(adminActor, { submissionId: subId, views: 4_000 }, now);
+  assert.equal(opened.ok, true);
+  await updateStore((store) => {
+    store.viewSnapshots.push(creatorReport());
+  });
+  const held = await readStore();
+  const heldBalances = balances(held);
+
+  const lowered = await confirmCreatorViewForActor(
+    adminActor,
+    { snapshotId: snapId, submissionId: subId, views: 100 },
+    now,
+  );
+  assert.equal(lowered.ok, false);
+  if (!lowered.ok) assert.equal(lowered.error, "Views cannot go backwards.");
+  const afterLower = await readStore();
+  assert.deepEqual(balances(afterLower), heldBalances);
+  assert.equal(afterLower.submissions.find((item) => item.id === subId)?.views, 4_000);
+  assert.equal(afterLower.viewSnapshots.find((item) => item.id === snapId)?.status, "pending");
+
+  const same = await confirmCreatorViewForActor(
+    adminActor,
+    { snapshotId: snapId, submissionId: subId, views: 4_000 },
+    now,
+  );
+  assert.equal(same.ok, true);
+  const afterSame = await readStore();
+  assert.equal(afterSame.submissions.find((item) => item.id === subId)?.views, 4_000);
+  assert.deepEqual(balances(afterSame), heldBalances);
+  assert.equal(afterSame.viewSnapshots.find((item) => item.id === snapId)?.status, "replaced");
+
+  const nextSnap = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+  await updateStore((store) => {
+    store.viewSnapshots.push(creatorReport({ id: nextSnap, views: 8_000 }));
+  });
+  const higher = await confirmCreatorViewForActor(
+    adminActor,
+    { snapshotId: nextSnap, submissionId: subId, views: 8_000 },
+    now,
+  );
+  assert.equal(higher.ok, true);
+  const afterHigher = await readStore();
+  assert.equal(afterHigher.submissions.find((item) => item.id === subId)?.views, 8_000);
+  assert.ok(balances(afterHigher).clipperPending > heldBalances.clipperPending);
+  assert.equal(balances(afterHigher).clipperAvailable, 0);
+});
+
+test("confirmCreatorViewAction refuses pending and flagged clips", async () => {
+  await seed([
+    submission({
+      id: subId,
+      status: "pending",
+      views: 0,
+      approvedAt: null,
+      earningUntil: null,
+      payoutState: "none",
+    }),
+  ]);
+  await updateStore((store) => {
+    store.viewSnapshots.push(creatorReport());
+  });
+  const pending = await confirmCreatorViewForActor(
+    adminActor,
+    { snapshotId: snapId, submissionId: subId, views: 1_000 },
+    now,
+  );
+  assert.equal(pending.ok, false);
+  if (!pending.ok) assert.equal(pending.error, "Approve the clip before counting views.");
+  const afterPending = await readStore();
+  assert.equal(afterPending.submissions.find((item) => item.id === subId)?.status, "pending");
+  assert.equal(afterPending.submissions.find((item) => item.id === subId)?.views, 0);
+  assert.equal(balances(afterPending).clipperPending, 0);
+  assert.equal(afterPending.viewSnapshots.find((item) => item.id === snapId)?.status, "pending");
+
+  await seed([submission({ id: subId, views: 0 })]);
+  const counted = await saveAdminViewForActor(adminActor, { submissionId: subId, views: 1_000 }, now);
+  assert.equal(counted.ok, true);
+  await updateStore((store) => {
+    const clip = store.submissions.find((item) => item.id === subId);
+    if (!clip) throw new Error("missing clip");
+    clip.status = "flagged";
+    store.viewSnapshots.push(creatorReport());
+  });
+  const held = balances(await readStore());
+  const flagged = await confirmCreatorViewForActor(
+    adminActor,
+    { snapshotId: snapId, submissionId: subId, views: 2_000 },
+    now,
+  );
+  assert.equal(flagged.ok, false);
+  if (!flagged.ok) assert.equal(flagged.error, "Approve the clip before counting views.");
+  const afterFlagged = await readStore();
+  assert.equal(afterFlagged.submissions.find((item) => item.id === subId)?.status, "flagged");
+  assert.equal(afterFlagged.submissions.find((item) => item.id === subId)?.views, 1_000);
+  assert.deepEqual(balances(afterFlagged), held);
+  assert.equal(afterFlagged.viewSnapshots.find((item) => item.id === snapId)?.status, "pending");
+});
+
+test("approve then flag then reject claws the reserve back once", async () => {
+  await seed([submission({ id: subId, views: 0 })]);
+  const counted = await saveAdminViewForActor(adminActor, { submissionId: subId, views: 4_000 }, now);
+  assert.equal(counted.ok, true);
+  const held = balances(await readStore());
+  assert.ok(held.clipperPending > 0);
+  assert.equal(held.clipperAvailable, 0);
+
+  const flagged = await reviewSubmissionForActor(brandActor, subId, { status: "flagged", reviewNote: "Check this" }, now);
+  assert.equal(flagged.ok, true);
+  const afterFlag = await readStore();
+  assert.equal(afterFlag.submissions.find((item) => item.id === subId)?.status, "flagged");
+  assert.deepEqual(balances(afterFlag), held);
+
+  const rejected = await reviewSubmissionForActor(brandActor, subId, { status: "rejected" }, now);
+  assert.equal(rejected.ok, true);
+  const once = await readStore();
+  const clip = once.submissions.find((item) => item.id === subId);
+  assert.equal(clip?.status, "rejected");
+  assert.equal(clip?.reservedCents, 0);
+  assert.equal(balances(once).clipperPending, 0);
+  assert.equal(balances(once).clipperAvailable, 0);
+  assert.ok(balances(once).brandAvailable > held.brandAvailable);
+  assert.equal(
+    once.ledgerEntries.filter((entry) => entry.referenceId === subId && entry.referenceType === "campaign_clawback").length,
+    1,
+  );
+});
+
+test("a second reject after a flagged clip is rejected does nothing", async () => {
+  await seed([submission({ id: subId, views: 0 })]);
+  const counted = await saveAdminViewForActor(adminActor, { submissionId: subId, views: 4_000 }, now);
+  assert.equal(counted.ok, true);
+  const flagged = await reviewSubmissionForActor(brandActor, subId, { status: "flagged" }, now);
+  assert.equal(flagged.ok, true);
+  const first = await reviewSubmissionForActor(brandActor, subId, { status: "rejected" }, now);
+  assert.equal(first.ok, true);
+  const once = await readStore();
+  const onceBalances = balances(once);
+  const clawbacks = once.ledgerEntries.filter(
+    (entry) => entry.referenceId === subId && entry.referenceType === "campaign_clawback",
+  );
+  assert.equal(clawbacks.length, 1);
+  assert.equal(onceBalances.clipperPending, 0);
+  assert.equal(onceBalances.clipperAvailable, 0);
+
+  const second = await reviewSubmissionForActor(brandActor, subId, { status: "rejected" }, now);
+  assert.equal(second.ok, true);
+  const twice = await readStore();
+  assert.deepEqual(balances(twice), onceBalances);
+  assert.equal(
+    twice.ledgerEntries.filter((entry) => entry.referenceId === subId && entry.referenceType === "campaign_clawback")
+      .length,
+    1,
+  );
+  assert.equal(twice.submissions.find((item) => item.id === subId)?.status, "rejected");
+});
+
+test("pollSubmissionViewsJob counts only rows it writes", async () => {
+  const upheldId = "d1111111-1111-4111-8111-111111111111";
+  const sameId = "d2222222-2222-4222-8222-222222222222";
+  const lowerId = "d3333333-3333-4333-8333-333333333333";
+  const closedSubId = "d4444444-4444-4444-8444-444444444444";
+  const settledSubId = "d5555555-5555-4555-8555-555555555555";
+  const completedSubId = "d6666666-6666-4666-8666-666666666666";
+  const closedCampId = "e1111111-1111-4111-8111-111111111111";
+  const settledCampId = "e2222222-2222-4222-8222-222222222222";
+  const completedCampId = "e3333333-3333-4333-8333-333333333333";
+
+  await seed([
+    submission({ id: subId, views: 100 }),
+    submission({ id: sub2Id, views: 1_000, payoutState: "clawed_back", postUrl: "https://www.tiktok.com/@kai/video/2" }),
+    submission({ id: upheldId, views: 800, fraudState: "upheld", postUrl: "https://www.tiktok.com/@kai/video/3" }),
+    submission({ id: sameId, views: 1_500, postUrl: "https://www.tiktok.com/@kai/video/4" }),
+    submission({ id: lowerId, views: 2_200, postUrl: "https://www.tiktok.com/@kai/video/5" }),
+    submission({
+      id: closedSubId,
+      views: 200,
+      campaignId: closedCampId,
+      postUrl: "https://www.tiktok.com/@kai/video/6",
+    }),
+    submission({
+      id: settledSubId,
+      views: 300,
+      campaignId: settledCampId,
+      postUrl: "https://www.tiktok.com/@kai/video/7",
+    }),
+    submission({
+      id: completedSubId,
+      views: 400,
+      campaignId: completedCampId,
+      postUrl: "https://www.tiktok.com/@kai/video/8",
+    }),
+  ]);
+  await updateStore((store) => {
+    store.campaigns.push(
+      campaign({ id: closedCampId, status: "active", closedAt: nowIso }),
+      campaign({ id: settledCampId, status: "active", closedAt: null, settledAt: nowIso }),
+      campaign({ id: completedCampId, status: "completed", closedAt: null }),
+    );
+  });
+
+  const pending: Array<[string, number]> = [
+    [subId, 5_000],
+    [sub2Id, 8_000],
+    [upheldId, 9_000],
+    [sameId, 1_500],
+    [lowerId, 100],
+    [closedSubId, 7_000],
+    [settledSubId, 7_000],
+    [completedSubId, 7_000],
+  ];
+  let written = -1;
+  await updateStore((store) => {
+    written = applyPolledViews(store, pending, nowIso);
+  });
+  assert.equal(written, 1);
+  assert.ok(written < pending.length);
+  const afterWrite = await readStore();
+  assert.equal(afterWrite.submissions.find((item) => item.id === subId)?.views, 5_000);
+  const unchanged: Array<[string, number]> = [
+    [sub2Id, 1_000],
+    [upheldId, 800],
+    [sameId, 1_500],
+    [lowerId, 2_200],
+    [closedSubId, 200],
+    [settledSubId, 300],
+    [completedSubId, 400],
+  ];
+  for (const [id, views] of unchanged) {
+    assert.equal(afterWrite.submissions.find((item) => item.id === id)?.views, views);
+  }
+  const directSnaps = afterWrite.viewSnapshots.filter((item) => item.source === "job");
+  assert.equal(directSnaps.length, 1);
+  assert.equal(directSnaps[0]?.submissionId, subId);
+
+  await seed([
+    submission({ id: subId, views: 100 }),
+    submission({ id: sub2Id, views: 1_000, payoutState: "clawed_back", postUrl: "https://www.tiktok.com/@kai/video/2" }),
+    submission({ id: upheldId, views: 800, fraudState: "upheld", postUrl: "https://www.tiktok.com/@kai/video/3" }),
+    submission({
+      id: closedSubId,
+      views: 200,
+      campaignId: closedCampId,
+      postUrl: "https://www.tiktok.com/@kai/video/6",
+    }),
+    submission({
+      id: settledSubId,
+      views: 300,
+      campaignId: settledCampId,
+      postUrl: "https://www.tiktok.com/@kai/video/7",
+    }),
+    submission({
+      id: completedSubId,
+      views: 400,
+      campaignId: completedCampId,
+      postUrl: "https://www.tiktok.com/@kai/video/8",
+    }),
+  ]);
+  await updateStore((store) => {
+    store.campaigns.push(
+      campaign({ id: closedCampId, status: "active", closedAt: nowIso }),
+      campaign({ id: settledCampId, status: "active", closedAt: null, settledAt: nowIso }),
+      campaign({ id: completedCampId, status: "completed", closedAt: null }),
+    );
+  });
+
+  const previousToken = process.env.APIFY_API_TOKEN;
+  delete process.env.APIFY_API_TOKEN;
+  let result: Awaited<ReturnType<typeof pollSubmissionViewsJob>>;
+  try {
+    result = await pollSubmissionViewsJob();
+  } finally {
+    if (previousToken === undefined) delete process.env.APIFY_API_TOKEN;
+    else process.env.APIFY_API_TOKEN = previousToken;
+  }
+  assert.equal(result.updated, 1);
+  assert.equal(result.mode, "simulated");
+  const afterPoll = await readStore();
+  const live = afterPoll.submissions.find((item) => item.id === subId);
+  assert.ok(live && live.views > 100);
+  assert.equal(afterPoll.submissions.find((item) => item.id === sub2Id)?.views, 1_000);
+  assert.equal(afterPoll.submissions.find((item) => item.id === upheldId)?.views, 800);
+  assert.equal(afterPoll.submissions.find((item) => item.id === closedSubId)?.views, 200);
+  assert.equal(afterPoll.submissions.find((item) => item.id === settledSubId)?.views, 300);
+  assert.equal(afterPoll.submissions.find((item) => item.id === completedSubId)?.views, 400);
+  const jobSnaps = afterPoll.viewSnapshots.filter((item) => item.source === "job");
+  assert.equal(jobSnaps.length, result.updated);
+  assert.equal(jobSnaps[0]?.submissionId, subId);
 });
