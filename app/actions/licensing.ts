@@ -1,9 +1,12 @@
 "use server";
 
+import { randomUUID } from "crypto";
+
 import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
+import type { UploadGrant } from "@/lib/db/types";
 import type { SocialPlatform } from "@/types/enums";
 import {
   applyToBrief,
@@ -23,9 +26,13 @@ import {
   type CreateBriefInput,
 } from "@/lib/licensing/hub";
 import { pushNotification } from "@/lib/notifications/inbox";
-import { SERVER_ACTION_FILE_MAX } from "@/lib/storage/constants";
-import { ugcStageDecision } from "@/lib/storage/policy";
-import { saveUgcFile } from "@/lib/ugc/files";
+import { DELIVERY_FILE_LIMIT, SERVER_ACTION_FILE_MAX } from "@/lib/storage/constants";
+import { isStorageConfigured } from "@/lib/storage/driver";
+import { inspectFile } from "@/lib/storage/inspect";
+import { plannedObjectPath, putCheckedObject } from "@/lib/storage/objects";
+import { appendGrantsIfAllowed, newStagedGrant, type StoredGrant } from "@/lib/storage/policy";
+import { writeReservedGrants } from "@/lib/storage/stage";
+import { safeOriginalName } from "@/lib/ugc/files";
 import { submitStagedDeliverySchema } from "@/lib/validations/uploads";
 
 function clock() {
@@ -34,6 +41,74 @@ function clock() {
 
 function fail(error: unknown) {
   return { ok: false as const, error: error instanceof Error ? error.message : "Something went wrong." };
+}
+
+function markGrantSpent(row: UploadGrant, nowMs = Date.now()) {
+  row.tokenHash = `spent:${row.id}`;
+  row.spentAt = new Date(nowMs).toISOString();
+}
+
+function markGrantsAttached(
+  grants: UploadGrant[] | undefined,
+  userId: string,
+  paths: string[],
+  now: string,
+) {
+  for (const objectPath of paths) {
+    const row = grants?.find((item) => item.path === objectPath && item.userId === userId);
+    if (!row) continue;
+    row.attachedAt = now;
+    if (!row.finalizedAt) row.finalizedAt = now;
+  }
+}
+
+async function reserveThenWrite(input: {
+  userId: string;
+  applicationId: string;
+  incoming: StoredGrant[];
+  files: { id: string; bytes: Uint8Array; kind: "png" | "jpg" | "webp" | "pdf" }[];
+}) {
+  return writeReservedGrants({
+    reserve: async () => {
+      let outcome: { ok: true; grants: StoredGrant[] } | { ok: false; error: string } = {
+        ok: false,
+        error: "Accept the brief before uploading.",
+      };
+      await updateStore((draft) => {
+        const result = appendGrantsIfAllowed({
+          grants: draft.uploadGrants ?? [],
+          userId: input.userId,
+          applicationId: input.applicationId,
+          applications: draft.ugcApplications,
+          nowMs: Date.now(),
+          incoming: input.incoming,
+        });
+        draft.uploadGrants = result.grants;
+        outcome = result.ok
+          ? { ok: true, grants: input.incoming }
+          : { ok: false, error: result.error };
+      });
+      return outcome;
+    },
+    writeObject: async (grant) => {
+      const file = input.files.find((item) => item.id === grant.id);
+      if (!file) throw new Error("Upload failed");
+      const written = await putCheckedObject({
+        userId: input.userId,
+        purpose: "ugc",
+        bytes: file.bytes,
+        kind: file.kind,
+        id: grant.id,
+      });
+      if (written !== grant.path) throw new Error("Upload failed");
+    },
+    markSpent: async (grant) => {
+      await updateStore((draft) => {
+        const row = draft.uploadGrants?.find((item) => item.id === grant.id);
+        if (row) markGrantSpent(row);
+      });
+    },
+  });
 }
 
 function revalidateLicensing(briefId?: string) {
@@ -246,15 +321,72 @@ export async function submitDeliveryAction(formData: FormData) {
   const applicationId = String(formData.get("applicationId") ?? "");
   const incoming = formData.getAll("files").filter((item): item is File => item instanceof File && item.size > 0);
   if (!incoming.length) return { ok: false as const, error: "Choose a file to upload." };
+  if (incoming.length > DELIVERY_FILE_LIMIT) {
+    return { ok: false as const, error: "Upload between 1 and 6 files." };
+  }
   if (incoming.some((file) => file.size > SERVER_ACTION_FILE_MAX)) {
     return { ok: false as const, error: "Files over 4 MB upload directly. Choose the file again." };
   }
+  let prepared: {
+    id: string;
+    path: string;
+    bytes: Uint8Array;
+    kind: "png" | "jpg" | "webp" | "pdf";
+    originalName: string;
+    byteSize: number;
+  }[];
   try {
-    const files: Awaited<ReturnType<typeof saveUgcFile>>[] = [];
-    for (const file of incoming) files.push(await saveUgcFile(file, session.id));
+    prepared = [];
+    for (const file of incoming) {
+      const checked = await inspectFile(file, "ugc");
+      const id = randomUUID();
+      prepared.push({
+        id,
+        path: plannedObjectPath({
+          userId: session.id,
+          purpose: "ugc",
+          id,
+          kind: checked.kind,
+          storageConfigured: isStorageConfigured(),
+        }),
+        bytes: checked.bytes,
+        kind: checked.kind,
+        originalName: safeOriginalName(file.name),
+        byteSize: file.size,
+      });
+    }
+  } catch (error) {
+    return fail(error);
+  }
+  const nowMs = Date.now();
+  const incomingGrants = prepared.map((file) =>
+    newStagedGrant({
+      id: file.id,
+      userId: session.id,
+      path: file.path,
+      byteSize: file.byteSize,
+      nowMs,
+      targetId: applicationId,
+    }),
+  );
+  const written = await reserveThenWrite({
+    userId: session.id,
+    applicationId,
+    incoming: incomingGrants,
+    files: prepared,
+  });
+  if (!written.ok) return { ok: false as const, error: written.error };
+  try {
     let briefId = "";
+    const files = prepared.map((file) => ({
+      id: file.id,
+      name: file.path,
+      originalName: file.originalName,
+      kind: "raw" as const,
+    }));
     await updateStore((store) => {
       const delivery = submitDelivery(store, session, applicationId, files, clock());
+      markGrantsAttached(store.uploadGrants, session.id, files.map((file) => file.name), nowIso());
       briefId = delivery.briefId;
       const brief = store.ugcBriefs.find((item) => item.id === briefId);
       if (brief) {
@@ -285,55 +417,49 @@ export async function stageUgcFileAction(formData: FormData) {
   if (file.size > SERVER_ACTION_FILE_MAX) {
     return { ok: false as const, error: "Files over 4 MB upload directly. Choose the file again." };
   }
-  const store = await readStore();
-  const decision = ugcStageDecision({
-    userId: session.id,
-    applicationId,
-    applications: store.ugcApplications,
-    grants: store.uploadGrants ?? [],
-    nowMs: Date.now(),
-  });
-  if (!decision.ok) return { ok: false as const, error: decision.error };
+  let checked: Awaited<ReturnType<typeof inspectFile>>;
   try {
-    const saved = await saveUgcFile(file, session.id);
-    const now = nowIso();
-    let blocked: string | null = null;
-    await updateStore((draft) => {
-      const again = ugcStageDecision({
-        userId: session.id,
-        applicationId,
-        applications: draft.ugcApplications,
-        grants: draft.uploadGrants ?? [],
-        nowMs: Date.now(),
-      });
-      if (!again.ok) {
-        blocked = again.error;
-        return;
-      }
-      draft.uploadGrants = [
-        ...(draft.uploadGrants ?? []),
-        {
-          id: saved.id,
-          userId: session.id,
-          bucket: "fweta-media",
-          path: saved.name,
-          purpose: "ugc",
-          maxBytes: file.size,
-          tokenHash: "server-action",
-          expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-          openedAt: now,
-          finalizedAt: now,
-          spentAt: null,
-          targetId: applicationId,
-          createdAt: now,
-        },
-      ];
-    });
-    if (blocked) return { ok: false as const, error: blocked };
-    return { ok: true as const, file: saved };
+    checked = await inspectFile(file, "ugc");
   } catch (error) {
     return fail(error);
   }
+  const id = randomUUID();
+  const nowMs = Date.now();
+  const objectPath = plannedObjectPath({
+    userId: session.id,
+    purpose: "ugc",
+    id,
+    kind: checked.kind,
+    storageConfigured: isStorageConfigured(),
+  });
+  const grant = newStagedGrant({
+    id,
+    userId: session.id,
+    path: objectPath,
+    byteSize: file.size,
+    nowMs,
+    targetId: applicationId,
+  });
+  const written = await reserveThenWrite({
+    userId: session.id,
+    applicationId,
+    incoming: [grant],
+    files: [{ id, bytes: checked.bytes, kind: checked.kind }],
+  });
+  if (!written.ok) return { ok: false as const, error: written.error };
+  await updateStore((draft) => {
+    const row = draft.uploadGrants?.find((item) => item.id === id);
+    if (row) row.finalizedAt = new Date().toISOString();
+  });
+  return {
+    ok: true as const,
+    file: {
+      id,
+      name: objectPath,
+      originalName: safeOriginalName(file.name),
+      kind: "raw" as const,
+    },
+  };
 }
 
 export async function submitStagedDeliveryAction(raw: unknown) {
@@ -351,6 +477,12 @@ export async function submitStagedDeliveryAction(raw: unknown) {
     let briefId = "";
     await updateStore((draft) => {
       const delivery = submitDelivery(draft, session, parsed.data.applicationId, parsed.data.files, clock());
+      markGrantsAttached(
+        draft.uploadGrants,
+        session.id,
+        parsed.data.files.map((file) => file.name),
+        nowIso(),
+      );
       briefId = delivery.briefId;
       const brief = draft.ugcBriefs.find((item) => item.id === briefId);
       if (brief) {

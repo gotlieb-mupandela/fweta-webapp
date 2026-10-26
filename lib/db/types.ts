@@ -692,6 +692,10 @@ export type UploadGrant = {
   finalizedAt: string | null;
   /** Set when finalize rejects the bytes or the link is already used up. Absent on older rows. */
   spentAt?: string | null;
+  /** Set when the bytes are stored and waiting to be attached to a delivery. */
+  stagedAt?: string | null;
+  /** Set when a delivery includes this object. Attached files are not swept. */
+  attachedAt?: string | null;
   targetId: string | null;
   createdAt: string;
 };

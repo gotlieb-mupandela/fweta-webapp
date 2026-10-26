@@ -35,8 +35,18 @@ export const UPLOAD_GRANTS_PER_HOUR = 30;
 /** Staged upload grants one user may create on one brief in an hour. */
 export const UPLOAD_GRANTS_PER_BRIEF_PER_HOUR = 12;
 
+/** Files one delivery may include. */
+export const DELIVERY_FILE_LIMIT = 6;
+
+/**
+ * A staged file that is never attached to a delivery is removed after this long.
+ * The sweep deletes the object first and keeps the row if that delete fails.
+ */
+export const STAGED_GRANT_RETENTION_MS = 24 * 60 * 60 * 1000;
+
 export const UPLOAD_RATE_LIMIT_ERROR = "You have uploaded too many files this hour. Try again later.";
 export const BRIEF_UPLOAD_RATE_LIMIT_ERROR = "This brief already has too many uploads this hour. Try again later.";
+export const DELIVERY_FILE_LIMIT_ERROR = "Upload between 1 and 6 files.";
 
 /** Signed read links. KYC is shorter than the general bucket. */
 export const GENERAL_READ_TTL_SECONDS = 5 * 60;

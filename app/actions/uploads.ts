@@ -142,7 +142,10 @@ export async function finalizeUgcUploadAction(raw: unknown): Promise<
 
   await updateStore((draft) => {
     const row = draft.uploadGrants?.find((item) => item.id === grant.id);
-    if (row) row.finalizedAt = checked.grant.finalizedAt;
+    if (row) {
+      row.finalizedAt = checked.grant.finalizedAt;
+      row.stagedAt = checked.grant.finalizedAt;
+    }
   });
 
   return {

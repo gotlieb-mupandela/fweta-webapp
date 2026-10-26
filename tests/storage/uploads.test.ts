@@ -9,8 +9,11 @@ import {
   GENERAL_READ_TTL_SECONDS,
   KYC_MAX_BYTES,
   KYC_READ_TTL_SECONDS,
+  DELIVERY_FILE_LIMIT,
+  DELIVERY_FILE_LIMIT_ERROR,
   SCREENSHOT_MAX_BYTES,
   SIGNED_UPLOAD_RETENTION_MS,
+  STAGED_GRANT_RETENTION_MS,
   STORAGE_NOT_READY_ERROR,
   UGC_MAX_BYTES,
   UPLOAD_GRANTS_PER_BRIEF_PER_HOUR,
@@ -22,18 +25,21 @@ import {
 import type { StorageDriver } from "../../lib/storage/driver";
 import { inspectFile } from "../../lib/storage/inspect";
 import {
+  appendGrantsIfAllowed,
   claimStoredGrant,
+  deliveryUploadDecision,
   downloadHeaders,
   finalizeStoredGrant,
   grantsAfterSweep,
-  retainAfterSweep,
   issueStoredGrant,
   newUploadToken,
   prepareRead,
   privateBucketProblems,
+  retainAfterSweep,
   ugcStageDecision,
   type StoredGrant,
 } from "../../lib/storage/policy";
+import { writeReservedGrants } from "../../lib/storage/stage";
 
 const userA = "11111111-1111-4111-8111-111111111111";
 const userB = "22222222-2222-4222-8222-222222222222";
@@ -365,7 +371,7 @@ function stagedCopies(count: number, targetId: string, createdAtMs: number, owne
 test("stageUgcFileAction requires an accepted application on that brief", () => {
   const licensing = readFileSync("app/actions/licensing.ts", "utf8");
   const form = readFileSync("components/forms/licensing-forms.tsx", "utf8");
-  assert.match(licensing, /ugcStageDecision\(/);
+  assert.match(licensing, /appendGrantsIfAllowed\(/);
   assert.match(form, /body\.set\("applicationId", applicationId\)/);
 
   const allowed = ugcStageDecision({
@@ -488,4 +494,207 @@ test("createUgcUploadAction uses the same hourly grant cap", () => {
     nowMs,
   });
   assert.equal(otherUser.ok, true);
+});
+
+function asStaged(id: string, stagedMs: number, extra: Partial<StoredGrant> = {}): StoredGrant {
+  const { issued } = grantFor();
+  return {
+    ...issued,
+    id,
+    path: `${userA}/ugc/${id}`,
+    createdAt: new Date(stagedMs).toISOString(),
+    stagedAt: new Date(stagedMs).toISOString(),
+    finalizedAt: new Date(stagedMs).toISOString(),
+    attachedAt: null,
+    targetId: acceptedApplication.id,
+    ...extra,
+  };
+}
+
+test("parallel stage requests leave no object without a grant", async () => {
+  const licensing = readFileSync("app/actions/licensing.ts", "utf8");
+  assert.equal(licensing.includes("saveUgcFile"), false);
+  assert.match(licensing, /appendGrantsIfAllowed\(/);
+  assert.match(licensing, /writeReservedGrants\(/);
+
+  let grants = stagedCopies(UPLOAD_GRANTS_PER_HOUR - 1, "application-2", nowMs - 1000);
+  const applications = [
+    acceptedApplication,
+    { ...acceptedApplication, id: "application-2", briefId: "brief-2" },
+  ];
+  let chain = Promise.resolve();
+  const written: string[] = [];
+
+  async function stage(index: number) {
+    const id = `66666666-6666-4666-8666-${String(index).padStart(12, "0")}`;
+    const grant = asStaged(id, nowMs);
+    return writeReservedGrants({
+      reserve: () => {
+        const run = chain.then(() => {
+          const appended = appendGrantsIfAllowed({
+            grants,
+            userId: userA,
+            applicationId: acceptedApplication.id,
+            applications,
+            nowMs,
+            incoming: [grant],
+          });
+          grants = appended.grants;
+          return appended.ok
+            ? { ok: true as const, grants: [grant] }
+            : { ok: false as const, error: appended.error };
+        });
+        chain = run.then(
+          () => undefined,
+          () => undefined,
+        );
+        return run;
+      },
+      writeObject: async (reserved) => {
+        written.push(reserved.path);
+      },
+      markSpent: async () => undefined,
+    });
+  }
+
+  const results = await Promise.all([1, 2, 3, 4, 5].map((index) => stage(index)));
+  assert.equal(results.filter((item) => item.ok).length, 1);
+  assert.equal(written.length, 1);
+  for (const objectPath of written) {
+    assert.equal(grants.some((item) => item.path === objectPath), true);
+  }
+  assert.equal(grants.length, UPLOAD_GRANTS_PER_HOUR);
+});
+
+test("a failed object write marks the grant spent so the sweep can remove it", async () => {
+  const grant = asStaged("77777777-7777-4777-8777-777777777777", nowMs, { finalizedAt: null });
+  let spent: StoredGrant | null = null;
+  const result = await writeReservedGrants({
+    reserve: async () => ({ ok: true, grants: [grant] }),
+    writeObject: async () => {
+      throw new Error("Upload failed");
+    },
+    markSpent: async (row) => {
+      spent = { ...row, tokenHash: `spent:${row.id}`, spentAt: new Date(nowMs).toISOString() };
+    },
+  });
+  assert.equal(result.ok, false);
+  assert.ok(spent);
+  if (!spent) return;
+  const swept = grantsAfterSweep([spent], nowMs + 1000);
+  assert.equal(swept.deleteObjects.some((item) => item.id === grant.id), true);
+});
+
+test("submitDeliveryAction checks the brief and caps before any object write", async () => {
+  const applications = [
+    acceptedApplication,
+    { ...acceptedApplication, id: "application-2", briefId: "brief-2" },
+  ];
+  const tooMany = deliveryUploadDecision({
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    applications,
+    grants: [],
+    nowMs,
+    fileCount: DELIVERY_FILE_LIMIT + 1,
+  });
+  assert.equal(tooMany.ok, false);
+  if (tooMany.ok) return;
+  assert.equal(tooMany.error, DELIVERY_FILE_LIMIT_ERROR);
+
+  const applied = deliveryUploadDecision({
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    applications: [{ ...acceptedApplication, status: "applied" }],
+    grants: [],
+    nowMs,
+    fileCount: 2,
+  });
+  assert.equal(applied.ok, false);
+  if (applied.ok) return;
+  assert.equal(applied.error, "Accept the brief before uploading.");
+
+  const hourly = deliveryUploadDecision({
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    applications,
+    grants: stagedCopies(UPLOAD_GRANTS_PER_HOUR - 2, "application-2", nowMs - 1000),
+    nowMs,
+    fileCount: 3,
+  });
+  assert.equal(hourly.ok, false);
+  if (hourly.ok) return;
+  assert.equal(hourly.error, UPLOAD_RATE_LIMIT_ERROR);
+
+  const brief = deliveryUploadDecision({
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    applications,
+    grants: stagedCopies(UPLOAD_GRANTS_PER_BRIEF_PER_HOUR - 1, acceptedApplication.id, nowMs - 1000),
+    nowMs,
+    fileCount: 2,
+  });
+  assert.equal(brief.ok, false);
+  if (brief.ok) return;
+  assert.equal(brief.error, BRIEF_UPLOAD_RATE_LIMIT_ERROR);
+
+  const writes: string[] = [];
+  const blocked = await writeReservedGrants({
+    reserve: async () => ({ ok: false, error: tooMany.error }),
+    writeObject: async (grant) => {
+      writes.push(grant.path);
+    },
+    markSpent: async () => undefined,
+  });
+  assert.equal(blocked.ok, false);
+  assert.equal(writes.length, 0);
+
+  const incoming = [1, 2].map((index) => asStaged(`88888888-8888-4888-8888-${String(index).padStart(12, "0")}`, nowMs));
+  const reserved = appendGrantsIfAllowed({
+    grants: [],
+    userId: userA,
+    applicationId: acceptedApplication.id,
+    applications: [acceptedApplication],
+    nowMs,
+    incoming,
+  });
+  assert.equal(reserved.ok, true);
+  if (!reserved.ok) return;
+  assert.equal(reserved.grants.length, incoming.length);
+  assert.equal(reserved.grants.every((grant) => incoming.some((file) => file.id === grant.id)), true);
+});
+
+test("an unattached staged file is swept after its retention and an attached file is kept", () => {
+  assert.equal(STAGED_GRANT_RETENTION_MS, 24 * 60 * 60 * 1000);
+  const fresh = asStaged(fileId, nowMs);
+  const early = grantsAfterSweep([fresh], nowMs + 60 * 60 * 1000);
+  assert.equal(early.keep.length, 1);
+  assert.equal(early.deleteObjects.length, 0);
+
+  const stale = asStaged(fileId, nowMs - STAGED_GRANT_RETENTION_MS);
+  const late = grantsAfterSweep([stale], nowMs);
+  assert.equal(late.keep.length, 0);
+  assert.equal(late.deleteObjects.length, 1);
+
+  const attached = asStaged(fileId, nowMs - STAGED_GRANT_RETENTION_MS, {
+    attachedAt: new Date(nowMs - 1000).toISOString(),
+  });
+  const saved = grantsAfterSweep([attached], nowMs + STAGED_GRANT_RETENTION_MS);
+  assert.equal(saved.keep.length, 1);
+  assert.equal(saved.deleteObjects.length, 0);
+
+  const retry = retainAfterSweep({
+    grants: [stale],
+    nowMs,
+    deletedIds: new Set(),
+    storageConfigured: true,
+  });
+  assert.equal(retry.length, 1);
+  const removed = retainAfterSweep({
+    grants: [stale],
+    nowMs,
+    deletedIds: new Set([stale.id]),
+    storageConfigured: true,
+  });
+  assert.equal(removed.length, 0);
 });

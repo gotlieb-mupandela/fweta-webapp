@@ -3,9 +3,9 @@ import { grantsAfterSweep, retainAfterSweep } from "@/lib/storage/policy";
 import { createSupabaseStorageDriver, isStorageConfigured, type StorageDriver } from "@/lib/storage/driver";
 
 /**
- * Deletes objects for spent or expired grants that were never finalized.
- * The grant row stays until the signed URL can no longer write, and it also
- * stays when the provider delete fails, so a later pass can retry.
+ * Deletes objects for spent, expired, and unattached staged grants.
+ * The grant row stays until its retention window ends, and it also stays when
+ * the provider delete fails, so a later pass can retry.
  * The object path is never logged.
  */
 export async function sweepUnfinalizedUploads(now = new Date(), driver?: StorageDriver): Promise<number> {

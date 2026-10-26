@@ -13,6 +13,18 @@ import { createSupabaseStorageDriver, isStorageConfigured, type StorageDriver } 
 import { isFlatLocalName, isSafeStoragePath, serverObjectPath } from "@/lib/storage/policy";
 import { contentTypeForBytes } from "@/lib/storage/sniff";
 
+export function plannedObjectPath(input: {
+  userId: string;
+  purpose: Exclude<UploadPurpose, "avatar">;
+  id: string;
+  kind: AllowedKind;
+  storageConfigured: boolean;
+}): string {
+  const extension = extensionForKind(input.kind);
+  if (!input.storageConfigured) return `${input.id}.${extension}`;
+  return serverObjectPath(input.userId, input.purpose, input.id, extension);
+}
+
 function localDir(purpose: Exclude<UploadPurpose, "avatar">): string {
   if (purpose === "screenshot") return path.join(process.cwd(), "data", "view-screenshots");
   if (purpose === "kyc") return path.join(process.cwd(), "data", "kyc");
@@ -24,18 +36,24 @@ export async function putCheckedObject(input: {
   purpose: Exclude<UploadPurpose, "avatar">;
   bytes: Uint8Array;
   kind: AllowedKind;
+  id?: string;
   driver?: StorageDriver;
 }): Promise<string> {
   const driver = input.driver ?? (isStorageConfigured() ? createSupabaseStorageDriver() : null);
-  const id = randomUUID();
+  const id = input.id ?? randomUUID();
+  const objectPath = plannedObjectPath({
+    userId: input.userId,
+    purpose: input.purpose,
+    id,
+    kind: input.kind,
+    storageConfigured: Boolean(driver),
+  });
   if (!driver) {
-    const name = `${id}.${extensionForKind(input.kind)}`;
     const dir = localDir(input.purpose);
     await mkdir(dir, { recursive: true });
-    await writeFile(path.join(/*turbopackIgnore: true*/ dir, name), input.bytes);
-    return name;
+    await writeFile(path.join(/*turbopackIgnore: true*/ dir, objectPath), input.bytes);
+    return objectPath;
   }
-  const objectPath = serverObjectPath(input.userId, input.purpose, id, extensionForKind(input.kind));
   try {
     await driver.uploadObject({
       bucket: input.purpose === "kyc" ? "fweta-kyc" : "fweta-media",

@@ -3,7 +3,10 @@ import { createHash, randomBytes } from "crypto";
 import {
   type AllowedKind,
   BRIEF_UPLOAD_RATE_LIMIT_ERROR,
+  DELIVERY_FILE_LIMIT,
+  DELIVERY_FILE_LIMIT_ERROR,
   type StorageBucket,
+  STAGED_GRANT_RETENTION_MS,
   type UploadPurpose,
   UPLOAD_GRANTS_PER_BRIEF_PER_HOUR,
   UPLOAD_GRANTS_PER_HOUR,
@@ -171,8 +174,10 @@ export function grantIsSpent(grant: StoredGrant): boolean {
 /**
  * Spent and expired grants stay until SIGNED_UPLOAD_RETENTION_MS after they
  * were created. The signed URL can still PUT after a rejected finalize deletes
- * the object, so the row has to remain until that URL is dead. Each sweep
- * deletes the object. The row is removed only after the window.
+ * the object, so the row has to remain until that URL is dead.
+ * A staged grant that was never attached is deleted after STAGED_GRANT_RETENTION_MS.
+ * Attached files are never swept. Each sweep deletes the object first.
+ * The row is removed only after that delete succeeds.
  */
 export function grantsAfterSweep(grants: StoredGrant[], nowMs: number): {
   keep: StoredGrant[];
@@ -181,7 +186,16 @@ export function grantsAfterSweep(grants: StoredGrant[], nowMs: number): {
   const deleteObjects: StoredGrant[] = [];
   const keep: StoredGrant[] = [];
   for (const grant of grants) {
-    if (grant.finalizedAt) {
+    if (grant.attachedAt) {
+      keep.push(grant);
+      continue;
+    }
+    if (grant.stagedAt && !grantIsSpent(grant)) {
+      if (nowMs >= stagedRetainUntil(grant)) deleteObjects.push(grant);
+      else keep.push(grant);
+      continue;
+    }
+    if (grant.finalizedAt && !grant.stagedAt) {
       keep.push(grant);
       continue;
     }
@@ -217,6 +231,12 @@ export function retainAfterSweep(input: {
   });
 }
 
+function stagedRetainUntil(grant: StoredGrant): number {
+  const staged = Date.parse(grant.stagedAt ?? "");
+  if (!Number.isFinite(staged)) return 0;
+  return staged + STAGED_GRANT_RETENTION_MS;
+}
+
 function grantRetainUntil(grant: StoredGrant): number {
   const created = Date.parse(grant.createdAt);
   if (Number.isFinite(created)) return created + SIGNED_UPLOAD_RETENTION_MS;
@@ -241,12 +261,16 @@ export function ugcStageDecision(input: {
   applications: StageApplication[];
   grants: StoredGrant[];
   nowMs: number;
+  /** How many grants this call will add. Defaults to one. */
+  additional?: number;
 }): { ok: true; briefId: string } | { ok: false; error: string } {
+  const adding = input.additional ?? 1;
+  if (!Number.isInteger(adding) || adding < 1) return { ok: false, error: "Choose a file to upload." };
   const application = input.applications.find((item) => item.id === input.applicationId);
   if (!application || application.creatorId !== input.userId || application.status !== "accepted") {
     return { ok: false, error: "Accept the brief before uploading." };
   }
-  const hourly = hourlyUploadCapError(input.grants, input.userId, input.nowMs);
+  const hourly = hourlyUploadCapError(input.grants, input.userId, input.nowMs, adding);
   if (hourly) return { ok: false, error: hourly };
   const briefIds = new Set(
     input.applications.filter((item) => item.briefId === application.briefId).map((item) => item.id),
@@ -257,17 +281,86 @@ export function ugcStageDecision(input: {
     if (!(Date.parse(grant.createdAt) > hourAgo)) return false;
     return grant.targetId === application.briefId || (grant.targetId != null && briefIds.has(grant.targetId));
   });
-  if (onBrief.length >= UPLOAD_GRANTS_PER_BRIEF_PER_HOUR) {
+  if (onBrief.length + adding > UPLOAD_GRANTS_PER_BRIEF_PER_HOUR) {
     return { ok: false, error: BRIEF_UPLOAD_RATE_LIMIT_ERROR };
   }
   return { ok: true, briefId: application.briefId };
 }
 
+export function deliveryUploadDecision(input: {
+  userId: string;
+  applicationId: string;
+  applications: StageApplication[];
+  grants: StoredGrant[];
+  nowMs: number;
+  fileCount: number;
+}): { ok: true; briefId: string } | { ok: false; error: string } {
+  if (!Number.isInteger(input.fileCount) || input.fileCount < 1) {
+    return { ok: false, error: "Choose a file to upload." };
+  }
+  if (input.fileCount > DELIVERY_FILE_LIMIT) return { ok: false, error: DELIVERY_FILE_LIMIT_ERROR };
+  return ugcStageDecision({ ...input, additional: input.fileCount });
+}
+
+export function newStagedGrant(input: {
+  id: string;
+  userId: string;
+  path: string;
+  byteSize: number;
+  nowMs: number;
+  targetId: string;
+}): StoredGrant {
+  const now = new Date(input.nowMs).toISOString();
+  return {
+    id: input.id,
+    userId: input.userId,
+    bucket: "fweta-media",
+    path: input.path,
+    purpose: "ugc",
+    maxBytes: input.byteSize,
+    tokenHash: "server-action",
+    expiresAt: new Date(input.nowMs + STAGED_GRANT_RETENTION_MS).toISOString(),
+    openedAt: now,
+    finalizedAt: null,
+    spentAt: null,
+    stagedAt: now,
+    attachedAt: null,
+    targetId: input.targetId,
+    createdAt: now,
+  };
+}
+
+/** Cap check and grant insert. Callers write objects only after this returns ok. */
+export function appendGrantsIfAllowed(input: {
+  grants: StoredGrant[];
+  userId: string;
+  applicationId: string;
+  applications: StageApplication[];
+  nowMs: number;
+  incoming: StoredGrant[];
+}): { ok: true; grants: StoredGrant[] } | { ok: false; error: string; grants: StoredGrant[] } {
+  const decision = deliveryUploadDecision({
+    userId: input.userId,
+    applicationId: input.applicationId,
+    applications: input.applications,
+    grants: input.grants,
+    nowMs: input.nowMs,
+    fileCount: input.incoming.length,
+  });
+  if (!decision.ok) return { ok: false, error: decision.error, grants: input.grants };
+  return { ok: true, grants: [...input.grants, ...input.incoming] };
+}
+
 /** Hourly cap for staging actions. The brief cap is applied by ugcStageDecision. */
-export function hourlyUploadCapError(grants: StoredGrant[], userId: string, nowMs: number): string | null {
+export function hourlyUploadCapError(
+  grants: StoredGrant[],
+  userId: string,
+  nowMs: number,
+  additional = 1,
+): string | null {
   const hourAgo = nowMs - STAGE_HOUR_MS;
   const recent = grants.filter((grant) => grant.userId === userId && Date.parse(grant.createdAt) > hourAgo);
-  if (recent.length >= UPLOAD_GRANTS_PER_HOUR) return UPLOAD_RATE_LIMIT_ERROR;
+  if (recent.length + additional > UPLOAD_GRANTS_PER_HOUR) return UPLOAD_RATE_LIMIT_ERROR;
   return null;
 }
 

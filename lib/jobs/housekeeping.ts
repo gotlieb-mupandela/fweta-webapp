@@ -17,7 +17,7 @@ export type HousekeepingResult = {
 /**
  * Ends campaigns whose end date has passed, returns unused budget and fee once,
  * releases booking escrow that has sat in "requested" for 14 days,
- * and sweeps spent or expired uploads that were never finalized.
+ * and sweeps spent, expired, and unattached staged uploads.
  * Does not read social networks or change view counts.
  */
 export async function runHousekeepingJob(now = new Date()): Promise<HousekeepingResult> {
