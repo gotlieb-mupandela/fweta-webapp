@@ -38,18 +38,18 @@
 -- postgres function default privilege row. QA's gen_restore.py v3 is an
 -- alternative that now also restores that global row.
 --
--- Save the output to an absolute path and write a checksum beside it.
--- Verify with sha256sum -c before replay. The replay runs whatever the
--- file contains. psql resolves a rollback \ir relative to
--- supabase/rollbacks/, so the snapshot variable must be an absolute path.
--- One replay through any rollback restores the grants for all three files.
+-- Save the output to an absolute path. Record the sha256 when the
+-- snapshot is taken (sha256sum prints it). Restore only through
+-- scripts/ops/replay-client-grants.sh, and pass that digest as an
+-- argument. The wrapper copies the snapshot, checks the copy, and
+-- runs psql on that copy. It does not read a checksum file. A direct
+-- psql replay is not supported. It runs whatever the file contains.
+-- One replay restores the grants for all three files.
 --
---   sha256sum /tmp/fweta-client-grants.snapshot.sql \
---     > /tmp/fweta-client-grants.snapshot.sql.sha256
---   sha256sum -c /tmp/fweta-client-grants.snapshot.sql.sha256
---   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
---     -v snapshot=/tmp/fweta-client-grants.snapshot.sql \
---     -f supabase/rollbacks/20261026120000_revoke_client_table_grants.down.sql
+--   sha256sum /tmp/fweta-client-grants.snapshot.sql
+--   scripts/ops/replay-client-grants.sh \
+--     /tmp/fweta-client-grants.snapshot.sql \
+--     <recorded-sha256>
 
 \pset tuples_only on
 \pset format unaligned
