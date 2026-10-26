@@ -29,7 +29,7 @@ const ALLOWED_ACTIONS: { file: string; name: string }[] = [
   { file: "app/actions/accounts.ts", name: "adminVerifySocialAccountAction" },
   // Admin removes a social account.
   { file: "app/actions/accounts.ts", name: "adminRemoveSocialAccountAction" },
-  // Login form. Rate limited, then login().
+  // Login form. Rate limited, then login(). Does not seed the admin.
   { file: "app/actions/auth.ts", name: "loginAction" },
   // Signup form. Rate limited, then signup().
   { file: "app/actions/auth.ts", name: "signupAction" },
@@ -305,7 +305,8 @@ function walk(dir: string): string[] {
   return found;
 }
 
-const SESSION_OR_ROLE = /requireSession\(|getSession\(|\.roles\.includes|session\.roles|assertBrand\(/;
+const SESSION_OR_ROLE =
+  /(?<![\w$])(?:requireSession|getSession|assertBrand)\s*\(|(?<![\w$])session\.roles\b|(?<![\w$])\.roles\.includes\s*\(/;
 const STORE_TOUCH = /\b(readStore|updateStore|commitStoreToSupabase)\b/;
 
 /** Drop comments so a note cannot invent an export or a session check. */
@@ -345,6 +346,44 @@ function stripComments(source: string): string {
     out += c;
   }
   return out;
+}
+
+/** Replace string and template text with spaces so a quoted name is not a call. Indexes stay put. */
+function maskStrings(source: string): string {
+  const chars = source.split("");
+  const stack: Array<"'" | '"' | "`" | number> = [];
+  for (let i = 0; i < chars.length; i += 1) {
+    const quote = stack[stack.length - 1];
+    const c = chars[i];
+    if (quote === "'" || quote === '"' || quote === "`") {
+      if (c === "\\") {
+        chars[i] = " ";
+        if (chars[i + 1] !== undefined) chars[i + 1] = " ";
+        i += 1;
+        continue;
+      }
+      if (quote === "`" && c === "$" && chars[i + 1] === "{") {
+        chars[i] = " ";
+        chars[i + 1] = " ";
+        stack.push(1);
+        i += 1;
+        continue;
+      }
+      if (c === quote) stack.pop();
+      else chars[i] = " ";
+      continue;
+    }
+    if (typeof quote === "number") {
+      if (c === "{") stack[stack.length - 1] = quote + 1;
+      else if (c === "}") {
+        if (quote === 1) stack.pop();
+        else stack[stack.length - 1] = quote - 1;
+      }
+      continue;
+    }
+    if (c === "'" || c === '"' || c === "`") stack.push(c);
+  }
+  return chars.join("");
 }
 
 function isUseServer(source: string): boolean {
@@ -465,7 +504,7 @@ function sliceCallable(source: string, start: number): string {
 
 function declarationBody(source: string, name: string): string {
   const pattern = new RegExp(
-    `(?:^|\\n)\\s*(?:export\\s+)?(?:async\\s+)?function\\s+${name}\\b|\\n\\s*(?:export\\s+)?const\\s+${name}\\s*=`,
+    `(?:^|\\n)\\s*(?:export\\s+)?(?:async\\s+)?function\\s+${name}\\b|(?:^|\\n)\\s*(?:export\\s+)?(?:const|let|var)\\s+${name}\\s*=`,
   );
   const match = pattern.exec(source);
   if (!match || match.index == null) return "";
@@ -494,11 +533,11 @@ function exportedActions(source: string): ActionExport[] {
     }
 
     const fn = text.match(/^export\s+(?:default\s+)?(?:async\s+)?function\s+(\w+)/);
-    const arrow = text.match(/^export\s+const\s+(\w+)\s*=\s*(?:async\s+)?(?:function\b|\()/);
+    const binding = text.match(/^export\s+(?:const|let|var)\s+(\w+)\s*=/);
     const namedDefault = text.match(/^export\s+default\s+(?:async\s+)?function\s+(\w+)/);
     const bareDefault = /^export\s+default\b/.test(text);
     if (fn && !text.startsWith("export default")) add(fn[1], text);
-    if (arrow) add(arrow[1], text);
+    if (binding) add(binding[1], text);
     if (namedDefault) add(namedDefault[1], text);
     if (bareDefault) add("default", text);
 
@@ -536,9 +575,10 @@ test("use server files only export allowlisted actions that check the session fi
       const allowed = ALLOWED_ACTIONS.some((entry) => entry.file === rel && entry.name === fn.name);
       assert.equal(allowed, true, `${key} is not an allowlisted action`);
       if (PUBLIC_ACTIONS.has(key)) continue;
-      const checkAt = fn.body.search(SESSION_OR_ROLE);
+      const scanned = maskStrings(fn.body);
+      const checkAt = scanned.search(SESSION_OR_ROLE);
       assert.notEqual(checkAt, -1, `${key} has no session or role check`);
-      const storeAt = fn.body.search(STORE_TOUCH);
+      const storeAt = scanned.search(STORE_TOUCH);
       if (storeAt === -1) continue;
       assert.ok(checkAt < storeAt, `${key} touches the store before a session or role check`);
     }
@@ -599,4 +639,101 @@ export default async function defaultAction() {
 
   const commentedDirective = "// \"use server\";\nexport const nope = async () => {};";
   assert.equal(isUseServer(commentedDirective), false);
+});
+
+/** Same rules as the file scan, for a snippet that is not on disk. */
+function actionViolations(source: string, rel = "app/actions/synthetic.ts"): string[] {
+  const problems: string[] = [];
+  for (const fn of exportedActions(source)) {
+    const key = `${rel} ${fn.name}`;
+    if (BLOCKED_ACTION_NAMES.has(fn.name)) problems.push(`${key} is blocked`);
+    const allowed = ALLOWED_ACTIONS.some((entry) => entry.file === rel && entry.name === fn.name);
+    if (!allowed) problems.push(`${key} is not an allowlisted action`);
+    if (PUBLIC_ACTIONS.has(key)) continue;
+    const scanned = maskStrings(fn.body);
+    const checkAt = scanned.search(SESSION_OR_ROLE);
+    if (checkAt === -1) {
+      problems.push(`${key} has no session or role check`);
+      continue;
+    }
+    const storeAt = scanned.search(STORE_TOUCH);
+    if (storeAt !== -1 && checkAt > storeAt) {
+      problems.push(`${key} touches the store before a session or role check`);
+    }
+  }
+  return problems;
+}
+
+test("quoted session text is not a call, and unlisted export shapes fail", () => {
+  const quoted = `
+"use server";
+export async function quotedSession() {
+  const trick = "getSession(";
+  const also = \`requireSession(\`;
+  readStore();
+}
+`;
+  const quotedProblems = actionViolations(quoted);
+  assert.ok(quotedProblems.some((item) => item.includes("quotedSession") && item.includes("no session")));
+
+  const onlyComments = `
+"use server";
+// export const commentedArrow = async () => { readStore(); }
+/* export let commentedLet = async () => { readStore(); } */
+/* export var commentedVar = wrap(async () => { readStore(); }); */
+// export default async () => { readStore(); }
+`;
+  assert.deepEqual(exportedActions(onlyComments).map((item) => item.name), []);
+  assert.deepEqual(actionViolations(onlyComments), []);
+
+  const shapes = `
+"use server";
+// export const commentedArrow = async () => { readStore(); }
+export const asyncArrow = async () => {
+  const trick = "getSession(";
+  readStore();
+};
+export const wrapped = wrap(async () => {
+  readStore();
+});
+export let letAction = async () => {
+  readStore();
+};
+export var varAction = async () => {
+  readStore();
+};
+export default async () => {
+  const trick = "assertBrand(";
+  readStore();
+};
+`;
+  const names = exportedActions(shapes).map((item) => item.name).sort();
+  assert.deepEqual(names, ["asyncArrow", "default", "letAction", "varAction", "wrapped"]);
+  assert.equal(names.includes("commentedArrow"), false);
+  const shapeProblems = actionViolations(shapes);
+  for (const name of names) {
+    assert.ok(
+      shapeProblems.some((item) => item.includes(` ${name} `) || item.endsWith(` ${name}`)),
+      `${name} should fail the action scan: ${shapeProblems.join("; ")}`,
+    );
+    assert.ok(
+      shapeProblems.some((item) => item.includes(name) && item.includes("no session")),
+      `${name} should fail because the body has no real session call`,
+    );
+  }
+
+  const realCall = `
+"use server";
+export const realArrow = async () => {
+  const trick = "getSession(";
+  await getSession();
+  readStore();
+};
+`;
+  const realProblems = actionViolations(realCall);
+  assert.ok(realProblems.some((item) => item.includes("realArrow") && item.includes("not an allowlisted")));
+  assert.equal(
+    realProblems.some((item) => item.includes("no session")),
+    false,
+  );
 });

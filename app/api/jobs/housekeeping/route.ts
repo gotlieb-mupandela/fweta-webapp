@@ -12,7 +12,8 @@ export const runtime = "nodejs";
 /**
  * GET /api/jobs/housekeeping
  * Vercel Cron. Ends campaigns, settles unused budget, releases stale booking holds,
- * and creates public profiles for finished creators who have none.
+ * creates public profiles for finished creators who have none,
+ * and creates the env admin when ADMIN_EMAIL is not already a profile.
  * Does not fetch view counts.
  */
 export async function GET(request: NextRequest) {

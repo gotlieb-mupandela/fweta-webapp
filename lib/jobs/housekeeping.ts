@@ -1,3 +1,4 @@
+import { ensureAdminAccount } from "@/lib/auth/session";
 import { nowIso, updateStore } from "@/lib/db/store";
 import { repairDiscoverableCreators } from "@/lib/influencer/discover";
 import { finalizeCampaign } from "@/lib/rewards/earnings";
@@ -12,23 +13,30 @@ export type HousekeepingResult = {
   budgetReturnedCents: number;
   holdsReleased: number;
   creatorsRepaired: number;
+  adminSeeded: boolean;
+  duplicateProfileEmails: string[];
 };
 
 /**
  * Ends campaigns whose end date has passed, returns unused budget and fee once,
  * releases booking escrow that has sat in "requested" for 14 days, and creates
  * a public profile for each finished creator who has none and has not hidden one.
+ * Creates the env admin only when ADMIN_EMAIL is not already a profile.
+ * Reports duplicate profile emails and does not delete those profiles.
  * Does not read social networks or change view counts.
  */
 export async function runHousekeepingJob(now = new Date()): Promise<HousekeepingResult> {
   const nowMs = now.getTime();
   const holdCutoff = nowMs - BOOKING_HOLD_DAYS * 24 * 60 * 60 * 1000;
+  const admin = await ensureAdminAccount();
   const result: HousekeepingResult = {
     campaignsEnded: 0,
     campaignsSettled: 0,
     budgetReturnedCents: 0,
     holdsReleased: 0,
     creatorsRepaired: 0,
+    adminSeeded: admin.seeded,
+    duplicateProfileEmails: admin.duplicateEmails,
   };
 
   await updateStore((store) => {

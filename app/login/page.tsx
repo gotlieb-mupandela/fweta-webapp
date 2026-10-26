@@ -1,5 +1,4 @@
 import { LoginForm } from "@/components/auth/login-form";
-import { ensureAdminAccount } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -15,12 +14,6 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ next?: string }>;
 }) {
-  try {
-    await ensureAdminAccount();
-  } catch {
-    // Admin seed failures must not hide the sign-in form.
-  }
-
   const params = await searchParams;
   return <LoginForm nextPath={safeNextPath(params.next)} />;
 }
