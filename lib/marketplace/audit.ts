@@ -9,10 +9,13 @@ export function pushAudit(
     summary: string;
     targetType: string;
     targetId?: string | null;
+    actorEmail?: string;
+    amountCents?: number;
+    note?: string;
   },
 ) {
   if (!Array.isArray(store.auditLog)) store.auditLog = [];
-  store.auditLog.push({
+  const entry: DatabaseStore["auditLog"][number] = {
     id: newId(),
     actorId: input.actorId,
     action: input.action,
@@ -20,5 +23,11 @@ export function pushAudit(
     targetType: input.targetType,
     targetId: input.targetId ?? null,
     createdAt: nowIso(),
-  });
+  };
+  const email = input.actorEmail?.trim();
+  if (email) entry.actorEmail = email.slice(0, 160);
+  if (input.amountCents != null) entry.amountCents = input.amountCents;
+  const note = input.note?.replace(/\s+/g, " ").trim();
+  if (note) entry.note = note.slice(0, 240);
+  store.auditLog.push(entry);
 }

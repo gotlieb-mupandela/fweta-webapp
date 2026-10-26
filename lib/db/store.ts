@@ -23,7 +23,7 @@ import { commitStoreToSupabase, loadStoreFromSupabase, StorePersistError } from 
  */
 function dataDir(): string {
   const override = process.env.FWETA_DATA_DIR?.trim();
-  if (override) return override;
+  if (override) return path.resolve(override);
   if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
     return path.join("/tmp", "fweta-data");
   }
@@ -88,7 +88,7 @@ function cloneStore(store: DatabaseStore): DatabaseStore {
 async function loadFromDisk(): Promise<DatabaseStore | null> {
   let raw: string;
   try {
-    raw = await fs.readFile(storePath(), "utf8");
+    raw = await fs.readFile(/*turbopackIgnore: true*/ storePath(), "utf8");
   } catch {
     return null;
   }
@@ -97,9 +97,10 @@ async function loadFromDisk(): Promise<DatabaseStore | null> {
   } catch (err) {
     // Corrupted JSON: back it up instead of silently overwriting and losing data.
     try {
-      await fs.mkdir(dataDir(), { recursive: true });
-      const backup = path.join(dataDir(), `store.corrupt-${Date.now()}.json`);
-      await fs.writeFile(backup, raw, "utf8");
+      const dir = dataDir();
+      await fs.mkdir(/*turbopackIgnore: true*/ dir, { recursive: true });
+      const backup = path.join(dir, `store.corrupt-${Date.now()}.json`);
+      await fs.writeFile(/*turbopackIgnore: true*/ backup, raw, "utf8");
       console.warn(`[fweta] store.json corrupt, backed up to ${backup}`);
     } catch {
       // best-effort backup only
@@ -114,12 +115,13 @@ async function loadFromDisk(): Promise<DatabaseStore | null> {
 
 async function persist(store: DatabaseStore) {
   try {
-    await fs.mkdir(dataDir(), { recursive: true });
-    // Atomic write: tmp + rename so a crash never leaves half-written JSON.
+    const dir = dataDir();
     const file = storePath();
+    await fs.mkdir(/*turbopackIgnore: true*/ dir, { recursive: true });
+    // Atomic write: tmp + rename so a crash never leaves half-written JSON.
     const tmp = `${file}.${process.pid}.tmp`;
-    await fs.writeFile(tmp, JSON.stringify(store, null, 2), "utf8");
-    await fs.rename(tmp, file);
+    await fs.writeFile(/*turbopackIgnore: true*/ tmp, JSON.stringify(store, null, 2), "utf8");
+    await fs.rename(/*turbopackIgnore: true*/ tmp, file);
   } catch (err) {
     // Never crash the request if disk is unavailable. The memory store still works.
     console.warn("[fweta] persist skipped:", err instanceof Error ? err.message : err);
@@ -248,7 +250,7 @@ export async function diagnoseLocalStore() {
   const store = await readStore();
   let persisted = false;
   try {
-    await fs.access(storePath());
+    await fs.access(/*turbopackIgnore: true*/ storePath());
     persisted = true;
   } catch {
     persisted = false;

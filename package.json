@@ -2,12 +2,15 @@
   "name": "content-rewards-platform",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test tests/onboarding/*.test.ts tests/money/*.test.ts tests/db/*.test.ts tests/auth/*.test.ts"
+    "test": "node --experimental-test-module-mocks --import tsx --test tests/onboarding/*.test.ts tests/money/*.test.ts tests/db/*.test.ts tests/auth/*.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",
