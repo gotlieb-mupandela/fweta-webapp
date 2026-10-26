@@ -8,7 +8,11 @@
 -- in this list. fweta_ tables are not touched.
 --
 -- Idempotent. Does not assume any repo migration ran, and does not read
--- columns. service_role and postgres are not revoked.
+-- columns. Privileges on the matched tables and sequences are revoked from
+-- public as well as from anon and authenticated. A grant to public is not
+-- removed by revoking only those two roles, and both client roles can use
+-- it. service_role and postgres keep the explicit grants they already have.
+-- A privilege that exists only as a grant to public is removed for every role.
 
 do $unprefixed_revoke$
 declare
@@ -51,7 +55,7 @@ begin
     end if;
 
     execute format(
-      'revoke all privileges on table public.%I from anon, authenticated',
+      'revoke all privileges on table public.%I from public, anon, authenticated',
       table_name
     );
   end loop;
@@ -74,7 +78,7 @@ begin
       )
   loop
     execute format(
-      'revoke all privileges on sequence %s from anon, authenticated',
+      'revoke all privileges on sequence %s from public, anon, authenticated',
       seq_name
     );
   end loop;

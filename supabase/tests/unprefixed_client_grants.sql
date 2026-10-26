@@ -212,6 +212,30 @@ begin
 end
 $assert_present$;
 
+-- A SELECT granted to PUBLIC must not survive. anon and authenticated
+-- can use a PUBLIC grant, and revoking only those two roles leaves it.
+grant select on table public.campaigns to public;
+\ir ../migrations/20261026120100_revoke_unprefixed_client_grants.sql
+
+do $public_select$
+begin
+  if has_table_privilege('anon', 'public.campaigns', 'SELECT')
+     or has_table_privilege('authenticated', 'public.campaigns', 'SELECT') then
+    raise exception 'SELECT granted to PUBLIC on an unprefixed table survived file 2';
+  end if;
+  if not has_table_privilege('service_role', 'public.campaigns', 'SELECT') then
+    raise exception 'file 2 removed service_role while revoking PUBLIC';
+  end if;
+  if not has_table_privilege('anon', 'public.fweta_app_store', 'SELECT') then
+    raise exception 'file 2 public revoke touched a fweta_ table';
+  end if;
+  if not has_table_privilege('anon', 'public.device_locations', 'SELECT')
+     or not has_table_privilege('anon', 'public.device_locations', 'INSERT') then
+    raise exception 'file 2 public revoke changed device_locations';
+  end if;
+end
+$public_select$;
+
 -- Missing name, then a second run after it exists.
 create table public.view_snapshots (id int primary key, note text);
 grant all privileges on table public.view_snapshots to anon, authenticated, service_role;

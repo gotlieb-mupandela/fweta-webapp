@@ -235,11 +235,16 @@ begin
 end
 $defaults_stay_revoked$;
 
+\set repo_root `git rev-parse --show-toplevel 2>/dev/null || pwd`
+\set file3_rollback_sql :repo_root '/supabase/rollbacks/20261026120200_revoke_default_client_privileges.down.sql'
+create temp table file3_rollback_text as
+select lower(pg_read_file(:'file3_rollback_sql')) as body;
+
 do $rollback_source$
 declare
   body text;
 begin
-  body := lower(pg_read_file('/workspace/supabase/rollbacks/20261026120200_revoke_default_client_privileges.down.sql'));
+  select t.body into body from file3_rollback_text t;
   if position('refusing to restore client grants without the psql variable snapshot' in body) = 0 then
     raise exception 'file 3 rollback does not fail loudly without a snapshot';
   end if;

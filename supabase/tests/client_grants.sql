@@ -554,11 +554,19 @@ end
 $file1_should_have_raised$;
 \endif
 
+-- Repo root from git, or the current directory when git cannot see this
+-- checkout. pg_read_file needs an absolute path. psql does not substitute
+-- variables inside dollar quotes, so the path is read in the statement below.
+\set repo_root `git rev-parse --show-toplevel 2>/dev/null || pwd`
+\set file1_rollback_sql :repo_root '/supabase/rollbacks/20261026120000_revoke_client_table_grants.down.sql'
+create temp table file1_rollback_text as
+select lower(pg_read_file(:'file1_rollback_sql')) as body;
+
 do $rollback_source$
 declare
   body text;
 begin
-  body := lower(pg_read_file('/workspace/supabase/rollbacks/20261026120000_revoke_client_table_grants.down.sql'));
+  select t.body into body from file1_rollback_text t;
   if position('refusing to restore client grants without the psql variable snapshot' in body) = 0 then
     raise exception 'file 1 rollback does not fail loudly without a snapshot';
   end if;

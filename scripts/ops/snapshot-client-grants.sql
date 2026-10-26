@@ -34,10 +34,22 @@
 -- global function default. Within each group the statement text is sorted.
 -- Two runs against the same catalog produce the same file.
 --
--- The real live restore path is QA's export_acl.sql plus gen_restore.py.
--- Replaying the saved file through any one rollback restores the grants for
--- all three forward files. Tests also replay this script's output.
--- Or: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /tmp/fweta-client-grants.snapshot.sql
+-- This script is the supported snapshot source. It includes the global
+-- postgres function default privilege row. QA's gen_restore.py v3 is an
+-- alternative that now also restores that global row.
+--
+-- Save the output to an absolute path and write a checksum beside it.
+-- Verify with sha256sum -c before replay. The replay runs whatever the
+-- file contains. psql resolves a rollback \ir relative to
+-- supabase/rollbacks/, so the snapshot variable must be an absolute path.
+-- One replay through any rollback restores the grants for all three files.
+--
+--   sha256sum /tmp/fweta-client-grants.snapshot.sql \
+--     > /tmp/fweta-client-grants.snapshot.sql.sha256
+--   sha256sum -c /tmp/fweta-client-grants.snapshot.sql.sha256
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+--     -v snapshot=/tmp/fweta-client-grants.snapshot.sql \
+--     -f supabase/rollbacks/20261026120000_revoke_client_table_grants.down.sql
 
 \pset tuples_only on
 \pset format unaligned
