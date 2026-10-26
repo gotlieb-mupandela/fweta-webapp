@@ -197,22 +197,50 @@ export function claimStagedFiles(input: {
   return { ok: true, grants: next };
 }
 
+/** Every stored name on a delivery. The sweep treats these paths as still in use. */
+export function deliveryReferencedPaths(
+  deliveries: readonly { files?: readonly { name?: string | null }[] | null }[] | null | undefined,
+): Set<string> {
+  const paths = new Set<string>();
+  for (const delivery of deliveries ?? []) {
+    for (const file of delivery.files ?? []) {
+      const name = file?.name?.trim();
+      if (name) paths.add(name);
+    }
+  }
+  return paths;
+}
+
+/** A grant is in use when it is marked attached or any delivery names its object. */
+export function objectIsInUse(grant: StoredGrant, referencedPaths?: ReadonlySet<string>): boolean {
+  if (grant.attachedAt) return true;
+  if (!referencedPaths || referencedPaths.size === 0) return false;
+  if (referencedPaths.has(grant.path)) return true;
+  const slash = grant.path.lastIndexOf("/");
+  const base = slash >= 0 ? grant.path.slice(slash + 1) : "";
+  return Boolean(base) && referencedPaths.has(base);
+}
+
 /**
  * Spent and expired grants stay until SIGNED_UPLOAD_RETENTION_MS after they
  * were created. The signed URL can still PUT after a rejected finalize deletes
  * the object, so the row has to remain until that URL is dead.
  * A staged grant that was never attached is deleted after STAGED_GRANT_RETENTION_MS.
- * Attached files are never swept. Each sweep deletes the object first.
- * The row is removed only after that delete succeeds.
+ * A grant with attachedAt, or whose path any delivery names, is never swept.
+ * Each sweep deletes the object first. The row is removed only after that delete succeeds.
  */
-export function grantsAfterSweep(grants: StoredGrant[], nowMs: number): {
+export function grantsAfterSweep(
+  grants: StoredGrant[],
+  nowMs: number,
+  referencedPaths?: ReadonlySet<string>,
+): {
   keep: StoredGrant[];
   deleteObjects: StoredGrant[];
 } {
   const deleteObjects: StoredGrant[] = [];
   const keep: StoredGrant[] = [];
   for (const grant of grants) {
-    if (grant.attachedAt) {
+    if (objectIsInUse(grant, referencedPaths)) {
       keep.push(grant);
       continue;
     }
@@ -247,8 +275,9 @@ export function retainAfterSweep(input: {
   nowMs: number;
   deletedIds: ReadonlySet<string>;
   storageConfigured: boolean;
+  referencedPaths?: ReadonlySet<string>;
 }): StoredGrant[] {
-  const swept = grantsAfterSweep(input.grants, input.nowMs);
+  const swept = grantsAfterSweep(input.grants, input.nowMs, input.referencedPaths);
   const staying = new Set(swept.keep.map((grant) => grant.id));
   return input.grants.filter((grant) => {
     if (staying.has(grant.id)) return true;

@@ -1,5 +1,5 @@
 import { readStore, updateStore } from "@/lib/db/store";
-import { grantsAfterSweep, retainAfterSweep } from "@/lib/storage/policy";
+import { deliveryReferencedPaths, grantsAfterSweep, objectIsInUse, retainAfterSweep } from "@/lib/storage/policy";
 import { createSupabaseStorageDriver, isStorageConfigured, type StorageDriver } from "@/lib/storage/driver";
 
 /**
@@ -15,12 +15,13 @@ export async function sweepUnfinalizedUploads(now = new Date(), driver?: Storage
   const storage = driver ?? (isStorageConfigured() ? createSupabaseStorageDriver() : null);
   let removed = 0;
   await updateStore(async (draft) => {
-    // Recheck on the store being written. A delivery may have attached the file since the read.
-    const swept = grantsAfterSweep(draft.uploadGrants ?? [], nowMs);
+    // Recheck on the store being written, including deliveries saved at the 24h mark.
+    const referencedPaths = deliveryReferencedPaths(draft.ugcDeliveries);
+    const swept = grantsAfterSweep(draft.uploadGrants ?? [], nowMs, referencedPaths);
     const deleted = new Set<string>();
     if (storage) {
       for (const grant of swept.deleteObjects) {
-        if (grant.attachedAt) continue;
+        if (objectIsInUse(grant, referencedPaths)) continue;
         try {
           await storage.deleteObject(grant.bucket, grant.path);
           deleted.add(grant.id);
@@ -35,6 +36,7 @@ export async function sweepUnfinalizedUploads(now = new Date(), driver?: Storage
       nowMs,
       deletedIds: deleted,
       storageConfigured: Boolean(storage),
+      referencedPaths,
     });
     removed = before.length - draft.uploadGrants.length;
   });

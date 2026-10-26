@@ -29,6 +29,7 @@ import {
   claimStagedFiles,
   claimStoredGrant,
   STAGED_FILE_IN_USE_ERROR,
+  deliveryReferencedPaths,
   deliveryUploadDecision,
   downloadHeaders,
   finalizeStoredGrant,
@@ -770,9 +771,11 @@ test("two parallel deliveries attach the same staged file once", async () => {
 test("the sweep rechecks attachment inside the write before deleting", () => {
   const pending = readFileSync("lib/storage/pending.ts", "utf8");
   const writeAt = pending.indexOf("await updateStore");
+  const pathsAt = pending.indexOf("deliveryReferencedPaths(draft", writeAt);
   const recheckAt = pending.indexOf("grantsAfterSweep(draft.uploadGrants", writeAt);
   const deleteAt = pending.indexOf("deleteObject", writeAt);
-  assert.ok(writeAt > 0 && recheckAt > writeAt && deleteAt > recheckAt);
+  const retainAt = pending.indexOf("retainAfterSweep", writeAt);
+  assert.ok(writeAt > 0 && pathsAt > writeAt && recheckAt > pathsAt && deleteAt > recheckAt && retainAt > deleteAt);
 
   const stale = asStaged(fileId, nowMs - STAGED_GRANT_RETENTION_MS);
   const preview = grantsAfterSweep([stale], nowMs);
@@ -788,4 +791,27 @@ test("the sweep rechecks attachment inside the write before deleting", () => {
   });
   assert.equal(kept.length, 1);
   assert.equal(kept[0]?.attachedAt, attached.attachedAt);
+});
+
+test("a delivery that references the object just before the sweep keeps the object and the row", () => {
+  const stale = asStaged(fileId, nowMs - STAGED_GRANT_RETENTION_MS);
+  assert.equal(stale.attachedAt ?? null, null);
+  const preview = grantsAfterSweep([stale], nowMs);
+  assert.equal(preview.deleteObjects.length, 1);
+
+  const referencedPaths = deliveryReferencedPaths([{ files: [{ name: stale.path }] }]);
+  const insideWrite = grantsAfterSweep([stale], nowMs, referencedPaths);
+  assert.equal(insideWrite.deleteObjects.length, 0);
+  assert.equal(insideWrite.keep.length, 1);
+
+  const kept = retainAfterSweep({
+    grants: [stale],
+    nowMs,
+    deletedIds: new Set([stale.id]),
+    storageConfigured: false,
+    referencedPaths,
+  });
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0]?.id, stale.id);
+  assert.equal(kept[0]?.path, stale.path);
 });
