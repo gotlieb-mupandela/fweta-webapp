@@ -16,13 +16,20 @@
 -- global postgres function default privilege row. QA's gen_restore.py v3
 -- is an alternative that now also restores that global row.
 --
+-- Put the snapshot and the recorded sha256 in a private directory.
+-- mktemp -d creates it. chmod 700 keeps it private.
+--
+--   snapdir=$(mktemp -d)
+--   chmod 700 "$snapdir"
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 --     -f scripts/ops/snapshot-client-grants.sql \
---     -o /tmp/fweta-client-grants.snapshot.sql
---   sha256sum /tmp/fweta-client-grants.snapshot.sql
+--     -o "$snapdir/client-grants.snapshot.sql"
+--   sha256sum "$snapdir/client-grants.snapshot.sql" \
+--     > "$snapdir/client-grants.snapshot.sha256"
+--   digest=$(awk 'NR==1 { print $1 }' "$snapdir/client-grants.snapshot.sha256")
 --   scripts/ops/replay-client-grants.sh \
---     /tmp/fweta-client-grants.snapshot.sql \
---     <recorded-sha256> \
+--     "$snapdir/client-grants.snapshot.sql" \
+--     "$digest" \
 --     supabase/rollbacks/20261026120200_revoke_default_client_privileges.down.sql
 --
 -- One replay of that absolute snapshot restores the grants for all three

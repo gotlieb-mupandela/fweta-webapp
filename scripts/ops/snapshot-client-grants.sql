@@ -2,11 +2,16 @@
 -- Run this and save the output BEFORE applying the client-grant revokes.
 -- It does not GRANT, REVOKE, or write catalog rows.
 --
--- From the repo root:
+-- From the repo root. Keep the snapshot and the recorded sha256 in a
+-- private directory. mktemp -d creates it. chmod 700 keeps it private.
 --
+--   snapdir=$(mktemp -d)
+--   chmod 700 "$snapdir"
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 --     -f scripts/ops/snapshot-client-grants.sql \
---     -o /tmp/fweta-client-grants.snapshot.sql
+--     -o "$snapdir/client-grants.snapshot.sql"
+--   sha256sum "$snapdir/client-grants.snapshot.sql" \
+--     > "$snapdir/client-grants.snapshot.sha256"
 --
 -- Sources, via aclexplode:
 --   pg_class tables and views (relkind r, p, v, m, f) in schema public
@@ -38,18 +43,18 @@
 -- postgres function default privilege row. QA's gen_restore.py v3 is an
 -- alternative that now also restores that global row.
 --
--- Save the output to an absolute path. Record the sha256 when the
--- snapshot is taken (sha256sum prints it). Restore only through
--- scripts/ops/replay-client-grants.sh, and pass that digest as an
--- argument. The wrapper copies the snapshot, checks the copy, and
+-- Save the output under the private directory above. Record the sha256
+-- in that same directory when the snapshot is taken. Restore only
+-- through scripts/ops/replay-client-grants.sh, and pass that digest as
+-- an argument. The wrapper copies the snapshot, checks the copy, and
 -- runs psql on that copy. It does not read a checksum file. A direct
 -- psql replay is not supported. It runs whatever the file contains.
 -- One replay restores the grants for all three files.
 --
---   sha256sum /tmp/fweta-client-grants.snapshot.sql
+--   digest=$(awk 'NR==1 { print $1 }' "$snapdir/client-grants.snapshot.sha256")
 --   scripts/ops/replay-client-grants.sh \
---     /tmp/fweta-client-grants.snapshot.sql \
---     <recorded-sha256>
+--     "$snapdir/client-grants.snapshot.sql" \
+--     "$digest"
 
 \pset tuples_only on
 \pset format unaligned

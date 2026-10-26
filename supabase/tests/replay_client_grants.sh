@@ -130,9 +130,22 @@ run_refuse "relative path" "snapshot path must be absolute" \
 run_refuse "empty file" "snapshot file is empty" \
   "$empty" "$empty_hash"
 
+passthru="$workdir/passthru"
+mkdir -p "$passthru"
+psql_log="$workdir/psql-args"
+: > "$psql_log"
+chmod 777 "$workdir" "$passthru"
+chmod 666 "$psql_log"
+cat > "$passthru/psql" <<EOF
+#!/bin/bash
+printf '%s\n' "\$*" >> "$psql_log"
+exec /usr/bin/psql "\$@"
+EOF
+chmod 755 "$passthru/psql"
+
 rm -f "$marker"
 sudo -u postgres env \
-  PATH="/usr/bin:/bin" \
+  PATH="$passthru:/usr/bin:/bin" \
   DATABASE_URL="$database_url" \
   "$wrapper" "$good" "$good_hash" \
   "$repo_root/supabase/rollbacks/20261026120000_revoke_client_table_grants.down.sql"
@@ -141,6 +154,14 @@ if [[ -f "$marker" ]]; then
   echo "good snapshot used the psql stub" >&2
   exit 1
 fi
+
+if ! grep -qw -- '-X' "$psql_log"; then
+  echo "wrapper did not pass -X to psql" >&2
+  cat "$psql_log" >&2
+  exit 1
+fi
+passed=$((passed + 1))
+echo "ok wrapper passes -X"
 
 psql_db <<'SQL'
 do $restored$

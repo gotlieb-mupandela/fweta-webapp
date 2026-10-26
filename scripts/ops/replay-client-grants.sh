@@ -78,7 +78,7 @@ if [[ "$actual" != "$expected_lc" ]]; then
   refuse "snapshot sha256 does not match"
 fi
 
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+psql -X "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -v "snapshot=${tmp}" \
   -c 'begin' \
   -f "$rollback" \
