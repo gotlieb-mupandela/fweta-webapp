@@ -45,6 +45,35 @@ function lockedFeeBps(campaign: Campaign): number | undefined {
   return Number.isInteger(campaign.feeBps) ? campaign.feeBps : undefined;
 }
 
+/** Cash the brand actually locked. Credits and later edits of budgetTotalCents do not raise it. */
+function campaignFundDebitCents(store: DatabaseStore, campaignId: string): number {
+  let funded = 0;
+  for (const entry of store.ledgerEntries) {
+    if (entry.type !== "debit" || entry.referenceType !== "campaign_fund" || entry.referenceId !== campaignId) {
+      continue;
+    }
+    funded += entry.amountCents;
+  }
+  return funded;
+}
+
+/**
+ * Room left for a new creator credit. The cap is the campaign_fund debits
+ * still held, and it also stays within the posted budget.
+ */
+function heldFundCents(store: DatabaseStore, campaign: Campaign): number {
+  const funded = Math.min(campaign.budgetTotalCents, campaignFundDebitCents(store, campaign.id));
+  return Math.max(0, funded - campaign.budgetSpentCents - campaign.unspentReturnedCents);
+}
+
+function fundDebitCovers(store: DatabaseStore, campaign: Campaign, nextCredit: number): boolean {
+  if (nextCredit <= 0) return false;
+  return (
+    campaignFundDebitCents(store, campaign.id) >=
+    campaign.budgetSpentCents + campaign.unspentReturnedCents + nextCredit
+  );
+}
+
 /**
  * Creator credits run only while the campaign is still open and this store
  * already holds the brand's campaign_fund debit. closedAt or settledAt means
@@ -152,7 +181,7 @@ function accrueCpm(store: DatabaseStore, sub: Submission, camp: Campaign, nowMs:
   sub.payableViews = qualified;
   const capped = qualified < camp.minViews ? 0 : uncappedEarningsCents(qualified, camp);
   const already = sub.reservedCents + sub.releasedCents;
-  const room = Math.max(0, camp.budgetTotalCents - camp.budgetSpentCents) + already;
+  const room = heldFundCents(store, camp) + already;
   const target = Math.min(capped, room);
   const delta = target - already;
   if (delta < 0) {
@@ -164,7 +193,8 @@ function accrueCpm(store: DatabaseStore, sub: Submission, camp: Campaign, nowMs:
   }
   if (delta <= 0) return 0;
   // No brand debit, or the pot was already returned: do not credit, charge a fee, or move a wallet.
-  if (!campaignPayoutOpen(store, camp)) return 0;
+  // The campaign_fund debit has to cover this credit in the same write.
+  if (!campaignPayoutOpen(store, camp) || !fundDebitCovers(store, camp, delta)) return 0;
   const at = atIso(nowMs);
   applyWalletDelta(store, {
     userId: sub.clipperId,
@@ -371,6 +401,7 @@ export function settlePool(store: DatabaseStore, campaign: Campaign, nowMs: numb
   // Closed counts as already refunded. Unfunded has no campaign_fund debit.
   // Either way the pot is not paid and the fee is not marked charged.
   if (!campaignPayoutOpen(store, campaign)) return;
+  const pot = heldFundCents(store, campaign);
   const clips = store.submissions.filter(
     (sub) =>
       sub.campaignId === campaign.id &&
@@ -380,7 +411,7 @@ export function settlePool(store: DatabaseStore, campaign: Campaign, nowMs: numb
       qualifiedViewCount(sub, nowMs) >= campaign.minViews,
   );
   const shares = allocatePoolShares(
-    campaign.budgetTotalCents,
+    pot,
     clips.map((sub) => ({ id: sub.id, views: qualifiedViewCount(sub, nowMs) })),
     campaign.maxPayoutPerSubmissionCents,
   );
@@ -388,7 +419,7 @@ export function settlePool(store: DatabaseStore, campaign: Campaign, nowMs: numb
   for (const sub of clips) {
     const share = shares.get(sub.id) ?? 0;
     sub.payableViews = qualifiedViewCount(sub, nowMs);
-    if (share > 0) {
+    if (share > 0 && fundDebitCovers(store, campaign, share)) {
       applyWalletDelta(store, {
         userId: sub.clipperId,
         availableDelta: 0,
@@ -417,11 +448,9 @@ export function refundUnspentCampaign(store: DatabaseStore, campaign: Campaign, 
     campaign.closedAt = atIso(nowMs);
     return;
   }
-  const unspent = Math.max(
-    0,
-    campaign.budgetTotalCents - campaign.budgetSpentCents - campaign.unspentReturnedCents,
-  );
-  if (unspent > 0) {
+  const funded = campaignFundDebitCents(store, campaign.id);
+  const unspent = Math.max(0, funded - campaign.budgetSpentCents - campaign.unspentReturnedCents);
+  if (unspent > 0 && fundDebitCovers(store, campaign, unspent)) {
     creditBrand(store, campaign, unspent, "campaign_fund", `Unspent campaign budget returned, ${campaign.title}`);
     campaign.unspentReturnedCents += unspent;
   }

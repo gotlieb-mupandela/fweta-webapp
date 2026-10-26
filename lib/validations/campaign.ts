@@ -141,7 +141,6 @@ export const campaignUpdateSchema = z
     assets: z.array(assetSchema).max(8).optional(),
     startDate: z.string().optional().nullable(),
     endDate: z.string().optional().nullable(),
-    status: campaignStatusSchema.optional(),
   })
   .superRefine(refineCampaign);
 

@@ -3,14 +3,12 @@
 import { revalidatePath } from "next/cache";
 
 import { getSession, requireSession } from "@/lib/auth/session";
+import { setCampaignStatusInStore, updateCampaignInStore } from "@/lib/campaigns/campaign-update";
 import { isCampaignFunded } from "@/lib/campaigns/fund";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { Campaign } from "@/lib/db/types";
 import { hydrateCampaign } from "@/lib/rewards/content-rewards";
-import {
-  campaignCreateSchema,
-  campaignUpdateSchema,
-} from "@/lib/validations/campaign";
+import { campaignCreateSchema } from "@/lib/validations/campaign";
 import { applyWalletDelta } from "@/lib/wallet/ledger";
 import { formatMoney } from "@/lib/utils";
 import type { CampaignStatus } from "@/types/enums";
@@ -111,18 +109,14 @@ export async function createCampaignAction(raw: unknown) {
 export async function updateCampaignAction(id: string, raw: unknown) {
   const session = await requireSession();
   if (!assertBrand(session.roles)) return { ok: false as const, error: "Brand role required." };
-  const parsed = campaignUpdateSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Invalid campaign details." };
 
-  let found = false;
-  await updateStore((s) => {
-    const c = s.campaigns.find((x) => x.id === id);
-    if (!c) return;
-    if (c.brandId !== session.id && !session.roles.includes("admin")) return;
-    found = true;
-    Object.assign(c, parsed.data, { updatedAt: nowIso() });
-  });
-  if (!found) return { ok: false as const, error: "Campaign not found." };
+  try {
+    await updateStore((store) => {
+      updateCampaignInStore(store, session, id, raw);
+    });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
+  }
   revalidatePath(`/dashboard/brand/campaigns/${id}`);
   revalidatePath("/dashboard/brand/campaigns");
   revalidatePath("/dashboard/clipper/campaigns");
@@ -136,32 +130,8 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
   if (!assertBrand(session.roles)) return { ok: false as const, error: "Brand role required." };
 
   try {
-    await updateStore((s) => {
-      const c = s.campaigns.find((x) => x.id === id);
-      if (!c) throw new Error("Campaign not found.");
-      if (c.brandId !== session.id && !session.roles.includes("admin")) {
-        throw new Error("Not allowed.");
-      }
-      // Atomic fund + activate: previously two writes, so a crash could
-      // debit the wallet without flipping status (or vice versa).
-      if (status === "active" && c.status !== "active" && !isCampaignFunded(s, c.id)) {
-        const wallet = s.wallets.find((w) => w.userId === c.brandId);
-        if (!wallet || wallet.availableCents < c.budgetTotalCents) {
-          throw new Error(
-            `Insufficient wallet balance. You need ${formatMoney(c.budgetTotalCents)} available. Submit an EFT deposit and wait for admin confirmation, then publish.`,
-          );
-        }
-        applyWalletDelta(s, {
-          userId: c.brandId,
-          availableDelta: -c.budgetTotalCents,
-          type: "debit",
-          reason: "Campaign budget allocated",
-          referenceType: "campaign_fund",
-          referenceId: c.id,
-        });
-      }
-      c.status = status;
-      c.updatedAt = nowIso();
+    await updateStore((store) => {
+      setCampaignStatusInStore(store, session, id, status);
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
