@@ -54,9 +54,9 @@ function insertDiscoverableProfile(store: DatabaseStore, account: Profile, now: 
     slug = `${base}-${n++}`;
   }
   const niche = account.niche?.trim() || (account.roles.includes("influencer") ? "Creator" : "Clipper");
-  const headline = niche.length >= 5 ? niche : `${account.displayName} on fweta`;
+  const headline = niche.length >= 5 ? niche : `${account.displayName} on Fweta`;
   const bioText = account.bio?.trim() ?? "";
-  const bio = bioText.length >= 10 ? bioText : `${account.displayName} creates on fweta.`;
+  const bio = bioText.length >= 10 ? bioText : `${account.displayName} creates on Fweta.`;
 
   store.influencerProfiles.push({
     id: newId(),

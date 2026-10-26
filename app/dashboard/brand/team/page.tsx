@@ -19,10 +19,16 @@ export default async function BrandTeamPage() {
   if (!session?.roles.includes("brand") && !session?.roles.includes("admin")) redirect("/dashboard");
 
   if (session.roles.includes("brand")) {
-    await updateStore((store) => {
-      const current = store.profiles.find((item) => item.id === session.id);
-      if (current) ensureOwnedWorkspace(store, current, nowIso(), newId);
-    });
+    const current = await readStore();
+    const owned = (current.workspaces ?? []).some((workspace) => workspace.ownerUserId === session.id);
+    if (!owned) {
+      await updateStore((store) => {
+        const row = store.profiles.find((item) => item.id === session.id);
+        if (!row) return;
+        if ((store.workspaces ?? []).some((workspace) => workspace.ownerUserId === row.id)) return;
+        ensureOwnedWorkspace(store, row, nowIso(), newId);
+      });
+    }
   }
 
   const store = await readStore();

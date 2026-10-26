@@ -247,7 +247,7 @@ type AdminSeed = { email: string; password: string };
 
 export type AdminAccountReport = {
   seeded: boolean;
-  duplicateEmails: string[];
+  duplicateProfileCount: number;
 };
 
 function readAdminSeed(): AdminSeed | null {
@@ -274,37 +274,37 @@ function readAdminSeed(): AdminSeed | null {
   return { email, password };
 }
 
-function duplicateProfileEmails(profiles: Profile[]): string[] {
+function duplicateProfileCount(profiles: Profile[]): number {
   const counts = new Map<string, number>();
   for (const profile of profiles) {
     const email = profile.email.trim().toLowerCase();
     if (!email) continue;
     counts.set(email, (counts.get(email) ?? 0) + 1);
   }
-  return [...counts.entries()]
-    .filter(([, count]) => count > 1)
-    .map(([email]) => email)
-    .sort();
+  let count = 0;
+  for (const copies of counts.values()) {
+    if (copies > 1) count += copies;
+  }
+  return count;
 }
 
 async function ensureAdminOnce(): Promise<AdminAccountReport> {
   try {
     const existing = await readStore();
-    const duplicateEmails = duplicateProfileEmails(existing.profiles);
-    if (duplicateEmails.length > 0) {
+    const duplicateProfileCountValue = duplicateProfileCount(existing.profiles);
+    if (duplicateProfileCountValue > 0) {
       console.warn(
-        "[fweta] duplicate profile emails left unchanged:",
-        duplicateEmails.join(", "),
+        `[fweta] ${duplicateProfileCountValue} duplicate profiles left unchanged.`,
       );
     }
 
     const adminSeed = readAdminSeed();
-    if (!adminSeed) return { seeded: false, duplicateEmails };
+    if (!adminSeed) return { seeded: false, duplicateProfileCount: duplicateProfileCountValue };
 
     const emailTaken = existing.profiles.some(
       (profile) => profile.email.trim().toLowerCase() === adminSeed.email,
     );
-    if (emailTaken) return { seeded: false, duplicateEmails };
+    if (emailTaken) return { seeded: false, duplicateProfileCount: duplicateProfileCountValue };
 
     const adminHash = await bcrypt.hash(adminSeed.password, 10);
     const now = nowIso();
@@ -337,17 +337,17 @@ async function ensureAdminOnce(): Promise<AdminAccountReport> {
       seeded = true;
     });
 
-    return { seeded, duplicateEmails };
+    return { seeded, duplicateProfileCount: duplicateProfileCountValue };
   } catch (err) {
     console.warn("[fweta] ensureAdminAccount failed:", err instanceof Error ? err.message : err);
-    return { seeded: false, duplicateEmails: [] };
+    return { seeded: false, duplicateProfileCount: 0 };
   }
 }
 
 /**
  * Creates the env admin and a wallet only when no profile already uses ADMIN_EMAIL.
  * Does not change an existing account's email, password hash, or roles.
- * Does not delete duplicate profiles. The report lists those emails instead.
+ * Does not delete duplicate profiles. The report counts those profiles and does not include the addresses.
  * Housekeeping is the only caller. A page render or the login form must not call this.
  */
 export async function ensureAdminAccount(): Promise<AdminAccountReport> {

@@ -14,7 +14,8 @@ export type HousekeepingResult = {
   holdsReleased: number;
   creatorsRepaired: number;
   adminSeeded: boolean;
-  duplicateProfileEmails: string[];
+  /** Profiles that share an email with another profile. Addresses are not included. */
+  duplicateProfileCount: number;
 };
 
 /**
@@ -22,7 +23,7 @@ export type HousekeepingResult = {
  * releases booking escrow that has sat in "requested" for 14 days, and creates
  * a public profile for each finished creator who has none and has not hidden one.
  * Creates the env admin only when ADMIN_EMAIL is not already a profile.
- * Reports duplicate profile emails and does not delete those profiles.
+ * Reports duplicateProfileCount and does not delete those profiles or include their addresses.
  * Does not read social networks or change view counts.
  */
 export async function runHousekeepingJob(now = new Date()): Promise<HousekeepingResult> {
@@ -36,7 +37,7 @@ export async function runHousekeepingJob(now = new Date()): Promise<Housekeeping
     holdsReleased: 0,
     creatorsRepaired: 0,
     adminSeeded: admin.seeded,
-    duplicateProfileEmails: admin.duplicateEmails,
+    duplicateProfileCount: admin.duplicateProfileCount,
   };
 
   await updateStore((store) => {
