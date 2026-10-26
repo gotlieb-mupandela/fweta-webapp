@@ -277,6 +277,47 @@ test("a pay-in request with no reference or an invalid one saves nothing", () =>
   assert.equal(store.wallets.length, 0);
 });
 
+test("separator-only and too-short references are refused when filing and confirming", () => {
+  const required = "Enter the bank reference from your EFT.";
+  const refused = ["////", "/ / /", "ABC", "AB/C"] as const;
+  const messageFor = (reference: string) =>
+    reference === "ABC" ? "Bank reference must be 4 to 64 characters." : required;
+
+  const store = emptyStore();
+  for (const reference of refused) {
+    const filed = fileManualPayIn(store, filing(`bad-${refused.indexOf(reference)}`, reference));
+    assert.equal(filed.ok, false);
+    if (filed.ok) continue;
+    assert.equal(filed.error, messageFor(reference));
+  }
+  assert.equal(store.brandDeposits.length, 0);
+  assert.equal(store.ledgerEntries.length, 0);
+
+  for (const reference of refused) {
+    const pending = readyStore({ bankReference: null }, 0);
+    assert.throws(
+      () =>
+        confirmPendingPayIn(pending, {
+          ...adminActor,
+          bankReference: reference,
+          reason: "Brand pay-in confirmed",
+        }),
+      (err: unknown) => err instanceof Error && err.message === messageFor(reference),
+    );
+    assert.equal(pending.brandDeposits[0]?.status, "pending");
+    assert.equal(pending.brandDeposits[0]?.bankReference, null);
+    assert.equal(pending.brandDeposits[0]?.amountCents, amountCents);
+    assert.equal(pending.wallets[0]?.availableCents, 0);
+    assert.equal(pending.ledgerEntries.length, 0);
+  }
+
+  const saved = fileManualPayIn(store, filing("dep-ok", "ABC123"));
+  assert.equal(saved.ok, true);
+  assert.equal(store.brandDeposits.length, 1);
+  assert.equal(store.brandDeposits[0]?.bankReference, "ABC123");
+  assert.equal(store.brandDeposits[0]?.amountCents, 10000);
+});
+
 test("a duplicate reference is refused, except on a rejected pay-in", () => {
   const store = emptyStore();
   const first = fileManualPayIn(store, filing("dep-a", "  Ab-12  "));

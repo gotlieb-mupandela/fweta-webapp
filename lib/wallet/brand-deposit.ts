@@ -95,6 +95,9 @@ export function fileManualPayIn(
       error: parsed.error.issues[0]?.message ?? "Enter the bank reference from your EFT.",
     };
   }
+  if (referenceKey(parsed.data).length < 4) {
+    return { ok: false, error: "Enter the bank reference from your EFT." };
+  }
   if (duplicatePayInReference(store, parsed.data, input.brandId)) {
     return { ok: false, error: DUPLICATE_REFERENCE };
   }
@@ -129,6 +132,9 @@ function applyConfirmReference(
   const parsed = bankReferenceSchema.safeParse(supplied);
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message ?? "Enter the bank reference from your EFT.");
+  }
+  if (referenceKey(parsed.data).length < 4) {
+    throw new Error("Enter the bank reference from your EFT.");
   }
   if (duplicatePayInReference(store, parsed.data, row.brandId, row.id)) {
     throw new Error(DUPLICATE_REFERENCE);
