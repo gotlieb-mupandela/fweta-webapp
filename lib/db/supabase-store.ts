@@ -2,6 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 
 import { hydrateStoreCampaigns } from "@/lib/rewards/content-rewards";
 
+import { reencryptStoreSecrets } from "@/lib/security/payout-cipher";
+
 import {
   commitLoadedMutation,
   parseStoreRevision,
@@ -292,6 +294,8 @@ export async function loadStoreFromSupabase(): Promise<DatabaseStore | null> {
   }
 }
 
+export type RevisionCheck = "ok" | "missing" | "error" | "unchecked";
+
 export type SupabaseStoreDiagnostics = {
   jsonBlobLoadOk: boolean;
   jsonBlobLoadError: string | null;
@@ -300,7 +304,19 @@ export type SupabaseStoreDiagnostics = {
   relationalLoadOk: boolean;
   relationalLoadError: string | null;
   profileCount: number;
+  probeRan: boolean;
+  revisionColumn: RevisionCheck;
+  casRpc: RevisionCheck;
 };
+
+function isMissingCasRpc(error: { message?: string; code?: string }): boolean {
+  if (error.code === "PGRST202") return true;
+  return (error.message ?? "").includes("Could not find the function");
+}
+
+function isMissingRevisionColumn(message: string): boolean {
+  return /revision/i.test(message) && /column|schema cache|does not exist/i.test(message);
+}
 
 /**
  * Production health check. Read-only unless `probe` is set. The probe calls
@@ -317,6 +333,9 @@ export async function diagnoseSupabaseStore(options?: {
     relationalLoadOk: false,
     relationalLoadError: null,
     profileCount: 0,
+    probeRan: Boolean(options?.probe),
+    revisionColumn: "unchecked",
+    casRpc: "unchecked",
   };
 
   if (!isSupabaseStoreEnabled()) return result;
@@ -346,20 +365,40 @@ export async function diagnoseSupabaseStore(options?: {
   } else {
     try {
       const supabase = createServiceClient();
+      const column = await supabase.from("fweta_app_store").select("revision").limit(1);
+      if (!column.error) {
+        result.revisionColumn = "ok";
+      } else if (isMissingRevisionColumn(column.error.message ?? "")) {
+        result.revisionColumn = "missing";
+      } else {
+        result.revisionColumn = "error";
+      }
+
       // A revision the row cannot have. The RPC must reject it and must not write.
       const { error } = await supabase.rpc("fweta_cas_save_store", {
         payload: { profiles: [] },
         expected_revision: -1,
       });
       if (!error) {
+        result.casRpc = "ok";
         result.jsonBlobSaveError = "compare-and-swap accepted a revision the row does not have";
+      } else if (isMissingCasRpc(error)) {
+        result.casRpc = "missing";
+        result.jsonBlobSaveError = error.message;
       } else if (isStoreConflict(error)) {
+        result.casRpc = "ok";
         result.jsonBlobSaveOk = true;
+      } else if (isMissingRevisionColumn(error.message ?? "")) {
+        result.revisionColumn = "missing";
+        result.casRpc = "ok";
+        result.jsonBlobSaveError = error.message;
       } else {
+        result.casRpc = "error";
         result.jsonBlobSaveError = error.message;
       }
     } catch (e) {
       result.jsonBlobSaveError = e instanceof Error ? e.message : "save threw";
+      if (result.casRpc === "unchecked") result.casRpc = "error";
     }
   }
 
@@ -407,6 +446,7 @@ export async function commitStoreToSupabase(
       clone: cloneStore,
       mutate: mutator,
       beforeSave: (draft, base) => {
+        reencryptStoreSecrets(draft);
         if (draft.profiles.length === 0 && base.profiles.length > 0) {
           throw new StorePersistError(
             "Refusing to replace a populated store with an empty profile list.",

@@ -22,13 +22,15 @@ npm run dev
 
 ### Demo accounts
 
+Off by default. Set `FWETA_SEED_DEMO=true` and restart the dev server. The flag is ignored when `NODE_ENV` is `production` or when `VERCEL` or `VERCEL_ENV` is set.
+
 | Email | Roles | Password |
 |-------|-------|----------|
 | brand@fweta.test | Brand | `password123` |
 | creator@fweta.test | Influencer + Clipper | `password123` |
 | clipper@fweta.test | Clipper | `password123` |
 
-The admin account is seeded from `ADMIN_EMAIL` and `ADMIN_PASSWORD` (bcrypt-hashed at seed time). Put both in `.env.local` for local admin login, and set the same names on Vercel. Do not commit the password.
+The admin account is created by `POST /api/jobs/housekeeping` from `ADMIN_EMAIL` and `ADMIN_PASSWORD` (bcrypt-hashed at seed time) when that email is not already a profile. Put both in `.env.local` for local admin login, and set the same names on Vercel. Opening `/login` does not seed it. Do not commit the password.
 
 ## Docs
 

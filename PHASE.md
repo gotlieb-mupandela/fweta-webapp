@@ -30,9 +30,9 @@ This document expands [AGENTS.md](./AGENTS.md) into an actionable build sequence
 
 ## Local runtime notes
 
-- **Auth:** Cookie JWT (`fweta_session`) with bcrypt email + password. Demo users seeded on first load (`*@fweta.test` / `password123`). The admin account is seeded from `ADMIN_EMAIL` and `ADMIN_PASSWORD`, hashed at seed time.
+- **Auth:** Cookie JWT (`fweta_session`) with bcrypt email + password. Demo users (`*@fweta.test` / `password123`) are created at server start only when `FWETA_SEED_DEMO` is exactly `true`, `NODE_ENV` is not `production`, and neither `VERCEL` nor `VERCEL_ENV` is set. The admin account is created by `POST /api/jobs/housekeeping` from `ADMIN_EMAIL` and `ADMIN_PASSWORD`, hashed at seed time, only when that email is not already a profile.
 - **Data:** File store at `data/store.json` (gitignored). Ledger discipline enforced in `lib/wallet/ledger.ts`.
-- **Jobs:** An admin records view counts at `/dashboard/admin/views`. `POST /api/jobs/poll-views` fetches counts only when Apify is configured, otherwise it returns 410. `POST /api/jobs/settle-rewards` releases holds and closes ended campaigns. `POST /api/jobs/housekeeping` does the same close once a day and releases stale booking holds.
+- **Jobs:** An admin records view counts at `/dashboard/admin/views`. `POST /api/jobs/poll-views` fetches counts only when Apify is configured, otherwise it returns 410. `POST /api/jobs/settle-rewards` releases holds and closes ended campaigns. `POST /api/jobs/housekeeping` does the same close once a day, releases stale booking holds, and creates the env admin when that email is missing.
 - **Email:** Resend when `RESEND_API_KEY` and `RESEND_FROM` are set. Otherwise sends are skipped with a warning. Admin previews live at `/dashboard/admin/emails`.
 - **Booking model:** Request → accept/decline → deliver → brand approve (documented decision: not instant book).
 - **Currency:** NAD (Namibia). Minimum withdrawal N$100.

@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
-import { getCampaign } from "@/app/actions/campaigns";
+import { getCampaign } from "@/lib/campaigns/browse";
 import { CampaignForm } from "@/components/forms/campaign-form";
 import { PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";

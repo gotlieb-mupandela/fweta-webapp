@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { listActiveCampaignsPublic } from "@/app/actions/campaigns";
+import { listActiveCampaignsPublic } from "@/lib/campaigns/browse";
 import { listClipperSubmissions } from "@/app/actions/submissions";
 import { SubmitClipForm } from "@/components/forms/submit-clip-form";
 import { PlatformPicker } from "@/components/platforms/platform-picker";

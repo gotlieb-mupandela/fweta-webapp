@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { getCampaign } from "@/app/actions/campaigns";
+import { getCampaign } from "@/lib/campaigns/browse";
 import { PlatformChip } from "@/components/platforms/platform-chip";
 import { PostingGuide } from "@/components/platforms/posting-guide";
 import { CampaignStatusButtons } from "@/components/forms/campaign-status-buttons";

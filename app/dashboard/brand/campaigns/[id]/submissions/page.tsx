@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { getCampaign } from "@/app/actions/campaigns";
+import { getCampaign } from "@/lib/campaigns/browse";
 import { listCampaignSubmissions } from "@/app/actions/submissions";
 import { RecordViewsForm } from "@/components/forms/record-views-form";
 import { SubmissionReviewForm } from "@/components/forms/submission-review-form";

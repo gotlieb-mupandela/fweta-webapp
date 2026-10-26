@@ -6,9 +6,9 @@ This file splits what the repo already does from what Gotlieb has to provide. No
 
 ## Done in the repo
 
-- **Store adapter.** `lib/db/adapter.ts` uses Postgres when `NEXT_PUBLIC_SUPABASE_URL` and a service-role key are set. Otherwise it uses `data/store.json`. `FWETA_STORE=file` forces the file. A failed Supabase read does not cache an empty store and write it back.
+- **Store adapter.** `lib/db/adapter.ts` uses Postgres when `NEXT_PUBLIC_SUPABASE_URL` and a service-role key are set. Otherwise it uses `data/store.json`. `FWETA_STORE=file` forces the file. A failed Supabase read does not cache an empty store and write it back. A production runtime (`NODE_ENV=production` or `VERCEL` set) throws at first use when that choice is the file store, and `next build` (`NEXT_PHASE=phase-production-build`) does not.
 - **SQL, not applied.** `supabase/migrations/20261017160000_production_hardening.sql` adds the profile columns the app already saves (name, socials, onboarding, credential version), `fweta_campaigns.settled_at`, a `revision` column for safer JSON writes, non-negative wallet and positive ledger checks (`NOT VALID`), indexes, and revokes `anon` / `authenticated` from the store tables and from `fweta_load_store` / `fweta_save_store`. Those functions are `security invoker`. The save function refuses to replace a populated profile table with an empty list. The campaign load and save include `settledAt`.
-- **Sessions.** Production rejects the published dev secrets. Demo `*@fweta.test` accounts are not seeded in production unless `FWETA_SEED_DEMO=true`. Password changes bump `credentialVersion` and older cookies are sent to `/api/auth/end-session`. Suspended accounts are rejected on the dashboard and on server actions.
+- **Sessions.** Production rejects the published dev secrets. Demo `*@fweta.test` accounts are off unless `FWETA_SEED_DEMO` is exactly `true`, and they are never seeded when `NODE_ENV` is `production` or when `VERCEL` or `VERCEL_ENV` is set. Password changes bump `credentialVersion` and older cookies are sent to `/api/auth/end-session`. Suspended accounts are rejected on the dashboard and on server actions.
 - **Abuse limits.** Login, signup, and password change are rate limited per instance. Login `next` must be a relative path. Cron and the health write-probe compare the bearer token in constant time.
 - **Manual view counts.** An admin enters totals at `/dashboard/admin/views`. Saving a higher count writes a snapshot and runs the existing CPM earnings math. Counts cannot be lowered. Nothing simulates views. `GET` or `POST /api/jobs/poll-views` returns 401 without the cron bearer, 410 when Apify is unset, and runs a fetch only when `APIFY_API_TOKEN` is set.
 - **Errors.** `ERROR_WEBHOOK_URL`, if set, receives a short JSON report from `/api/observability` and from server `reportServerError`. Unset, the app only logs.
@@ -26,8 +26,8 @@ This file splits what the repo already does from what Gotlieb has to provide. No
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publishable key only. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Secret key. Never `NEXT_PUBLIC_`. |
 | `AUTH_SECRET` | `openssl rand -base64 32`. Not the old example string. |
-| `PAYOUT_ENCRYPTION_KEY` | A different random value. Rotating it makes existing bank ciphertext unreadable. |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Real admin login. Password at least 8 characters. |
+| `PAYOUT_ENCRYPTION_KEY` | Required before deploy. `openssl rand -base64 32`. At least 32 characters and different from `AUTH_SECRET`. Bank details saved earlier with the `AUTH_SECRET` fallback still decrypt, and the next store write re-encrypts them. Replacing this key later leaves ciphertext from the previous payout key unreadable. |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Real admin login. Password at least 8 characters. `POST /api/jobs/housekeeping` with `Authorization: Bearer $CRON_SECRET` creates the account when that email is missing. It does not change an existing password or role. |
 | `CRON_SECRET` | Random. Vercel Cron sends it as `Authorization: Bearer` on the housekeeping route. The health write-probe uses the same secret. |
 | `NEXT_PUBLIC_APP_URL` | `https://app.fweta.com` |
 | `RESEND_API_KEY` | Resend API key. Server only. |
@@ -48,7 +48,7 @@ This file splits what the repo already does from what Gotlieb has to provide. No
 
 - Payment gateway keys. Deposits and payouts are manual.
 - `APIFY_API_TOKEN` and any TikTok, Meta, Instagram, YouTube, or X API keys. View counts are manual.
-- `FWETA_SEED_DEMO` on production.
+- `FWETA_SEED_DEMO` on any Vercel host.
 - `TRIGGER_SECRET_KEY` until a job runner is actually wired. Housekeeping uses the Vercel cron route.
 
 ## Already merged here
@@ -58,6 +58,6 @@ Notifications, content-reward settlement, onboarding, workspaces, and this produ
 ## After deploy
 
 1. `GET /api/health/store` returns `"ok": true` and `"mode": "supabase"`.
-2. Sign in as the env admin, record a manual deposit, redeploy or open a second session, and confirm the balance is still there.
+2. Create the env admin once, when that email is not already a profile: `POST /api/jobs/housekeeping` with `Authorization: Bearer $CRON_SECRET`. Then sign in as that admin, record a manual deposit, redeploy or open a second session, and confirm the balance is still there.
 3. `POST /api/webhooks` returns 404. That is intentional.
 4. `GET /api/jobs/housekeeping` with the cron bearer returns `"ok": true`. `GET /api/jobs/poll-views` with the bearer returns 410. Without the bearer, both return 401.
