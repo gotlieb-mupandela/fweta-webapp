@@ -3,10 +3,13 @@
 import { revalidatePath } from "next/cache";
 
 import { getSession, requireSession } from "@/lib/auth/session";
-import { setCampaignStatusInStore, updateCampaignInStore } from "@/lib/campaigns/campaign-update";
+import {
+  duplicateCampaignInStore,
+  setCampaignStatusInStore,
+  updateCampaignInStore,
+} from "@/lib/campaigns/campaign-update";
 import { isCampaignFunded } from "@/lib/campaigns/fund";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
-import type { Campaign } from "@/lib/db/types";
 import { hydrateCampaign } from "@/lib/rewards/content-rewards";
 import { campaignCreateSchema } from "@/lib/validations/campaign";
 import { applyWalletDelta } from "@/lib/wallet/ledger";
@@ -148,25 +151,17 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
 export async function duplicateCampaignAction(id: string) {
   const session = await requireSession();
   if (!assertBrand(session.roles)) return { ok: false as const, error: "Brand role required." };
-  const store = await readStore();
-  const source = store.campaigns.find((c) => c.id === id && c.brandId === session.id);
-  if (!source) return { ok: false as const, error: "Campaign not found." };
 
-  const now = nowIso();
-  const copy: Campaign = {
-    ...source,
-    id: newId(),
-    title: `${source.title} (copy)`,
-    status: "draft",
-    budgetSpentCents: 0,
-    createdAt: now,
-    updatedAt: now,
-  };
-  await updateStore((s) => {
-    s.campaigns.push(copy);
-  });
+  let copyId = "";
+  try {
+    await updateStore((store) => {
+      copyId = duplicateCampaignInStore(store, session, id);
+    });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
+  }
   revalidatePath("/dashboard/brand/campaigns");
-  return { ok: true as const, id: copy.id };
+  return { ok: true as const, id: copyId };
 }
 
 export async function deleteCampaignAction(id: string) {

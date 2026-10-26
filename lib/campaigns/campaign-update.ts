@@ -160,3 +160,54 @@ export function setCampaignStatusInStore(
   campaign.status = status;
   campaign.updatedAt = nowIso();
 }
+
+/**
+ * A duplicate is a new draft of the brief. Money counters, the locked fee rate,
+ * and close or settle timestamps stay on the source. The caller runs this
+ * inside one updateStore so the read and the insert are the same write.
+ */
+export function duplicateCampaignInStore(store: DatabaseStore, actor: CampaignActor, id: string): string {
+  assertBrandActor(actor);
+  const source = store.campaigns.find((row) => row.id === id);
+  if (!source || source.brandId !== actor.id) throw new Error("Campaign not found.");
+
+  const now = nowIso();
+  const copy: Campaign = {
+    id: newId(),
+    brandId: source.brandId,
+    title: `${source.title} (copy)`,
+    description: source.description,
+    type: source.type,
+    category: source.category,
+    status: "draft",
+    budgetTotalCents: source.budgetTotalCents,
+    budgetSpentCents: 0,
+    cpmCents: source.cpmCents,
+    minPayoutCents: source.minPayoutCents,
+    minViews: source.minViews,
+    payModel: source.payModel,
+    countries: [...source.countries],
+    feeReservedCents: 0,
+    feeChargedCents: 0,
+    feeRefundedCents: 0,
+    unspentReturnedCents: 0,
+    poolSettledAt: null,
+    closedAt: null,
+    maxPayoutPerSubmissionCents: source.maxPayoutPerSubmissionCents,
+    platforms: [...source.platforms],
+    requirements: source.requirements,
+    rules: source.rules,
+    assets: source.assets.map((asset) => ({ id: newId(), label: asset.label, url: asset.url })),
+    captionGuide: source.captionGuide,
+    hashtags: source.hashtags ? [...source.hashtags] : [],
+    requiredChecks: source.requiredChecks ? [...source.requiredChecks] : [],
+    startDate: source.startDate,
+    endDate: source.endDate,
+    workspaceId: source.workspaceId,
+    settledAt: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  store.campaigns.push(copy);
+  return copy.id;
+}

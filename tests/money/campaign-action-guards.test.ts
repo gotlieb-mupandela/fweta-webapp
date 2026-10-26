@@ -6,10 +6,11 @@ import {
   CAMPAIGN_CLOSED_STATUS_ERROR,
   CAMPAIGN_MONEY_LOCK_ERROR,
   CAMPAIGN_STATUS_EDIT_ERROR,
+  duplicateCampaignInStore,
   setCampaignStatusInStore,
   updateCampaignInStore,
 } from "../../lib/campaigns/campaign-update";
-import { allocateCampaignFunds } from "../../lib/campaigns/fund";
+import { allocateCampaignFunds, isCampaignFunded } from "../../lib/campaigns/fund";
 import type { Campaign, DatabaseStore, Submission } from "../../lib/db/types";
 import { hydrateCampaign, hydrateSubmission } from "../../lib/rewards/content-rewards";
 import { applyConfirmedViews, refundUnspentCampaign, settlePool } from "../../lib/rewards/earnings";
@@ -356,4 +357,116 @@ test("closing a funded campaign returns the unspent budget and the unused fee", 
   assert.equal(fundCredits(store, row.id), 90_000);
   assert.equal(brandAvailable(store), brandBefore - 10_000 - 1_000);
   assert.equal(creatorPending(store), 10_000);
+});
+
+test("duplicateCampaignAction turns a closed funded campaign into a clean draft", () => {
+  const source = readFileSync(new URL("../../app/actions/campaigns.ts", import.meta.url), "utf8");
+  const action = source.slice(
+    source.indexOf("export async function duplicateCampaignAction"),
+    source.indexOf("export async function deleteCampaignAction"),
+  );
+  assert.match(action, /updateStore/);
+  assert.match(action, /duplicateCampaignInStore/);
+  assert.equal(action.includes("readStore"), false);
+  assert.equal(action.includes("...source"), false);
+
+  const { store, row } = world({
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaf",
+    payModel: "pool",
+    budgetTotalCents: 50_000,
+    cpmCents: 0,
+    status: "completed",
+    endDate: "2026-11-30",
+  });
+  row.budgetSpentCents = 12_000;
+  row.unspentReturnedCents = 38_000;
+  row.feeReservedCents = 5_000;
+  row.feeChargedCents = 1_200;
+  row.feeRefundedCents = 3_800;
+  row.feeBps = 1000;
+  row.closedAt = NOW_ISO;
+  row.settledAt = NOW_ISO;
+  row.poolSettledAt = NOW_ISO;
+  row.requirements = "Open on the hook";
+  row.platforms = ["tiktok", "instagram"];
+  row.minPayoutCents = 500;
+  row.minViews = 100;
+  row.workspaceId = "ws-1";
+  applyWalletDelta(store, {
+    userId: BRAND,
+    availableDelta: -50_000,
+    type: "debit",
+    reason: "Campaign budget reserved",
+    referenceType: "campaign_fund",
+    referenceId: row.id,
+  });
+  assert.equal(isCampaignFunded(store, row.id), true);
+  const campaignsBefore = store.campaigns.length;
+  const ledgerBefore = store.ledgerEntries.length;
+
+  const copyId = duplicateCampaignInStore(store, actor, row.id);
+  const copy = store.campaigns.find((item) => item.id === copyId);
+  assert.ok(copy);
+  assert.equal(store.campaigns.length, campaignsBefore + 1);
+  assert.equal(store.ledgerEntries.length, ledgerBefore);
+  assert.equal(copy.status, "draft");
+  assert.equal(copy.brandId, BRAND);
+  assert.equal(copy.title, "Launch (copy)");
+  assert.equal(copy.description, row.description);
+  assert.equal(copy.requirements, "Open on the hook");
+  assert.deepEqual(copy.platforms, ["tiktok", "instagram"]);
+  assert.equal(copy.payModel, "pool");
+  assert.equal(copy.budgetTotalCents, 50_000);
+  assert.equal(copy.cpmCents, 0);
+  assert.equal(copy.minPayoutCents, 500);
+  assert.equal(copy.minViews, 100);
+  assert.equal(copy.endDate, "2026-11-30");
+  assert.equal(copy.workspaceId, "ws-1");
+  assert.equal(copy.budgetSpentCents, 0);
+  assert.equal(copy.unspentReturnedCents, 0);
+  assert.equal(copy.feeReservedCents, 0);
+  assert.equal(copy.feeChargedCents, 0);
+  assert.equal(copy.feeRefundedCents, 0);
+  assert.equal(copy.feeBps, undefined);
+  assert.equal(copy.closedAt, null);
+  assert.equal(copy.settledAt, null);
+  assert.equal(copy.poolSettledAt, null);
+  assert.equal(isCampaignFunded(store, copy.id), false);
+  assert.equal(row.status, "completed");
+  assert.equal(row.closedAt, NOW_ISO);
+  assert.equal(row.settledAt, NOW_ISO);
+  assert.equal(row.poolSettledAt, NOW_ISO);
+  assert.equal(row.budgetSpentCents, 12_000);
+  assert.equal(row.feeBps, 1000);
+  assert.equal(isCampaignFunded(store, row.id), true);
+});
+
+test("duplicateCampaignAction writes nothing for a missing or unowned campaign", () => {
+  const { store, row } = world({
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+    payModel: "cpm",
+    budgetTotalCents: 10_000,
+    cpmCents: 5_000,
+    status: "active",
+  });
+  row.closedAt = NOW_ISO;
+  row.budgetSpentCents = 4_000;
+  const campaignsBefore = store.campaigns.length;
+  const ledgerBefore = store.ledgerEntries.length;
+  const wallets = JSON.stringify(store.wallets);
+
+  assert.equal(
+    refuse(() => duplicateCampaignInStore(store, actor, "missing-campaign")),
+    "Campaign not found.",
+  );
+  assert.equal(
+    refuse(() => duplicateCampaignInStore(store, { id: "99999999-9999-4999-8999-999999999999", roles: ["brand"] }, row.id)),
+    "Campaign not found.",
+  );
+  assert.equal(store.campaigns.length, campaignsBefore);
+  assert.equal(store.campaigns[0]?.id, row.id);
+  assert.equal(store.ledgerEntries.length, ledgerBefore);
+  assert.equal(JSON.stringify(store.wallets), wallets);
+  assert.equal(row.closedAt, NOW_ISO);
+  assert.equal(row.budgetSpentCents, 4_000);
 });
