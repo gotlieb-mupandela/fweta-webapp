@@ -2,26 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
-import type { ViewSnapshot } from "@/lib/db/types";
+import { nowIso, readStore, updateStore } from "@/lib/db/store";
+import { applyPolledViews } from "@/lib/jobs/apply-polled-views";
 import { settlementInstant, settleRewardsInStore } from "@/lib/rewards/settle-job";
+import { isViewEntryClosed } from "@/lib/rewards/view-entry";
 import { fetchVideoViewsFromApify, isApifyConfigured } from "@/lib/social/apify";
-
-function confirmedSnapshot(submissionId: string, views: number, at: string, source: ViewSnapshot["source"]): ViewSnapshot {
-  return {
-    id: newId(),
-    submissionId,
-    views,
-    likes: null,
-    comments: null,
-    note: null,
-    screenshotPath: null,
-    recordedAt: at,
-    checkedBy: null,
-    source,
-    status: "confirmed",
-  };
-}
 
 /**
  * Phase 7 automation, callable via /api/jobs/poll-views or cron.
@@ -38,7 +23,7 @@ export async function pollSubmissionViewsJob() {
   for (const submission of approved) {
     try {
       const campaign = store.campaigns.find((c) => c.id === submission.campaignId);
-      if (!campaign || campaign.status !== "active") continue;
+      if (!campaign || campaign.status !== "active" || isViewEntryClosed(campaign)) continue;
       if (campaign.budgetSpentCents >= campaign.budgetTotalCents) continue;
       if (submission.payoutState === "clawed_back" || submission.fraudState === "upheld") continue;
 
@@ -74,17 +59,8 @@ export async function pollSubmissionViewsJob() {
   if (pending.size > 0) {
     const at = nowIso();
     await updateStore((s) => {
-      for (const [id, views] of pending) {
-        const sub = s.submissions.find((x) => x.id === id);
-        if (!sub) continue;
-        // Re-check inside the transaction; skip regressions per-record.
-        if (views <= sub.views) continue;
-        s.viewSnapshots.push(confirmedSnapshot(id, views, at, "job"));
-        sub.views = views;
-        sub.updatedAt = at;
-      }
+      updated = applyPolledViews(s, pending, at);
     });
-    updated = pending.size;
   }
 
   const earnings = await recalculateEarningsJob();
