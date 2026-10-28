@@ -4,41 +4,30 @@ import { createHash } from "crypto";
 
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
-import { SignJWT, jwtVerify } from "jose";
 
 import { readStore, updateStore, newId, nowIso } from "@/lib/db/store";
-import { getAuthSecretKey, readAuthSecretKey } from "@/lib/auth/secret";
-import { sessionGate } from "@/lib/auth/session-gate";
+import { getAuthSecretKey } from "@/lib/auth/secret";
+import { accessFromToken } from "@/lib/auth/request-access";
+import {
+  bumpCredentialVersion,
+  currentSessionCookie,
+  SESSION_COOKIE_NAME,
+  signSessionToken,
+  type SessionAccess,
+  type SessionUser,
+} from "@/lib/auth/live-session";
 import { referralCodeFor } from "@/lib/marketplace/growth";
 import { notifyWelcome } from "@/lib/notifications/events";
 import { triggerWelcomeEmail } from "@/lib/onboarding/welcome";
 import type { Profile, Wallet } from "@/lib/db/types";
 import type { UserRole } from "@/types/enums";
 
-const COOKIE_NAME = "fweta_session";
+export type { SessionAccess, SessionUser };
 
-export type SessionUser = {
-  id: string;
-  email: string;
-  displayName: string;
-  roles: UserRole[];
-  primaryRole: UserRole;
-  credentialVersion: number;
-};
+const COOKIE_NAME = SESSION_COOKIE_NAME;
 
 async function signSession(user: SessionUser) {
-  return new SignJWT({
-    email: user.email,
-    displayName: user.displayName,
-    roles: user.roles,
-    primaryRole: user.primaryRole,
-    cv: user.credentialVersion,
-  })
-    .setProtectedHeader({ alg: "HS256" })
-    .setSubject(user.id)
-    .setIssuedAt()
-    .setExpirationTime("14d")
-    .sign(getAuthSecretKey());
+  return signSessionToken(user, getAuthSecretKey());
 }
 
 async function setSessionCookie(token: string) {
@@ -57,35 +46,22 @@ export async function clearSession() {
   jar.delete(COOKIE_NAME);
 }
 
-export async function getSession(): Promise<SessionUser | null> {
+export async function readSessionAccess(): Promise<SessionAccess> {
+  const box = currentSessionCookie();
+  if (box) return accessFromToken(box.token);
   const jar = await cookies();
-  const token = jar.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  const key = readAuthSecretKey();
-  if (!key) return null;
-  try {
-    const { payload } = await jwtVerify(token, key);
-    if (!payload.sub || typeof payload.email !== "string") return null;
-    return {
-      id: payload.sub,
-      email: payload.email,
-      displayName: String(payload.displayName || ""),
-      roles: (payload.roles as UserRole[]) || [],
-      primaryRole: (payload.primaryRole as UserRole) || "clipper",
-      credentialVersion: typeof payload.cv === "number" ? payload.cv : 0,
-    };
-  } catch {
-    return null;
-  }
+  return accessFromToken(jar.get(COOKIE_NAME)?.value);
+}
+
+export async function getSession(): Promise<SessionUser | null> {
+  const access = await readSessionAccess();
+  return access.status === "ok" ? access.session : null;
 }
 
 export async function requireSession(): Promise<SessionUser> {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
-  const profile = await getProfileById(session.id);
-  const gate = sessionGate(session, profile);
-  if (gate === "suspended" || gate === "expired") throw new Error("Unauthorized");
-  return session;
+  const access = await readSessionAccess();
+  if (access.status !== "ok") throw new Error("Unauthorized");
+  return access.session;
 }
 
 export async function getProfileById(id: string): Promise<Profile | null> {
@@ -245,6 +221,11 @@ export async function refreshSessionFromProfile(profile: Profile) {
     primaryRole: profile.primaryRole,
     credentialVersion: profile.credentialVersion ?? 0,
   });
+  const box = currentSessionCookie();
+  if (box) {
+    box.token = token;
+    return;
+  }
   await setSessionCookie(token);
 }
 
@@ -457,10 +438,13 @@ async function seedDemoAccountsOnce(): Promise<{ seeded: boolean }> {
           ensureWallet(s, created.id);
           added += 1;
         } else {
+          const passwordChanged = admin.passwordHash !== adminHash;
+          const hadAdmin = admin.roles.includes("admin") && admin.primaryRole === "admin";
           admin.email = adminSeed.email;
           admin.passwordHash = adminHash;
           if (!admin.roles.includes("admin")) admin.roles.push("admin");
           admin.primaryRole = "admin";
+          if (passwordChanged || !hadAdmin) bumpCredentialVersion(admin);
           admin.updatedAt = now;
         }
       }

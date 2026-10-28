@@ -136,7 +136,7 @@ export type Profile = {
     reviewedAt?: string | null;
     reviewNote?: string | null;
   } | null;
-  /** Bumped on password change so older session cookies stop working. */
+  /** Bumped on password, role, or suspension changes so older session cookies stop working. */
   credentialVersion?: number;
 };
 
