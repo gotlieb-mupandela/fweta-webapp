@@ -13,8 +13,13 @@ export const signupSchema = z.object({
 });
 
 export const profileUpdateSchema = z.object({
-  displayName: z.string().min(2).max(80),
-  bio: z.string().max(1000).optional(),
+  displayName: z
+    .string()
+    .trim()
+    .min(1, "Display name is required.")
+    .min(2, "Display name must be at least 2 characters.")
+    .max(80, "Display name must be at most 80 characters."),
+  bio: z.string().trim().max(1000, "Bio must be at most 1000 characters.").optional(),
 });
 
 export const rolesUpdateSchema = z.object({

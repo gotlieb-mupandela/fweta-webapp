@@ -1,9 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import { updateNotificationsAction } from "@/app/actions/settings";
+import { useTimedSave } from "@/components/forms/use-timed-save";
 import { Button } from "@/components/ui/button";
 import { FieldError, FieldSuccess } from "@/components/ui/input";
 
@@ -16,31 +16,34 @@ export function NotificationsForm({
   notifyWithdrawals: boolean;
   notifyBookings: boolean;
 }) {
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const save = useTimedSave();
+  const [email, setEmail] = useState(notifyEmail);
+  const [withdrawals, setWithdrawals] = useState(notifyWithdrawals);
+  const [bookings, setBookings] = useState(notifyBookings);
 
   return (
     <form
       className="max-w-md space-y-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const fd = new FormData(e.currentTarget);
-        setError(null);
-        setSuccess(false);
-        startTransition(async () => {
-          const res = await updateNotificationsAction({
-            notifyEmail: fd.get("notifyEmail") === "on",
-            notifyWithdrawals: fd.get("notifyWithdrawals") === "on",
-            notifyBookings: fd.get("notifyBookings") === "on",
-          });
-          if (!res.ok) setError(res.error);
-          else {
-            setSuccess(true);
-            router.refresh();
+      onSubmit={(event) => {
+        event.preventDefault();
+        const prefs = {
+          notifyEmail: email,
+          notifyWithdrawals: withdrawals,
+          notifyBookings: bookings,
+        };
+        void (async () => {
+          const outcome = await save.run(() => updateNotificationsAction(prefs));
+          if (outcome.status !== "ok") return;
+          if (!outcome.result.ok) {
+            save.fail(outcome.result.error);
+            return;
           }
-        });
+          setEmail(outcome.result.prefs.notifyEmail);
+          setWithdrawals(outcome.result.prefs.notifyWithdrawals);
+          setBookings(outcome.result.prefs.notifyBookings);
+          save.succeed("Preferences saved.");
+          save.refresh();
+        })();
       }}
     >
       <p className="text-sm leading-relaxed text-muted">
@@ -48,7 +51,13 @@ export function NotificationsForm({
         the master switch. Booking and withdrawal switches apply when that is on.
       </p>
       <label className="flex items-start gap-3 text-sm">
-        <input type="checkbox" name="notifyEmail" defaultChecked={notifyEmail} className="mt-1" />
+        <input
+          type="checkbox"
+          name="notifyEmail"
+          checked={email}
+          onChange={(event) => setEmail(event.target.checked)}
+          className="mt-1"
+        />
         <span>
           <span className="font-medium">Email notifications</span>
           <span className="mt-0.5 block text-xs text-muted">
@@ -57,7 +66,13 @@ export function NotificationsForm({
         </span>
       </label>
       <label className="flex items-start gap-3 text-sm">
-        <input type="checkbox" name="notifyWithdrawals" defaultChecked={notifyWithdrawals} className="mt-1" />
+        <input
+          type="checkbox"
+          name="notifyWithdrawals"
+          checked={withdrawals}
+          onChange={(event) => setWithdrawals(event.target.checked)}
+          className="mt-1"
+        />
         <span>
           <span className="font-medium">Withdrawal updates</span>
           <span className="mt-0.5 block text-xs text-muted">
@@ -66,7 +81,13 @@ export function NotificationsForm({
         </span>
       </label>
       <label className="flex items-start gap-3 text-sm">
-        <input type="checkbox" name="notifyBookings" defaultChecked={notifyBookings} className="mt-1" />
+        <input
+          type="checkbox"
+          name="notifyBookings"
+          checked={bookings}
+          onChange={(event) => setBookings(event.target.checked)}
+          className="mt-1"
+        />
         <span>
           <span className="font-medium">Booking updates</span>
           <span className="mt-0.5 block text-xs text-muted">
@@ -74,10 +95,10 @@ export function NotificationsForm({
           </span>
         </span>
       </label>
-      <FieldError>{error}</FieldError>
-      <FieldSuccess>{success ? "Preferences saved." : null}</FieldSuccess>
-      <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Save preferences"}
+      <FieldError>{save.error}</FieldError>
+      <FieldSuccess>{save.success}</FieldSuccess>
+      <Button type="submit" disabled={save.pending}>
+        {save.pending ? "Saving..." : "Save preferences"}
       </Button>
     </form>
   );

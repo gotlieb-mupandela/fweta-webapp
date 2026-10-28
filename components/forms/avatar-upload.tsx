@@ -1,12 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 
 import { uploadAvatarAction } from "@/app/actions/avatar";
+import { useTimedSave } from "@/components/forms/use-timed-save";
 import { Button } from "@/components/ui/button";
-import { FieldError, Label } from "@/components/ui/input";
+import { FieldError, FieldSuccess, Label } from "@/components/ui/input";
 
 export function AvatarUpload({
   avatarUrl,
@@ -17,11 +17,9 @@ export function AvatarUpload({
   displayName: string;
   kind?: "profile" | "influencer";
 }) {
-  const router = useRouter();
+  const save = useTimedSave();
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(avatarUrl);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
 
   const initials = displayName
     .split(/\s+/)
@@ -59,37 +57,39 @@ export function AvatarUpload({
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (!file) return;
-              setError(null);
               const local = URL.createObjectURL(file);
               setPreview(local);
               const fd = new FormData();
               fd.set("file", file);
               fd.set("kind", kind);
-              startTransition(async () => {
-                const res = await uploadAvatarAction(fd);
-                if (!res.ok) {
-                  setError(res.error);
+              void (async () => {
+                const outcome = await save.run(() => uploadAvatarAction(fd));
+                if (outcome.status !== "ok") return;
+                if (!outcome.result.ok) {
+                  save.fail(outcome.result.error);
                   setPreview(avatarUrl);
                   return;
                 }
-                setPreview(res.url);
-                router.refresh();
-              });
+                setPreview(outcome.result.url);
+                save.succeed("Photo saved.");
+                save.refresh();
+              })();
             }}
           />
           <Button
             type="button"
             size="sm"
             variant="secondary"
-            disabled={pending}
+            disabled={save.pending}
             onClick={() => inputRef.current?.click()}
           >
-            {pending ? "Uploading…" : preview ? "Change photo" : "Upload photo"}
+            {save.pending ? "Uploading..." : preview ? "Change photo" : "Upload photo"}
           </Button>
           <p className="text-xs text-muted">JPEG, PNG, or WebP · max 2MB</p>
         </div>
       </div>
-      <FieldError>{error}</FieldError>
+      <FieldError>{save.error}</FieldError>
+      <FieldSuccess>{save.success}</FieldSuccess>
     </div>
   );
 }

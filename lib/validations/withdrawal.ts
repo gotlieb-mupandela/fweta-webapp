@@ -7,14 +7,24 @@ export const withdrawalSchema = z.object({
 });
 
 export const kycSchema = z.object({
-  legalName: z.string().trim().min(3).max(120),
+  legalName: z
+    .string()
+    .trim()
+    .min(1, "Legal name is required.")
+    .min(3, "Legal name must be at least 3 characters.")
+    .max(120, "Legal name must be at most 120 characters."),
   idNumber: z
     .string()
     .trim()
-    .min(6)
-    .max(20)
+    .min(1, "ID number is required.")
+    .min(6, "ID number must be at least 6 characters.")
+    .max(20, "ID number must be at most 20 characters.")
     .regex(/^[A-Za-z0-9]+$/, "Use letters and numbers only."),
-  country: z.string().trim().length(2),
+  country: z
+    .string()
+    .trim()
+    .min(1, "Country is required.")
+    .length(2, "Country must be a 2 letter code."),
 });
 
 export type WithdrawalInput = z.infer<typeof withdrawalSchema>;

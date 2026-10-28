@@ -24,7 +24,9 @@ import type { UserRole } from "@/types/enums";
 export async function updateProfileAction(raw: unknown) {
   const session = await requireSession();
   const parsed = profileUpdateSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Invalid profile." };
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid profile." };
+  }
   await updateStore((s) => {
     const p = s.profiles.find((x) => x.id === session.id);
     if (!p) return;
@@ -33,9 +35,18 @@ export async function updateProfileAction(raw: unknown) {
     p.updatedAt = nowIso();
   });
   const updated = await getProfileById(session.id);
-  if (updated) await refreshSessionFromProfile(updated);
+  if (!updated) return { ok: false as const, error: "Profile not found." };
+  await refreshSessionFromProfile(updated);
   revalidatePath("/dashboard/settings/profile");
-  return { ok: true as const };
+  revalidatePath("/dashboard", "layout");
+  return {
+    ok: true as const,
+    profile: {
+      displayName: updated.displayName,
+      bio: updated.bio ?? "",
+      avatarUrl: updated.avatarUrl,
+    },
+  };
 }
 
 export async function updateRolesAction(raw: unknown) {
@@ -48,22 +59,23 @@ export async function updateRolesAction(raw: unknown) {
   const primaryRole = roles.includes(parsed.data.primaryRole)
     ? parsed.data.primaryRole
     : roles[0];
+  const next: UserRole[] = session.roles.includes("admin")
+    ? Array.from(new Set<UserRole>([...roles, "admin"]))
+    : roles;
 
   await updateStore((s) => {
     const p = s.profiles.find((x) => x.id === session.id);
     if (!p) return;
-    // Keep admin if already admin
-    const next: UserRole[] = session.roles.includes("admin")
-      ? Array.from(new Set<UserRole>([...roles, "admin"]))
-      : roles;
     p.roles = next;
     p.primaryRole = primaryRole;
     p.updatedAt = nowIso();
   });
   const updated = await getProfileById(session.id);
-  if (updated) await refreshSessionFromProfile(updated);
+  if (!updated) return { ok: false as const, error: "Profile not found." };
+  await refreshSessionFromProfile(updated);
   revalidatePath("/dashboard/settings/roles");
-  return { ok: true as const };
+  revalidatePath("/dashboard", "layout");
+  return { ok: true as const, roles: updated.roles, primaryRole: updated.primaryRole };
 }
 
 export async function updateNotificationsAction(raw: unknown) {
@@ -76,7 +88,7 @@ export async function updateNotificationsAction(raw: unknown) {
     Object.assign(p, parsed.data, { updatedAt: nowIso() });
   });
   revalidatePath("/dashboard/settings/notifications");
-  return { ok: true as const };
+  return { ok: true as const, prefs: parsed.data };
 }
 
 export async function changePasswordAction(raw: unknown) {

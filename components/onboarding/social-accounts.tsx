@@ -2,6 +2,8 @@
 
 import { useMemo, useState, useTransition } from "react";
 
+import { SAVE_UNEXPECTED_MESSAGE, SaveTimeoutError, withSaveTimeout } from "@/lib/forms/save-feedback";
+
 import {
   addSocialAccountAction,
   regenerateSocialCodeAction,
@@ -59,15 +61,20 @@ export function SocialAccountsManager({
     setNotice(null);
     setBusy("add");
     startTransition(async () => {
-      const res = await addSocialAccountAction({ platform, handle });
-      setBusy(null);
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      try {
+        const res = await withSaveTimeout(addSocialAccountAction({ platform, handle }));
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        apply(res.account, res.draft);
+        setHandle("");
+        setNotice(`Code ready for @${res.account.handle}. Add it to your bio, then tap I've added it.`);
+      } catch (err) {
+        setError(err instanceof SaveTimeoutError ? err.message : SAVE_UNEXPECTED_MESSAGE);
+      } finally {
+        setBusy(null);
       }
-      apply(res.account, res.draft);
-      setHandle("");
-      setNotice(`Code ready for @${res.account.handle}. Add it to your bio, then tap I've added it.`);
     });
   }
 
@@ -76,14 +83,19 @@ export function SocialAccountsManager({
     setNotice(null);
     setBusy(accountId);
     startTransition(async () => {
-      const res = await requestSocialReviewAction(accountId);
-      setBusy(null);
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      try {
+        const res = await withSaveTimeout(requestSocialReviewAction(accountId));
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        apply(res.account, res.draft);
+        setNotice("Sent for verification. An admin will open the profile and confirm the code.");
+      } catch (err) {
+        setError(err instanceof SaveTimeoutError ? err.message : SAVE_UNEXPECTED_MESSAGE);
+      } finally {
+        setBusy(null);
       }
-      apply(res.account, res.draft);
-      setNotice("Sent for verification. An admin will open the profile and confirm the code.");
     });
   }
 
@@ -92,14 +104,19 @@ export function SocialAccountsManager({
     setNotice(null);
     setBusy(`code-${accountId}`);
     startTransition(async () => {
-      const res = await regenerateSocialCodeAction(accountId);
-      setBusy(null);
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      try {
+        const res = await withSaveTimeout(regenerateSocialCodeAction(accountId));
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        apply(res.account, null);
+        setNotice(`New code for @${res.account.handle}. Add it to your bio, then tap I've added it.`);
+      } catch (err) {
+        setError(err instanceof SaveTimeoutError ? err.message : SAVE_UNEXPECTED_MESSAGE);
+      } finally {
+        setBusy(null);
       }
-      apply(res.account, null);
-      setNotice(`New code for @${res.account.handle}. Add it to your bio, then tap I've added it.`);
     });
   }
 
@@ -107,20 +124,25 @@ export function SocialAccountsManager({
     setError(null);
     setBusy(`default-${accountId}`);
     startTransition(async () => {
-      const res = await setDefaultSocialAccountAction(accountId);
-      setBusy(null);
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      try {
+        const res = await withSaveTimeout(setDefaultSocialAccountAction(accountId));
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        setAccounts((current) => {
+          const target = current.find((account) => account.id === accountId);
+          if (!target) return current;
+          return current.map((account) =>
+            account.platform === target.platform ? { ...account, isDefault: account.id === accountId } : account,
+          );
+        });
+        setNotice("Default account updated.");
+      } catch (err) {
+        setError(err instanceof SaveTimeoutError ? err.message : SAVE_UNEXPECTED_MESSAGE);
+      } finally {
+        setBusy(null);
       }
-      setAccounts((current) => {
-        const target = current.find((account) => account.id === accountId);
-        if (!target) return current;
-        return current.map((account) =>
-          account.platform === target.platform ? { ...account, isDefault: account.id === accountId } : account,
-        );
-      });
-      setNotice("Default account updated.");
     });
   }
 
@@ -128,14 +150,19 @@ export function SocialAccountsManager({
     setError(null);
     setBusy(`remove-${accountId}`);
     startTransition(async () => {
-      const res = await removeSocialAccountAction(accountId);
-      setBusy(null);
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      try {
+        const res = await withSaveTimeout(removeSocialAccountAction(accountId));
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        setAccounts((current) => current.filter((account) => account.id !== accountId));
+        setNotice("Account removed.");
+      } catch (err) {
+        setError(err instanceof SaveTimeoutError ? err.message : SAVE_UNEXPECTED_MESSAGE);
+      } finally {
+        setBusy(null);
       }
-      setAccounts((current) => current.filter((account) => account.id !== accountId));
-      setNotice("Account removed.");
     });
   }
 
@@ -275,11 +302,11 @@ export function SocialAccountsManager({
                   ) : null}
                   {!account.isDefault ? (
                     <Button type="button" size="sm" variant="ghost" disabled={busy !== null} onClick={() => makeDefault(account.id)}>
-                      Set default
+                      {busy === `default-${account.id}` ? "Saving..." : "Set default"}
                     </Button>
                   ) : null}
                   <Button type="button" size="sm" variant="ghost" disabled={busy !== null} onClick={() => remove(account.id)}>
-                    Remove
+                    {busy === `remove-${account.id}` ? "Removing..." : "Remove"}
                   </Button>
                 </div>
               </li>
@@ -287,7 +314,11 @@ export function SocialAccountsManager({
           })}
         </ul>
       )}
-      {notice ? <p className="text-sm text-muted">{notice}</p> : null}
+      {notice ? (
+        <p role="status" className="text-sm text-muted">
+          {notice}
+        </p>
+      ) : null}
       <FieldError>{error}</FieldError>
     </div>
   );

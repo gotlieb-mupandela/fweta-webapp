@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { redirect } from "next/navigation";
 
 import { ProfileSettingsForm } from "@/components/forms/profile-settings-form";
@@ -5,6 +6,7 @@ import { PageHeader } from "@/components/ui/card";
 import { getProfileById, getSession } from "@/lib/auth/session";
 
 export default async function SettingsProfilePage() {
+  await connection();
   const session = await getSession();
   if (!session) redirect("/login");
 
