@@ -1,0 +1,67 @@
+-- Revoke direct table writes on fweta_app_store from service_role.
+--
+-- Apply only after both of these are true:
+-- 1. 20261026130000_store_revision_additive.sql has been applied.
+-- 2. The new build is deployed and a save through fweta_cas_save_store has been verified.
+--
+-- An older build upserts public.fweta_app_store directly. After this file that
+-- upsert fails with permission denied, so every save from the old build fails.
+-- SELECT stays, so the service role can still read the document.
+-- fweta_cas_save_store is security definer and keeps writing as its owner.
+--
+-- This file does not drop revision, the bump trigger, or fweta_cas_save_store.
+-- If public.fweta_json_store_set(jsonb) exists, it also revokes execute on that
+-- function from service_role, public, anon, and authenticated. That function
+-- skips the revision check. The repo does not call it. Idempotent.
+--
+-- 20261021165036_fweta_app_store_revision.sql was removed. Live must never
+-- execute a copy. See docs/apply-plan-store-revision.md.
+-- Do not re-run 20260830153000_fweta_app_store_grants.sql after this file.
+-- That file grants table writes back to service_role.
+
+do $revoke_guard$
+begin
+  if to_regprocedure('public.fweta_cas_save_store(jsonb, bigint)') is null then
+    raise exception 'refusing to revoke fweta_app_store writes: public.fweta_cas_save_store(jsonb, bigint) is not installed. Apply 20261026130000_store_revision_additive.sql first';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_attribute a
+    join pg_class c on c.oid = a.attrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname = 'fweta_app_store'
+      and a.attname = 'revision'
+      and not a.attisdropped
+  ) then
+    raise exception 'refusing to revoke fweta_app_store writes: revision column is missing. Apply 20261026130000_store_revision_additive.sql first';
+  end if;
+end
+$revoke_guard$;
+
+revoke insert, update, delete, truncate, references, trigger on table public.fweta_app_store from service_role;
+grant select on table public.fweta_app_store to service_role;
+
+-- MAINTAIN is part of GRANT ALL on PostgreSQL 17 and newer. Revoke it there
+-- so the rollback can grant the same set back. PostgreSQL 16 has no such privilege.
+do $revoke_maintain$
+begin
+  if current_setting('server_version_num')::int < 170000 then
+    return;
+  end if;
+  execute 'revoke maintain on table public.fweta_app_store from service_role';
+end
+$revoke_maintain$;
+
+do $revoke_json_store_set$
+begin
+  if to_regprocedure('public.fweta_json_store_set(jsonb)') is null then
+    raise notice 'fweta_json_store_set(jsonb) is absent; execute revoke skipped';
+    return;
+  end if;
+
+  revoke execute on function public.fweta_json_store_set(jsonb) from service_role, public, anon, authenticated;
+  raise notice 'revoked execute on fweta_json_store_set(jsonb) from service_role, public, anon, authenticated';
+end
+$revoke_json_store_set$;

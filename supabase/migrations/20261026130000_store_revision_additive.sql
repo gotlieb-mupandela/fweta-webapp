@@ -1,23 +1,28 @@
--- Compare-and-swap for the single JSON document in fweta_app_store.
+-- Additive half of the fweta_app_store revision change.
+-- Safe while an older build is still serving.
 --
--- Warm serverless instances were caching the whole document and upserting it.
--- A later save from a stale copy replaced newer signups and direct SQL edits.
+-- The live build writes with a plain upsert of id, data, and updated_at.
+-- This file:
+-- 1. Adds revision. Existing rows read as 0.
+-- 2. Bumps revision on every real data change, including that upsert and a
+--    direct SQL edit. A writer that sets revision itself is ignored.
+-- 3. Adds fweta_cas_save_store and grants execute to service_role only.
 --
--- This migration:
--- 1. Adds revision.
--- 2. Bumps revision on every data change, including a direct SQL edit.
---    The trigger also ignores a writer that tries to set revision backwards.
--- 3. Exposes fweta_cas_save_store to service_role only.
--- 4. Revokes table writes from service_role so the old blind upsert cannot
---    keep overwriting the row. The SQL editor, as table owner, can still edit
---    the row. The trigger records that edit.
+-- It does not revoke table writes. The old upsert keeps working, and the
+-- trigger still bumps revision. Execute on the bump function is revoked from
+-- the API roles, including service_role. PostgreSQL still runs an existing
+-- trigger without that grant. A direct call of the bump function is denied.
 --
--- Apply this before deploying the app change. Until that deploy, saves fail
--- instead of replacing the document. Do not re-run
--- 20260830153000_fweta_app_store_grants.sql afterwards. It grants table writes
--- back to service_role.
+-- Apply 20261026140000_store_revision_revoke_writes.sql only after the new
+-- build is deployed and a compare-and-swap save has been verified.
+-- See docs/apply-plan-store-revision.md.
 --
--- Does not change fweta_profiles. Does not edit the security lockdown migration.
+-- 20261021165036_fweta_app_store_revision.sql was removed. Live must never
+-- execute a copy. That file revoked table writes in the same step as these
+-- objects, so the current build would fail every save.
+--
+-- Idempotent. Does not change fweta_profiles. Does not edit the lockdown migration.
+-- Does not grant or revoke table insert, update, or delete.
 
 alter table public.fweta_app_store
   add column if not exists revision bigint not null default 0;
@@ -147,9 +152,6 @@ $$;
 revoke all on function public.fweta_app_store_bump_revision() from public, anon, authenticated, service_role;
 revoke all on function public.fweta_cas_save_store(jsonb, bigint) from public, anon, authenticated;
 grant execute on function public.fweta_cas_save_store(jsonb, bigint) to service_role;
-
-revoke insert, update, delete, truncate, references, trigger on table public.fweta_app_store from service_role;
-grant select on table public.fweta_app_store to service_role;
 
 comment on function public.fweta_cas_save_store(jsonb, bigint) is
   'Service-role compare-and-swap for the fweta_app_store JSON document. Refuses a stale revision so a cached copy cannot replace a newer write or a direct SQL edit.';
