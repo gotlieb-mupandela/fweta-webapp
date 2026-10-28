@@ -6,6 +6,7 @@ import {
   commitLoadedMutation,
   parseStoreRevision,
   StoreConflictError,
+  StoreDeadlineError,
   type CasResult,
 } from "./store-commit";
 import type { DatabaseStore } from "./types";
@@ -80,11 +81,25 @@ export function isSupabaseStoreEnabled(): boolean {
   return Boolean(supabaseUrl() && supabaseServiceKey());
 }
 
+/** One PostgREST call. A hung socket must not hold the save open. */
+export const STORE_FETCH_TIMEOUT_MS = 15_000;
+
+export function fetchWithStoreTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+  timeoutMs = STORE_FETCH_TIMEOUT_MS,
+): Promise<Response> {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+  return fetch(input, { ...init, signal });
+}
+
 function createServiceClient() {
   const url = supabaseUrl()!;
   const key = supabaseServiceKey()!;
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: { fetch: fetchWithStoreTimeout },
   });
 }
 
@@ -416,7 +431,7 @@ export async function commitStoreToSupabase(
       save: compareAndSwap,
     });
   } catch (err) {
-    if (err instanceof StoreConflictError) {
+    if (err instanceof StoreConflictError || err instanceof StoreDeadlineError) {
       throw new StorePersistError(err.message);
     }
     throw err;

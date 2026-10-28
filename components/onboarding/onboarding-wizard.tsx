@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 
@@ -8,6 +8,17 @@ import { completeOnboardingAction } from "@/app/actions/onboarding";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
+import {
+  ONBOARDING_SLOW_MESSAGE,
+  withOnboardingTimeout,
+} from "@/lib/onboarding/submit-timeout";
+import {
+  clearOnboardingSession,
+  onboardingSessionRaw,
+  readOnboardingSession,
+  subscribeOnboardingSession,
+  writeOnboardingSession,
+} from "@/lib/onboarding/wizard-session";
 import {
   getOnboardingSteps,
   totalOnboardingXp,
@@ -48,6 +59,12 @@ type Answers = {
   primaryPlatform: SocialPlatform;
 };
 
+type WizardView = {
+  index: number;
+  xp: number;
+  answers: Answers;
+};
+
 const INITIAL: Answers = {
   firstName: "",
   lastName: "",
@@ -64,30 +81,90 @@ const INITIAL: Answers = {
   primaryPlatform: "tiktok",
 };
 
+const SOCIAL_FINISH_MESSAGE = "Add at least one social profile before finishing.";
+
 function hasAnySocial(answers: Answers): boolean {
-  return SOCIAL_FIELDS.some((f) => answers[f].trim().length >= 2);
+  return SOCIAL_FIELDS.some((field) => answers[field].trim().length >= 2);
 }
 
-export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
+function creatorNeedsSocial(roles: UserRole[]): boolean {
+  const creator = roles.includes("influencer") || roles.includes("clipper");
+  return creator && !roles.includes("brand");
+}
+
+export function OnboardingWizard({
+  userId,
+  roles,
+  initialIndex = 0,
+  initialAnswers,
+  initialXp = 0,
+}: {
+  userId: string;
+  roles: UserRole[];
+  initialIndex?: number;
+  initialAnswers?: Answers;
+  initialXp?: number;
+}) {
   const router = useRouter();
   const steps = useMemo(() => getOnboardingSteps(roles), [roles]);
   const maxXp = useMemo(() => totalOnboardingXp(roles), [roles]);
+  const socialRequired = creatorNeedsSocial(roles);
+  const sessionRaw = useSyncExternalStore(subscribeOnboardingSession, onboardingSessionRaw, () => "");
+  const saved = useMemo(
+    () =>
+      readOnboardingSession<Answers>(
+        {
+          getItem: () => (sessionRaw ? sessionRaw : null),
+          setItem: () => undefined,
+          removeItem: () => undefined,
+        },
+        userId,
+      ),
+    [sessionRaw, userId],
+  );
+  const serverView = useMemo<WizardView>(
+    () => ({
+      index: clampIndex(initialIndex, steps.length),
+      answers: { ...INITIAL, ...initialAnswers },
+      xp: initialXp,
+    }),
+    [initialAnswers, initialIndex, initialXp, steps.length],
+  );
+  const [draft, setDraft] = useState<WizardView | null>(null);
+  const view =
+    draft ??
+    (saved
+      ? {
+          index: clampIndex(saved.index, steps.length),
+          answers: { ...INITIAL, ...saved.answers },
+          xp: saved.xp,
+        }
+      : serverView);
+  const { index, answers, xp } = view;
 
-  const [index, setIndex] = useState(0);
-  const [answers, setAnswers] = useState<Answers>(INITIAL);
-  const [xp, setXp] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [flashXp, setFlashXp] = useState<number | null>(null);
   const [done, setDone] = useState(false);
   const [pending, startTransition] = useTransition();
 
+  function remember(next: WizardView) {
+    setDraft(next);
+    writeOnboardingSession(window.sessionStorage, {
+      v: 1,
+      userId,
+      index: next.index,
+      xp: next.xp,
+      answers: next.answers,
+    });
+  }
+
   const step = steps[index];
   const progress = ((index + (done ? 1 : 0)) / steps.length) * 100;
-  const level =
-    xp >= maxXp * 0.75 ? "Pro" : xp >= maxXp * 0.4 ? "Rising" : "Scout";
+  const level = xp >= maxXp * 0.75 ? "Pro" : xp >= maxXp * 0.4 ? "Rising" : "Scout";
+  const onFinishStep = index >= steps.length - 1;
 
   function setField<K extends keyof Answers>(key: K, value: Answers[K]) {
-    setAnswers((prev) => ({ ...prev, [key]: value }));
+    remember({ ...view, answers: { ...view.answers, [key]: value } });
   }
 
   function validateCurrent(): string | null {
@@ -117,26 +194,31 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
     }
   }
 
-  function buildPayload() {
+  function payloadFrom(current: Answers) {
     return {
-      firstName: answers.firstName,
-      lastName: answers.lastName,
-      phone: answers.phone,
+      firstName: current.firstName,
+      lastName: current.lastName,
+      phone: current.phone,
       socials: {
-        tiktok: answers.socialTiktok,
-        instagram: answers.socialInstagram,
-        facebook: answers.socialFacebook,
-        youtube: answers.socialYoutube,
-        x: answers.socialX,
+        tiktok: current.socialTiktok,
+        instagram: current.socialInstagram,
+        facebook: current.socialFacebook,
+        youtube: current.socialYoutube,
+        x: current.socialX,
       },
-      companyName: answers.companyName,
-      website: answers.website,
-      niche: answers.niche,
-      location: answers.location,
+      companyName: current.companyName,
+      website: current.website,
+      niche: current.niche,
+      location: current.location,
       ...(steps.some((item) => item.id === "primaryPlatform")
-        ? { primaryPlatform: answers.primaryPlatform }
+        ? { primaryPlatform: current.primaryPlatform }
         : {}),
     };
+  }
+
+  function goToSocials() {
+    const socialIndex = steps.findIndex((item) => SOCIAL_FIELDS.includes(item.id as SocialField));
+    if (socialIndex >= 0) remember({ ...view, index: socialIndex });
   }
 
   function advance() {
@@ -148,53 +230,54 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
     }
 
     const earned = step.xp;
-    setXp((v) => v + earned);
     setFlashXp(earned);
     window.setTimeout(() => setFlashXp(null), 900);
 
-    if (index >= steps.length - 1) {
-      finish();
-      return;
-    }
-    setIndex((i) => i + 1);
+    const next = { ...view, xp: view.xp + earned, index: onFinishStep ? view.index : view.index + 1 };
+    remember(next);
+    if (onFinishStep) finish(next);
   }
 
   function skip() {
     if (!step?.optional) return;
+    setError(null);
     setFlashXp(5);
-    setXp((v) => v + 5);
     window.setTimeout(() => setFlashXp(null), 900);
-    if (index >= steps.length - 1) {
-      finish();
-      return;
-    }
-    setIndex((i) => i + 1);
+    const next = { ...view, xp: view.xp + 5, index: onFinishStep ? view.index : view.index + 1 };
+    remember(next);
+    if (onFinishStep) finish(next);
   }
 
-  function finish() {
-    const isCreator = roles.includes("influencer") || roles.includes("clipper");
-    // A business can open an account without TikTok, Instagram, YouTube, or X.
-    // Socials stay required only for creator-only accounts.
-    if (isCreator && !roles.includes("brand") && !hasAnySocial(answers)) {
-      setError("Add at least one social profile before finishing.");
-      const socialIndex = steps.findIndex((s) =>
-        SOCIAL_FIELDS.includes(s.id as SocialField),
-      );
-      if (socialIndex >= 0) setIndex(socialIndex);
+  function finish(current: WizardView = view) {
+    if (socialRequired && !hasAnySocial(current.answers)) {
+      setError(SOCIAL_FINISH_MESSAGE);
       return;
     }
 
+    writeOnboardingSession(window.sessionStorage, {
+      v: 1,
+      userId,
+      index: current.index,
+      xp: current.xp,
+      answers: current.answers,
+    });
+
     startTransition(async () => {
-      const res = await completeOnboardingAction(buildPayload());
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      try {
+        const res = await withOnboardingTimeout(completeOnboardingAction(payloadFrom(current.answers)));
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        clearOnboardingSession(window.sessionStorage, userId);
+        setDone(true);
+        window.setTimeout(() => {
+          router.push("/dashboard");
+          router.refresh();
+        }, 1200);
+      } catch {
+        setError(ONBOARDING_SLOW_MESSAGE);
       }
-      setDone(true);
-      window.setTimeout(() => {
-        router.push("/dashboard");
-        router.refresh();
-      }, 1200);
     });
   }
 
@@ -202,19 +285,19 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
     if (field === "primaryPlatform") {
       return (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {PLATFORMS.map((p) => (
+          {PLATFORMS.map((platform) => (
             <button
-              key={p.id}
+              key={platform.id}
               type="button"
-              onClick={() => setField("primaryPlatform", p.id)}
+              onClick={() => setField("primaryPlatform", platform.id)}
               className={cn(
                 "rounded-2xl border px-3 py-3 text-sm font-medium transition",
-                answers.primaryPlatform === p.id
+                answers.primaryPlatform === platform.id
                   ? "border-foreground bg-foreground text-white"
                   : "border-border bg-white text-muted hover:border-border-strong",
               )}
             >
-              {p.label}
+              {platform.label}
             </button>
           ))}
         </div>
@@ -231,12 +314,12 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
           id={field}
           type={step.inputType ?? "text"}
           value={String(answers[key] ?? "")}
-          onChange={(e) => setField(key, e.target.value as never)}
+          onChange={(event) => setField(key, event.target.value as never)}
           placeholder={step.placeholder}
           autoFocus
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
               advance();
             }
           }}
@@ -310,6 +393,12 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
 
           {renderInput(step.id)}
 
+          {onFinishStep && socialRequired ? (
+            <p className="text-sm leading-relaxed text-muted">
+              At least one social profile is required to finish. You can skip the networks you do not use.
+            </p>
+          ) : null}
+
           <FieldError>{error}</FieldError>
 
           <div className="flex flex-col gap-2 pt-2 sm:flex-row">
@@ -320,12 +409,13 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
               disabled={pending}
               onClick={advance}
             >
-              {pending
-                ? "Saving…"
-                : index >= steps.length - 1
-                  ? "Finish"
-                  : "Continue"}
+              {pending ? "Saving…" : onFinishStep ? "Finish" : "Continue"}
             </Button>
+            {error === SOCIAL_FINISH_MESSAGE ? (
+              <Button type="button" size="lg" variant="secondary" disabled={pending} onClick={goToSocials}>
+                Add a social profile
+              </Button>
+            ) : null}
             {step.optional ? (
               <Button type="button" size="lg" variant="secondary" disabled={pending} onClick={skip}>
                 Skip
@@ -340,4 +430,10 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
       </div>
     </div>
   );
+}
+
+function clampIndex(index: number, length: number): number {
+  if (length <= 0) return 0;
+  if (!Number.isFinite(index)) return 0;
+  return Math.min(Math.max(0, Math.trunc(index)), length - 1);
 }

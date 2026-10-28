@@ -6,7 +6,9 @@ import { saveOnboardingPayoutAction, saveOnboardingStepAction } from "@/app/acti
 import { Hint } from "@/components/onboarding/hint";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select } from "@/components/ui/input";
+import { BRANCH_CODE_PATTERN, branchCodeFieldError } from "@/lib/onboarding/branch-code";
 import { FIELD_HINTS } from "@/lib/onboarding/model";
+import { ONBOARDING_SLOW_MESSAGE, withOnboardingTimeout } from "@/lib/onboarding/submit-timeout";
 
 type Saved = Awaited<ReturnType<typeof saveOnboardingStepAction>>;
 
@@ -18,6 +20,7 @@ export function PayoutStep({
   onResult: (result: Saved) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [branchError, setBranchError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [replace, setReplace] = useState(!hasPayout);
 
@@ -37,9 +40,15 @@ export function PayoutStep({
             onClick={() => {
               setError(null);
               startTransition(async () => {
-                const res = await saveOnboardingStepAction({ stepId: "payout", mode: "complete" });
-                if (!res.ok) setError(res.error);
-                onResult(res);
+                try {
+                  const res = await withOnboardingTimeout(
+                    saveOnboardingStepAction({ stepId: "payout", mode: "complete" }),
+                  );
+                  if (!res.ok) setError(res.error);
+                  onResult(res);
+                } catch {
+                  setError(ONBOARDING_SLOW_MESSAGE);
+                }
               });
             }}
           >
@@ -60,20 +69,33 @@ export function PayoutStep({
       onSubmit={(event) => {
         event.preventDefault();
         const form = new FormData(event.currentTarget);
+        const branchCode = String(form.get("branchCode") || "");
+        const branchProblem = branchCodeFieldError(branchCode);
+        if (branchProblem) {
+          setBranchError(branchProblem);
+          return;
+        }
+        setBranchError(null);
         setError(null);
         startTransition(async () => {
-          const res = await saveOnboardingPayoutAction({
-            bankName: String(form.get("bankName") || ""),
-            branchCode: String(form.get("branchCode") || ""),
-            accountNumber: String(form.get("accountNumber") || ""),
-            accountHolderName: String(form.get("accountHolderName") || ""),
-            accountType: String(form.get("accountType") || "cheque"),
-          });
-          if (!res.ok) {
-            setError(res.error);
-            return;
+          try {
+            const res = await withOnboardingTimeout(
+              saveOnboardingPayoutAction({
+                bankName: String(form.get("bankName") || ""),
+                branchCode,
+                accountNumber: String(form.get("accountNumber") || ""),
+                accountHolderName: String(form.get("accountHolderName") || ""),
+                accountType: String(form.get("accountType") || "cheque"),
+              }),
+            );
+            if (!res.ok) {
+              setError(res.error);
+              return;
+            }
+            onResult(res);
+          } catch {
+            setError(ONBOARDING_SLOW_MESSAGE);
           }
-          onResult(res);
         });
       }}
     >
@@ -90,7 +112,22 @@ export function PayoutStep({
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="branchCode">Branch code</Label>
-          <Input id="branchCode" name="branchCode" required inputMode="numeric" pattern="\d{6}" maxLength={6} placeholder="461266" />
+          <Input
+            id="branchCode"
+            name="branchCode"
+            required
+            inputMode="numeric"
+            pattern={BRANCH_CODE_PATTERN}
+            maxLength={6}
+            placeholder="461266"
+            aria-invalid={branchError ? true : undefined}
+            onChange={() => setBranchError(null)}
+            onInvalid={(event) => {
+              event.preventDefault();
+              setBranchError(branchCodeFieldError(event.currentTarget.value));
+            }}
+          />
+          <FieldError>{branchError}</FieldError>
         </div>
         <div>
           <Label htmlFor="accountType">Account type</Label>

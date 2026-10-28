@@ -7,6 +7,7 @@ import { Hint } from "@/components/onboarding/hint";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { CREATOR_INTERESTS, FIELD_HINTS, PLATFORM_LABEL, PLATFORMS } from "@/lib/onboarding/model";
+import { ONBOARDING_SLOW_MESSAGE, withOnboardingTimeout } from "@/lib/onboarding/submit-timeout";
 import { cn } from "@/lib/utils";
 import type { CampaignType, SocialPlatform } from "@/types/enums";
 
@@ -69,23 +70,29 @@ export function CampaignStep({
         }
         setError(null);
         startTransition(async () => {
-          const res = await saveOnboardingCampaignAction({
-            title: String(form.get("title") || ""),
-            brief: String(form.get("brief") || ""),
-            rules: String(form.get("rules") || ""),
-            type: String(form.get("type") || "clipping") as CampaignType,
-            category: String(form.get("category") || ""),
-            budgetNad,
-            cpmNad,
-            maxPayoutNad,
-            minViews,
-            platforms,
-          });
-          if (!res.ok) {
-            setError(res.error);
-            return;
+          try {
+            const res = await withOnboardingTimeout(
+              saveOnboardingCampaignAction({
+                title: String(form.get("title") || ""),
+                brief: String(form.get("brief") || ""),
+                rules: String(form.get("rules") || ""),
+                type: String(form.get("type") || "clipping") as CampaignType,
+                category: String(form.get("category") || ""),
+                budgetNad,
+                cpmNad,
+                maxPayoutNad,
+                minViews,
+                platforms,
+              }),
+            );
+            if (!res.ok) {
+              setError(res.error);
+              return;
+            }
+            onResult(res);
+          } catch {
+            setError(ONBOARDING_SLOW_MESSAGE);
           }
-          onResult(res);
         });
       }}
     >
