@@ -1,4 +1,5 @@
 import type { SocialPlatform, UserRole } from "@/types/enums";
+import { DELIVERY_FILE_LIMIT, DELIVERY_FILE_LIMIT_ERROR } from "@/lib/storage/constants";
 import { applyWalletDelta } from "@/lib/wallet/ledger";
 import type {
   ContentLicense,
@@ -380,11 +381,18 @@ export function submitDelivery(
   if (!application || application.status !== "accepted") throw new Error("Accept the brief before uploading.");
   const brief = mustBrief(store, application.briefId);
   if (brief.status !== "open" && brief.status !== "paused") throw new Error("This brief is closed.");
-  if (!files.length || files.length > 6) throw new Error("Upload between 1 and 6 files.");
+  if (!files.length || files.length > DELIVERY_FILE_LIMIT) throw new Error(DELIVERY_FILE_LIMIT_ERROR);
   const videos = files.filter((file) => file.kind === "video");
-  if (videos.length < 1) throw new Error("Include the finished video.");
-  if (!brief.rawFiles && (files.length !== 1 || videos.length !== 1)) {
+  // One PNG, JPG, WebP, or PDF is a finished file. Older deliveries may still use kind video.
+  if (videos.length < 1 && files.length !== 1) throw new Error("Include the finished video.");
+  if (!brief.rawFiles && files.length !== 1) {
     throw new Error("This brief takes one finished video and no raw files.");
+  }
+  if (!brief.rawFiles && videos.length > 1) {
+    throw new Error("This brief takes one finished video and no raw files.");
+  }
+  if (!brief.rawFiles && videos.length === 0 && files[0]?.kind !== "raw") {
+    throw new Error("Include the finished video.");
   }
   if (approvedCount(store, brief.id) >= brief.videoCount) throw new Error("This brief already has every licensed video.");
   const existing = store.ugcDeliveries.find(

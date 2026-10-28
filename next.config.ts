@@ -14,6 +14,13 @@ const supabaseHost = (() => {
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  experimental: {
+    serverActions: {
+      // KYC files are 4 MB. Multipart framing needs a little extra room.
+      // Larger UGC files use a signed upload URL instead of this body.
+      bodySizeLimit: "4.5mb",
+    },
+  },
   async headers() {
     return [
       {

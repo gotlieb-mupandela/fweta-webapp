@@ -1,82 +1,61 @@
-import { createClient } from "@supabase/supabase-js";
+import { randomUUID } from "crypto";
 
-const BUCKET = "avatars";
-const MAX_BYTES = 2 * 1024 * 1024;
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-function supabaseUrl(): string | undefined {
-  return (
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
-    process.env.SUPABASE_URL?.trim() ||
-    undefined
-  );
-}
-
-function supabaseServiceKey(): string | undefined {
-  return (
-    process.env.SUPABASE_SECRET_KEY?.trim() ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
-    undefined
-  );
-}
-
-export function isAvatarStorageConfigured(): boolean {
-  return Boolean(supabaseUrl() && supabaseServiceKey());
-}
-
-function extensionForMime(mime: string): string {
-  if (mime === "image/png") return "png";
-  if (mime === "image/webp") return "webp";
-  return "jpg";
-}
+import {
+  contentTypeForKind,
+  extensionForKind,
+  friendlyStorageError,
+  STORAGE_NOT_READY_ERROR,
+} from "@/lib/storage/constants";
+import { createSupabaseStorageDriver, isStorageConfigured, type StorageDriver } from "@/lib/storage/driver";
+import { inspectFile } from "@/lib/storage/inspect";
+import { serverObjectPath } from "@/lib/storage/policy";
 
 /**
- * Upload a profile image to the public `avatars` bucket.
- * Path: `{userId}/{kind}-{timestamp}.{ext}`
+ * Profile photos go to the private fweta-media bucket.
+ * The stored URL is an app route, never a public storage URL.
  */
 export async function uploadAvatarFile(opts: {
   userId: string;
   file: File;
   kind: "profile" | "influencer";
+  driver?: StorageDriver;
 }): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
-  if (!isAvatarStorageConfigured()) {
-    return {
-      ok: false,
-      error: "Configure Supabase Storage (URL + service role key) to upload photos.",
-    };
+  let checked: Awaited<ReturnType<typeof inspectFile>>;
+  try {
+    checked = await inspectFile(opts.file, "avatar");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Use a JPEG, PNG, or WebP image.";
+    if (/bucket not found/i.test(message) || /\bbucket\b/i.test(message)) {
+      return { ok: false, error: STORAGE_NOT_READY_ERROR };
+    }
+    return { ok: false, error: message };
   }
 
-  const mime = opts.file.type;
-  if (!ALLOWED.has(mime)) {
-    return { ok: false, error: "Use a JPEG, PNG, or WebP image." };
-  }
-  if (opts.file.size > MAX_BYTES) {
-    return { ok: false, error: "Image must be 2MB or smaller." };
-  }
+  const driver = opts.driver ?? (isStorageConfigured() ? createSupabaseStorageDriver() : null);
+  if (!driver) return { ok: false, error: STORAGE_NOT_READY_ERROR };
 
-  const url = supabaseUrl()!;
-  const key = supabaseServiceKey()!;
-  const client = createClient(url, key, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-
-  const ext = extensionForMime(mime);
-  const path = `${opts.userId}/${opts.kind}-${Date.now()}.${ext}`;
-  const buffer = Buffer.from(await opts.file.arrayBuffer());
-
-  const { error } = await client.storage.from(BUCKET).upload(path, buffer, {
-    contentType: mime,
-    upsert: true,
-  });
-
-  if (error) {
-    return { ok: false, error: error.message || "Upload failed." };
+  let path: string;
+  try {
+    path = serverObjectPath(opts.userId, "avatar", randomUUID(), extensionForKind(checked.kind));
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : STORAGE_NOT_READY_ERROR };
   }
 
-  const { data } = client.storage.from(BUCKET).getPublicUrl(path);
-  if (!data.publicUrl) {
-    return { ok: false, error: "Could not resolve public image URL." };
+  try {
+    await driver.uploadObject({
+      bucket: "fweta-media",
+      path,
+      body: checked.bytes,
+      contentType: contentTypeForKind(checked.kind),
+    });
+  } catch (error) {
+    const raw = error instanceof Error ? error.message : "Upload failed";
+    return { ok: false, error: friendlyStorageError(raw) };
   }
 
-  return { ok: true, url: data.publicUrl };
+  // kind is kept so a later profile photo does not collide with the influencer photo name.
+  void opts.kind;
+  return { ok: true, url: `/api/avatars/${path}` };
 }
+
+export { isStorageConfigured as isAvatarStorageConfigured };

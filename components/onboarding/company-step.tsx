@@ -114,7 +114,7 @@ export function CompanyStep({
                 });
               }}
             />
-            <p className="mt-1 text-xs text-muted">{pending ? "Uploading..." : "PNG, JPEG, or WebP. Optional."}</p>
+            <p className="mt-1 text-xs text-muted">{pending ? "Uploading..." : "PNG, JPEG, or WebP. Max 2MB. Optional."}</p>
           </div>
         </div>
         <FieldError>{logoError}</FieldError>

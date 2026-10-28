@@ -211,6 +211,23 @@ test("decline does not pay and close is blocked while a file is in review", () =
   assert.equal(store.wallets.find((wallet) => wallet.userId === brandId)?.availableCents, 100_000);
 });
 
+test("a single image can be the finished file", () => {
+  const store = empty();
+  const tick = clock();
+  const brief = open(store, 1);
+  const application = applyToBrief(store, creator, brief.id, "I can deliver this week.", tick);
+  decideApplication(store, brand, application.id, true, tick);
+  const image: UgcFile = {
+    id: "file-img",
+    name: `${creatorId}/ugc/00000000-0000-4000-8000-000000000099.png`,
+    originalName: "photo.png",
+    kind: "raw",
+  };
+  const delivery = submitDelivery(store, creator, application.id, [image], tick);
+  assert.equal(delivery.files.length, 1);
+  assert.equal(delivery.files[0]?.kind, "raw");
+});
+
 test("license summary has no em dash", () => {
   const summary = buildLicenseSummary({
     id: "lic-1",

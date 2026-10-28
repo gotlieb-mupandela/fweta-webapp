@@ -685,6 +685,32 @@ export type BusinessListing = {
   updatedAt: string;
 };
 
+/**
+ * Direct upload that is not recorded until finalize.
+ * A spent or expired grant stays until the signed URL can no longer write,
+ * so housekeeping can delete an object uploaded with that URL after a rejection.
+ */
+export type UploadGrant = {
+  id: string;
+  userId: string;
+  bucket: "fweta-media" | "fweta-kyc";
+  path: string;
+  purpose: "avatar" | "screenshot" | "kyc" | "ugc";
+  maxBytes: number;
+  tokenHash: string;
+  expiresAt: string;
+  openedAt: string | null;
+  finalizedAt: string | null;
+  /** Set when finalize rejects the bytes or the link is already used up. Absent on older rows. */
+  spentAt?: string | null;
+  /** Set when the bytes are stored and waiting to be attached to a delivery. */
+  stagedAt?: string | null;
+  /** Set when a delivery includes this object. Attached files are not swept. */
+  attachedAt?: string | null;
+  targetId: string | null;
+  createdAt: string;
+};
+
 export type CreatorReview = {
   id: string;
   businessId: string;
@@ -733,4 +759,17 @@ export type DatabaseStore = {
   creatorPortfolios: CreatorPortfolio[];
   businessListings: BusinessListing[];
   creatorReviews: CreatorReview[];
+  /** Absent on stores saved before private uploads. */
+  uploadGrants?: UploadGrant[];
+  /**
+   * Grant rows already removed whose provider delete still needs a retry.
+   * Absent on stores saved before this list existed.
+   */
+  pendingUploadDeletes?: PendingUploadDelete[];
+};
+
+export type PendingUploadDelete = {
+  id: string;
+  bucket: "fweta-media" | "fweta-kyc";
+  path: string;
 };

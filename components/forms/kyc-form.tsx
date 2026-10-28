@@ -58,8 +58,8 @@ export function KycForm() {
       </div>
       <div>
         <Label htmlFor="idDocument">ID photo</Label>
-        <Input id="idDocument" name="idDocument" type="file" accept="image/png,image/jpeg,image/webp" required />
-        <p className="mt-1 text-xs text-muted">PNG, JPG, or WebP. An admin reviews it before the first payout.</p>
+        <Input id="idDocument" name="idDocument" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" required />
+        <p className="mt-1 text-xs text-muted">PNG, JPG, WebP, or PDF. Up to 4 MB. An admin reviews it before the first payout.</p>
       </div>
       <FieldError>{error}</FieldError>
       <Button type="submit" disabled={pending}>
