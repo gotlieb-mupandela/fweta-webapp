@@ -8,6 +8,7 @@ import {
   buildLicenseSummary,
   closeBrief,
   createBrief,
+  setBriefPaused,
   decideApplication,
   declineDelivery,
   requestRevision,
@@ -209,6 +210,78 @@ test("decline does not pay and close is blocked while a file is in review", () =
   assert.equal(store.wallets.find((wallet) => wallet.userId === creatorId)?.availableCents, 0);
   closeBrief(store, brand, brief.id, tick);
   assert.equal(store.wallets.find((wallet) => wallet.userId === brandId)?.availableCents, 100_000);
+});
+
+function thrownMessage(run: () => void): string {
+  try {
+    run();
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  throw new Error("expected a throw");
+}
+
+const briefInput = {
+  title: "Summer ads",
+  summary: "One product video for paid ads. Do not post it on your feed.",
+  format: "vertical" as const,
+  lengthSeconds: 20,
+  videoCount: 1,
+  rawFiles: false,
+  usage: "paid" as const,
+  termMonths: 6 as const,
+  platforms: ["tiktok" as const],
+  territory: "Namibia",
+  feePerAssetCents: 25_000,
+  revisionLimit: 2,
+  workspaceId: null,
+};
+
+test("a hidden brief rejects an application with the same message as a missing id", () => {
+  const store = empty();
+  const tick = clock();
+  const missing = thrownMessage(() => applyToBrief(store, creator, "missing-brief", "", tick));
+
+  const draft = createBrief(store, brand, { ...briefInput, openNow: false }, tick);
+  const paused = createBrief(store, brand, { ...briefInput, openNow: true }, tick);
+  setBriefPaused(store, brand, paused.id, true, tick);
+  const closed = createBrief(store, brand, { ...briefInput, openNow: true }, tick);
+  closeBrief(store, brand, closed.id, tick);
+
+  assert.equal(thrownMessage(() => applyToBrief(store, creator, draft.id, "", tick)), missing);
+  assert.equal(thrownMessage(() => applyToBrief(store, creator, paused.id, "", tick)), missing);
+  assert.equal(thrownMessage(() => applyToBrief(store, creator, closed.id, "", tick)), missing);
+  store.ugcApplications.push({
+    id: "draft-row",
+    briefId: draft.id,
+    creatorId: creator.id,
+    status: "applied",
+    note: "",
+    createdAt: tick.now(),
+    updatedAt: tick.now(),
+  });
+  assert.equal(thrownMessage(() => applyToBrief(store, creator, draft.id, "", tick)), missing);
+  assert.equal(missing, "Brief not found.");
+});
+
+test("a creator who already applied still hears that the brief is not accepting applications", () => {
+  const store = empty();
+  const tick = clock();
+  const paused = createBrief(store, brand, { ...briefInput, openNow: true }, tick);
+  applyToBrief(store, creator, paused.id, "", tick);
+  setBriefPaused(store, brand, paused.id, true, tick);
+  assert.equal(
+    thrownMessage(() => applyToBrief(store, creator, paused.id, "again", tick)),
+    "This brief is not accepting applications.",
+  );
+
+  const closed = createBrief(store, brand, { ...briefInput, openNow: true }, tick);
+  applyToBrief(store, creator, closed.id, "", tick);
+  closeBrief(store, brand, closed.id, tick);
+  assert.equal(
+    thrownMessage(() => applyToBrief(store, creator, closed.id, "again", tick)),
+    "This brief is not accepting applications.",
+  );
 });
 
 test("license summary has no em dash", () => {

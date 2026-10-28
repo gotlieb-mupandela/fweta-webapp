@@ -1,4 +1,5 @@
 import type { SocialPlatform, UserRole } from "@/types/enums";
+import { visibleUgcBrief } from "@/lib/ugc/brief-access";
 import { applyWalletDelta } from "@/lib/wallet/ledger";
 import type {
   ContentLicense,
@@ -293,7 +294,9 @@ export function applyToBrief(
   clock: LicensingClock,
 ): UgcApplication {
   if (!isCreator(actor)) throw new Error("Creator role required.");
-  const brief = mustBrief(store, briefId);
+  // Same message as a missing id when this creator cannot see the brief.
+  const brief = visibleUgcBrief(store.ugcBriefs, store.ugcApplications, briefId, actor);
+  if (!brief) throw new Error("Brief not found.");
   if (brief.status !== "open") throw new Error("This brief is not accepting applications.");
   if (brief.brandId === actor.id) throw new Error("You cannot apply to your own brief.");
   if (blockingApplication(store, briefId, actor.id)) throw new Error("You already have an application on this brief.");

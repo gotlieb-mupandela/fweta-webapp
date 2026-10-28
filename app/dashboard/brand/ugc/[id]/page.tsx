@@ -12,6 +12,7 @@ import { Badge, Card, PageHeader, SectionHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatLabel, platformLabel, usageLabel } from "@/lib/licensing/hub";
+import { brandUgcDetailAccess } from "@/lib/ugc/brief-access";
 import { formatMoney } from "@/lib/utils";
 
 export default async function BrandUgcDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -19,8 +20,9 @@ export default async function BrandUgcDetailPage({ params }: { params: Promise<{
   if (!session?.roles.includes("brand") && !session?.roles.includes("admin")) redirect("/dashboard");
   const { id } = await params;
   const store = await readStore();
-  const brief = store.ugcBriefs.find((item) => item.id === id && item.brandId === session.id);
-  if (!brief) notFound();
+  const access = brandUgcDetailAccess(store.ugcBriefs, store.ugcApplications, id, session);
+  if (!access) notFound();
+  const { brief, canManage } = access;
 
   const applications = store.ugcApplications.filter((item) => item.briefId === brief.id);
   const deliveries = store.ugcDeliveries.filter((item) => item.briefId === brief.id);
@@ -40,16 +42,21 @@ export default async function BrandUgcDetailPage({ params }: { params: Promise<{
             {formatMoney(brief.feePerAssetCents)} per video · {brief.videoCount} videos · reserved {formatMoney(brief.budgetReservedCents)} of {formatMoney(brief.budgetCents)}
           </span>
         </div>
+        {canManage ? null : (
+          <p className="mt-3 text-sm text-muted">Read only. The brand on this brief invites creators, decides applications, and pays.</p>
+        )}
         <p className="mt-3 text-sm leading-relaxed">{brief.summary}</p>
         <p className="mt-2 text-xs text-muted">
           Platforms: {brief.platforms.map(platformLabel).join(", ")}. Raw files: {brief.rawFiles ? "yes" : "no"}. Revisions: {brief.revisionLimit}.
         </p>
-        <div className="mt-4">
-          <BriefLifecycle briefId={brief.id} status={brief.status} />
-        </div>
+        {canManage ? (
+          <div className="mt-4">
+            <BriefLifecycle briefId={brief.id} status={brief.status} />
+          </div>
+        ) : null}
       </Card>
 
-      {brief.status === "open" || brief.status === "paused" ? (
+      {canManage && (brief.status === "open" || brief.status === "paused") ? (
         <section>
           <SectionHeader title="Invite" />
           <InviteForm briefId={brief.id} />
@@ -71,7 +78,7 @@ export default async function BrandUgcDetailPage({ params }: { params: Promise<{
                     {application.note ? ` · ${application.note}` : ""}
                   </p>
                 </div>
-                {application.status === "applied" || application.status === "invited" ? (
+                {canManage && (application.status === "applied" || application.status === "invited") ? (
                   <ApplicationDecision applicationId={application.id} />
                 ) : (
                   <Badge tone="muted">{application.status}</Badge>
@@ -105,7 +112,7 @@ export default async function BrandUgcDetailPage({ params }: { params: Promise<{
                     </li>
                   ))}
                 </ul>
-                {delivery.status === "submitted" || delivery.status === "revision" ? (
+                {canManage && (delivery.status === "submitted" || delivery.status === "revision") ? (
                   <div className="mt-3">
                     <RevisionForm deliveryId={delivery.id} />
                   </div>
@@ -133,9 +140,11 @@ export default async function BrandUgcDetailPage({ params }: { params: Promise<{
                     Download license summary
                   </Link>
                 </p>
-                <div className="mt-3">
-                  <DisputeForm licenseId={license.id} />
-                </div>
+                {canManage ? (
+                  <div className="mt-3">
+                    <DisputeForm licenseId={license.id} />
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
