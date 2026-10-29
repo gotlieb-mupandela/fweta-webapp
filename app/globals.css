@@ -486,7 +486,7 @@ h3,
 
 .public-header {
   border-bottom: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
-  background: color-mix(in srgb, #ffffff 84%, transparent);
+  background: color-mix(in srgb, #ffffff 97%, transparent);
   backdrop-filter: saturate(180%) blur(16px);
   -webkit-backdrop-filter: saturate(180%) blur(16px);
 }
