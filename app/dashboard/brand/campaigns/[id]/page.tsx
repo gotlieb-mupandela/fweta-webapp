@@ -49,7 +49,7 @@ export default async function CampaignDetailPage({
         title={campaign.title}
         description={campaign.description}
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full min-w-0 flex-wrap gap-2">
             {campaignIsDiscoverable(campaign) ? (
               <Link href={`/campaigns/${id}`}>
                 <Button variant="secondary" size="sm">

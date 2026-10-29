@@ -123,13 +123,13 @@ export default async function ClipperDashboardPage() {
           {actions.length === 0 ? (
             <p className="text-sm text-muted">You are caught up. New campaigns show up on Discover.</p>
           ) : (
-            <ul className="space-y-2.5">
+            <ul className="grid min-w-0 grid-cols-1 gap-2.5">
               {actions.map((action) => (
-                <li key={action.href}>
-                  <Link href={action.href} className="list-row">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">{action.label}</p>
-                      <p className="text-xs text-muted">{action.detail}</p>
+                <li key={action.href} className="min-w-0">
+                  <Link href={action.href} className="list-row w-full min-w-0">
+                    <div className="min-w-0 flex-1">
+                      <p className="wrap-anywhere text-sm font-medium">{action.label}</p>
+                      <p className="wrap-anywhere text-xs text-muted">{action.detail}</p>
                     </div>
                   </Link>
                 </li>
@@ -157,8 +157,8 @@ export default async function ClipperDashboardPage() {
               {submissions.slice(0, 5).map((submission) => {
                 const campaign = store.campaigns.find((item) => item.id === submission.campaignId);
                 return (
-                  <li key={submission.id} className="list-row">
-                    <div className="min-w-0">
+                  <li key={submission.id} className="list-row w-full min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{campaign?.title ?? "Campaign"}</p>
                       <div className="mt-1.5 flex flex-wrap items-center gap-2">
                         <PlatformChip platform={submission.platform} />

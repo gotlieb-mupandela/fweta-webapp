@@ -5,6 +5,7 @@ import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { MobileTabBar } from "@/components/dashboard/mobile-tab-bar";
 import { MobileTopBar } from "@/components/dashboard/mobile-top-bar";
 import type { WorkspaceOption } from "@/components/onboarding/workspace-switcher";
+import { cleanDisplayName } from "@/lib/text/display-name";
 import type { UserRole } from "@/types/enums";
 
 export function AppShell({
@@ -26,12 +27,13 @@ export function AppShell({
   activeWorkspaceId?: string | null;
   children: React.ReactNode;
 }) {
+  const safeName = cleanDisplayName(displayName) || "Account";
   return (
-    <div className="app-canvas flex min-h-dvh">
+    <div className="app-canvas flex min-h-dvh min-w-0">
       <DashboardSidebar
         role={role}
         roles={roles}
-        displayName={displayName}
+        displayName={safeName}
         avatarUrl={avatarUrl}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
@@ -39,7 +41,7 @@ export function AppShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileTopBar
-          displayName={displayName}
+          displayName={safeName}
           avatarUrl={avatarUrl}
           unreadCount={unreadCount}
           role={role}

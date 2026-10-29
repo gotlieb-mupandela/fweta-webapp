@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { RATE_TYPE_LABEL, ratePlatformLabel } from "@/lib/platforms/guides";
 import { PLATFORM_LABEL, SOCIAL_PLATFORMS, profileUrl } from "@/lib/social/platforms";
+import { cleanDisplayName } from "@/lib/text/display-name";
 import { formatMoney } from "@/lib/utils";
 
 export default async function PublicInfluencerPage({
@@ -23,23 +24,24 @@ export default async function PublicInfluencerPage({
 
   const { profile, rates } = data;
   const session = await getSession();
+  const name = cleanDisplayName(profile.displayName) || "Creator";
 
   return (
     <PublicChrome>
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto min-w-0 max-w-3xl">
         <Link href="/influencers" className="section-link">
           ← All influencers
         </Link>
 
-        <div className="mt-6 flex items-start gap-4">
-          <AvatarCircle src={profile.avatarUrl} name={profile.displayName} size="lg" />
-          <div className="min-w-0">
+        <div className="mt-6 flex min-w-0 flex-col items-start gap-4 sm:flex-row">
+          <AvatarCircle src={profile.avatarUrl} name={name} size="lg" />
+          <div className="min-w-0 max-w-full">
             <Badge tone="gold">{profile.niche}</Badge>
-            <h1 className="mt-3 font-display text-4xl tracking-tight md:text-5xl">
-              {profile.displayName}
+            <h1 className="mt-3 max-w-full wrap-anywhere font-display text-4xl tracking-tight md:text-5xl">
+              {name}
             </h1>
-            <p className="mt-2 text-lg text-muted">{profile.headline}</p>
-            <p className="mt-1 text-sm text-muted-light">{profile.location}</p>
+            <p className="mt-2 wrap-anywhere text-lg text-muted">{profile.headline}</p>
+            <p className="mt-1 wrap-anywhere text-sm text-muted-light">{profile.location}</p>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {SOCIAL_PLATFORMS.filter((platform) => profile.socials?.[platform]).map((platform) => (
                 <PlatformChip key={platform} platform={platform} />
@@ -50,7 +52,7 @@ export default async function PublicInfluencerPage({
 
         <Card className="mt-8">
           <h2 className="font-display text-xl">About</h2>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted">{profile.bio}</p>
+          <p className="mt-2 whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed text-muted">{profile.bio}</p>
           <ul className="mt-4 flex flex-wrap gap-2">
             {SOCIAL_PLATFORMS.map((platform) => {
               const value = profile.socials[platform];
@@ -80,13 +82,13 @@ export default async function PublicInfluencerPage({
               {rates.map((r) => (
                 <li key={r.id}>
                   <ListRow>
-                    <div>
-                      <p className="font-medium">{r.title}</p>
-                      <p className="text-sm text-muted">
+                    <div className="min-w-0 flex-1">
+                      <p className="wrap-anywhere font-medium">{r.title}</p>
+                      <p className="wrap-anywhere text-sm text-muted">
                         {RATE_TYPE_LABEL[r.type] ?? r.type} · {ratePlatformLabel(r.platform)}
                       </p>
                     </div>
-                    <p className="font-display text-lg">{formatMoney(r.priceCents)}</p>
+                    <p className="shrink-0 font-display text-lg">{formatMoney(r.priceCents)}</p>
                   </ListRow>
                 </li>
               ))}

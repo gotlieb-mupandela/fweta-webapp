@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 
-import { markAllNotificationsReadAction } from "@/app/actions/notifications";
+import { MarkAllReadButton } from "@/components/notifications/mark-all-read-button";
 import { NotificationList } from "@/components/notifications/notification-list";
-import { Button } from "@/components/ui/button";
 import { EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { listNotificationsForUser } from "@/lib/notifications/queries";
@@ -22,13 +21,7 @@ export default async function NotificationsPage() {
         title="Notifications"
         description="Campaigns, bookings, payouts, and account updates. Email follows the switches in settings."
         action={
-          unread > 0 ? (
-            <form action={markAllNotificationsReadAction}>
-              <Button type="submit" variant="secondary" size="sm">
-                Mark all read
-              </Button>
-            </form>
-          ) : null
+          unread > 0 ? <MarkAllReadButton /> : null
         }
       />
       {items.length === 0 ? (

@@ -4,6 +4,7 @@ import { NewTicketForm, TicketReplyForm } from "@/components/forms/support-forms
 import { Badge, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+import { formatSupportTimestamp, SUPPORT_TIME_ZONE_LABEL } from "@/lib/format/time";
 
 export default async function SupportPage() {
   const session = await getSession();
@@ -15,7 +16,10 @@ export default async function SupportPage() {
 
   return (
     <div className="dash-stack">
-      <PageHeader title="Support" description="Write to the Fweta team from inside the app. No email account is required." />
+      <PageHeader
+        title="Support"
+        description={`Write to the Fweta team from inside the app. Message times are ${SUPPORT_TIME_ZONE_LABEL}.`}
+      />
       <Card>
         <NewTicketForm />
       </Card>
@@ -40,7 +44,7 @@ export default async function SupportPage() {
                         <li key={message.id} className="text-sm">
                           <p className="text-xs text-muted">
                             {author?.id === session.id ? "You" : author?.displayName || "Fweta"} ·{" "}
-                            {new Date(message.createdAt).toLocaleString()}
+                            {formatSupportTimestamp(message.createdAt)}
                           </p>
                           <p className="mt-1 whitespace-pre-wrap">{message.body}</p>
                         </li>

@@ -19,8 +19,8 @@ export async function PublicChrome({
   return (
     <div className="bg-atmosphere min-h-dvh">
       <header className="public-header sticky top-0 z-40">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-4 md:px-8">
-          <div className="flex min-w-0 flex-wrap items-center gap-4">
+        <div className="mx-auto flex min-w-0 max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-4 md:px-8">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-4">
             <Logo href={session ? "/dashboard" : "/login"} />
             <nav aria-label="Public" className="flex flex-wrap gap-3 text-sm text-muted">
               <Link href="/campaigns" className="hover:text-foreground">
@@ -58,7 +58,7 @@ export async function PublicChrome({
         </div>
       </header>
 
-      <main id="main" className="mx-auto max-w-5xl px-5 py-10 md:px-8 md:py-12">
+      <main id="main" className="mx-auto min-w-0 max-w-5xl px-5 py-10 md:px-8 md:py-12">
         {title ? (
           <div className="mb-8 animate-fade-up md:mb-10">
             <h1 className="font-display text-4xl tracking-tight text-foreground md:text-5xl">

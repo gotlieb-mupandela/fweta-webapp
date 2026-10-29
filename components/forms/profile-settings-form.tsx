@@ -7,6 +7,7 @@ import { updateProfileAction } from "@/app/actions/settings";
 import { AvatarUpload } from "@/components/forms/avatar-upload";
 import { Button } from "@/components/ui/button";
 import { FieldError, FieldSuccess, Input, Label, Textarea } from "@/components/ui/input";
+import { cleanDisplayName } from "@/lib/text/display-name";
 
 export function ProfileSettingsForm({
   displayName,
@@ -20,25 +21,29 @@ export function ProfileSettingsForm({
   photoLabel?: string;
 }) {
   const router = useRouter();
+  const safeName = cleanDisplayName(displayName);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
 
   return (
     <div className="max-w-md space-y-6">
-      <AvatarUpload avatarUrl={avatarUrl} displayName={displayName} kind="profile" label={photoLabel} />
+      <AvatarUpload avatarUrl={avatarUrl} displayName={safeName || displayName} kind="profile" label={photoLabel} />
 
       <form
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
           const fd = new FormData(e.currentTarget);
+          const nameInput = e.currentTarget.elements.namedItem("displayName");
+          const displayNameValue = cleanDisplayName(String(fd.get("displayName") || ""));
+          if (nameInput instanceof HTMLInputElement) nameInput.value = displayNameValue;
           setError(null);
           setSuccess(false);
-          const displayName = String(fd.get("displayName") || "").trim();
+          const displayName = displayNameValue;
           const bio = String(fd.get("bio") || "");
           if (displayName.length < 2) {
-            setError("Display name must be at least 2 characters.");
+            setError("Enter a display name of at least 2 characters, without HTML tags.");
             return;
           }
           if (displayName.length > 80) {
@@ -68,7 +73,7 @@ export function ProfileSettingsForm({
       >
         <div>
           <Label htmlFor="displayName">Display name</Label>
-          <Input id="displayName" name="displayName" required defaultValue={displayName} />
+          <Input id="displayName" name="displayName" required maxLength={80} defaultValue={safeName} />
         </div>
         <div>
           <Label htmlFor="bio">Bio</Label>

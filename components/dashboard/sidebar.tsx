@@ -11,6 +11,7 @@ import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { WorkspaceSwitcher, type WorkspaceOption } from "@/components/onboarding/workspace-switcher";
 import { Button } from "@/components/ui/button";
 import { ROLE_NAV, findActiveNav, navItemsFor, type NavItem } from "@/lib/dashboard/nav";
+import { cleanDisplayName } from "@/lib/text/display-name";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/enums";
 
@@ -55,6 +56,7 @@ export function DashboardSidebar({
   const pathname = usePathname();
   const config = ROLE_NAV[role] ?? ROLE_NAV.clipper;
   const active = findActiveNav(pathname, navItemsFor(role));
+  const safeName = cleanDisplayName(displayName) || "Account";
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col overflow-hidden border-r border-border bg-white md:flex">
@@ -84,9 +86,11 @@ export function DashboardSidebar({
       </nav>
 
       <div className="border-t border-border p-4">
-        <div className="flex items-center gap-3 px-1">
-          <AvatarCircle src={avatarUrl} name={displayName} size="sm" />
-          <p className="min-w-0 truncate text-sm font-medium text-foreground">{displayName}</p>
+        <div className="flex min-w-0 items-center gap-3 px-1">
+          <AvatarCircle src={avatarUrl} name={safeName} size="sm" />
+          <p className="min-w-0 max-w-full truncate text-sm font-medium text-foreground" title={safeName}>
+            {safeName}
+          </p>
         </div>
         <form action={logoutAction} className="mt-2">
           <Button type="submit" variant="ghost" size="sm" className="w-full justify-start gap-2">

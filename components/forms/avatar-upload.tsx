@@ -8,6 +8,7 @@ import { removeAvatarAction, uploadAvatarAction } from "@/app/actions/avatar";
 import { Button } from "@/components/ui/button";
 import { FieldError, FieldSuccess, Label } from "@/components/ui/input";
 import { AVATAR_MAX_BYTES, isAllowedImageType, uploadLimitMessage } from "@/lib/uploads/limits";
+import { cleanDisplayName } from "@/lib/text/display-name";
 
 export function AvatarUpload({
   avatarUrl,
@@ -28,7 +29,8 @@ export function AvatarUpload({
   const [success, setSuccess] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const initials = displayName
+  const safeName = cleanDisplayName(displayName) || "Creator";
+  const initials = safeName
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
@@ -51,7 +53,7 @@ export function AvatarUpload({
           {preview ? (
             <Image
               src={preview}
-              alt={displayName}
+              alt={safeName}
               fill
               className="object-cover"
               sizes="80px"
@@ -80,7 +82,7 @@ export function AvatarUpload({
                 setError(tooBig);
                 return;
               }
-              if (!isAllowedImageType(file.type)) {
+              if (!isAllowedImageType(file.type) && !/\.(jpe?g|png|webp)$/i.test(file.name)) {
                 setError("Use a JPEG, PNG, or WebP image.");
                 return;
               }
@@ -89,15 +91,20 @@ export function AvatarUpload({
               fd.set("file", file);
               fd.set("kind", kind);
               startTransition(async () => {
-                const res = await uploadAvatarAction(fd);
-                if (!res.ok) {
-                  setError(res.error);
+                try {
+                  const res = await uploadAvatarAction(fd);
+                  if (!res.ok) {
+                    setError(res.error || "Upload failed.");
+                    replacePreview(avatarUrl);
+                    return;
+                  }
+                  replacePreview(res.url);
+                  setSuccess(`${label} saved.`);
+                  router.refresh();
+                } catch (err) {
+                  setError(err instanceof Error && err.message ? err.message : "Upload failed.");
                   replacePreview(avatarUrl);
-                  return;
                 }
-                replacePreview(res.url);
-                setSuccess(`${label} saved.`);
-                router.refresh();
               });
             }}
           />

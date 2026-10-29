@@ -203,6 +203,8 @@ h3,
 
 .input-capsule {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   border-radius: 0.95rem;
   border: 1px solid var(--border);
   background: #fff;
@@ -218,7 +220,7 @@ h3,
 }
 
 .input-capsule.has-trailing-action {
-  padding-right: 3.1rem;
+  padding-right: 3.4rem;
 }
 
 .input-capsule::placeholder {
@@ -326,6 +328,16 @@ h3,
 .dash-split {
   display: grid;
   gap: 1.5rem;
+  min-width: 0;
+  max-width: 100%;
+  /* One track sized to the container. An implicit auto column grows with
+     nowrap text and pulls Next actions wider than the screen. */
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dash-split > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 @media (min-width: 1024px) {
@@ -334,6 +346,36 @@ h3,
     gap: 1.25rem 1.5rem;
     align-items: start;
   }
+}
+
+/* Creator cards: one column under 400px, then two (three on wide public pages). */
+.creator-grid {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.creator-grid > * {
+  min-width: 0;
+}
+
+@media (min-width: 400px) {
+  .creator-grid-2,
+  .creator-grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .creator-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.wrap-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .empty-panel {
@@ -396,9 +438,12 @@ h3,
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.85rem;
+  width: 100%;
   min-width: 0;
   max-width: 100%;
+  overflow-wrap: anywhere;
   min-height: 3.55rem;
   border-radius: 1.15rem;
   border: 1px solid var(--border);
@@ -407,6 +452,11 @@ h3,
   box-shadow: 0 1px 1px rgba(18, 17, 15, 0.02);
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease,
     box-shadow 0.15s ease;
+}
+
+.list-row > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .list-row:active {

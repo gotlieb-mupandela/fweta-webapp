@@ -14,6 +14,7 @@ import {
   type OnboardingField,
 } from "@/lib/onboarding/steps";
 import { PLATFORM_LABEL, SOCIAL_PLATFORMS } from "@/lib/social/platforms";
+import { cleanDisplayName } from "@/lib/text/display-name";
 import { cn } from "@/lib/utils";
 import type { SocialPlatform, UserRole } from "@/types/enums";
 
@@ -87,11 +88,13 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
     if (step.optional) return null;
     switch (step.id) {
       case "firstName":
-        return answers.firstName.trim() ? null : "Enter your first name.";
+        return cleanDisplayName(answers.firstName).length >= 1 ? null : "Enter your first name without HTML tags.";
       case "lastName":
-        return answers.lastName.trim() ? null : "Enter your surname.";
+        return cleanDisplayName(answers.lastName).length >= 1 ? null : "Enter your surname without HTML tags.";
       case "companyName":
-        return answers.companyName.trim() ? null : "Enter your business name.";
+        return cleanDisplayName(answers.companyName).length >= 1
+          ? null
+          : "Enter your business name without HTML tags.";
       case "niche":
         return answers.niche.trim() ? null : "Tell us your niche.";
       case "location":
@@ -107,8 +110,8 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
 
   function buildPayload() {
     return {
-      firstName: answers.firstName,
-      lastName: answers.lastName,
+      firstName: cleanDisplayName(answers.firstName),
+      lastName: cleanDisplayName(answers.lastName),
       phone: answers.phone,
       socials: {
         tiktok: answers.socialTiktok,
@@ -117,7 +120,7 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
         youtube: answers.socialYoutube,
         x: answers.socialX,
       },
-      companyName: answers.companyName,
+      companyName: cleanDisplayName(answers.companyName),
       website: answers.website,
       niche: answers.niche,
       location: answers.location,

@@ -12,6 +12,15 @@ import type { SocialPlatform } from "@/types/enums";
 
 const PLATFORMS: SocialPlatform[] = ["tiktok", "instagram", "facebook", "youtube", "x"];
 
+function withoutDemoCopy(message: string): string {
+  const cleaned = message
+    .replace(/\s*This check is for local demo only\.?/gi, "")
+    .replace(/,?\s*local demo only/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  return cleaned || "Paste the public bio that contains your code.";
+}
+
 export function LinkedAccountForm({ accounts }: { accounts: LinkedSocialAccount[] }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -93,20 +102,18 @@ function AccountRow({ account }: { account: LinkedSocialAccount }) {
                 id: account.id,
                 pastedBio: String(fd.get("pastedBio") || ""),
               });
-              if (!res.ok) setError(res.error);
+              if (!res.ok) setError(withoutDemoCopy(res.error));
               else router.refresh();
             });
           }}
         >
-          <Label htmlFor={`bio-${account.id}`}>Public bio, local demo only</Label>
+          <Label htmlFor={`bio-${account.id}`}>Public bio</Label>
           <Textarea
             id={`bio-${account.id}`}
             name="pastedBio"
             placeholder={`Paste a bio that contains ${account.bioCode}`}
           />
-          <p className="text-xs text-muted">
-            Used only when no view provider can read the bio, and only outside production.
-          </p>
+          <p className="text-xs text-muted">Paste the public bio that contains your code.</p>
           <FieldError>{error}</FieldError>
           <FieldSuccess>{null}</FieldSuccess>
           <Button type="submit" size="sm" disabled={pending}>
