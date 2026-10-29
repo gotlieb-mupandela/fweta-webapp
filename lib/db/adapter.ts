@@ -3,8 +3,8 @@ import { isSupabaseStoreEnabled } from "./supabase-store";
 /**
  * Store driver.
  *
- * - `file` — `data/store.json` (or `/tmp` on a serverless host). Local default.
- * - `supabase` — Postgres via the service role. Used when Supabase URL and
+ * - `file`, `data/store.json` (or `/tmp` on a serverless host). Local default.
+ * - `supabase`, Postgres via the service role. Used when Supabase URL and
  *   secret key are set, which is the production path on Vercel.
  *
  * Set `FWETA_STORE=file` to force the file driver even if Supabase keys are

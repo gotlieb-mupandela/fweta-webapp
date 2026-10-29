@@ -184,7 +184,7 @@ export type Campaign = {
   closedAt: string | null;
   maxPayoutPerSubmissionCents: number;
   platforms: SocialPlatform[];
-  /** What to make — shown on the campaign page. */
+  /** What to make, shown on the campaign page. */
   requirements: string;
   /** Checkable rules the brand can reject against. */
   rules: string;
@@ -387,7 +387,7 @@ export type Booking = {
   brandId: string;
   influencerId: string;
   influencerProfileId: string;
-  /** Null on private deals — the brand sets the price. */
+  /** Null on private deals, the brand sets the price. */
   rateCardItemId: string | null;
   /** Missing on older public bookings; treat a set rate card as public. */
   kind?: BookingKind;

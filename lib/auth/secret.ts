@@ -55,12 +55,12 @@ function requireSecret(kind: "auth" | "payout"): string {
   if (kind === "auth") {
     if (!warnedAuth) {
       warnedAuth = true;
-      console.warn("[fweta] AUTH_SECRET missing — using insecure dev fallback (local only).");
+      console.warn("[fweta] AUTH_SECRET missing, using insecure dev fallback (local only).");
     }
   } else if (!warnedPayout) {
     warnedPayout = true;
     console.warn(
-      "[fweta] PAYOUT_ENCRYPTION_KEY/AUTH_SECRET missing — using insecure dev fallback (local only).",
+      "[fweta] PAYOUT_ENCRYPTION_KEY/AUTH_SECRET missing, using insecure dev fallback (local only).",
     );
   }
   return DEV_FALLBACK;

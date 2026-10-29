@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 const MARK_SRC = "/brand/fweta-mark.webp";
 
-/** Official mark is ~531×581 — keep aspect when sizing by height. */
+/** Official mark is ~531×581, keep aspect when sizing by height. */
 const MARK_ASPECT = 531 / 581;
 
 const SIZES = {
@@ -23,7 +23,7 @@ export function Logo({
 }: {
   className?: string;
   href?: string;
-  /** Dark brand panels — white wordmark beside the gold mark. */
+  /** Dark brand panels, white wordmark beside the gold mark. */
   light?: boolean;
   size?: keyof typeof SIZES;
   /** Chrome-tight slots (e.g. mobile top bar). */

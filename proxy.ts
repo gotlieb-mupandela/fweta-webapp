@@ -10,7 +10,7 @@ const protectedPrefixes = ["/dashboard", "/onboarding"];
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Product app entry — no marketing landing here (lives on fweta.com)
+  // Product app entry, no marketing landing here (lives on fweta.com)
   if (pathname === "/") {
     const token = request.cookies.get(COOKIE_NAME)?.value;
     const url = request.nextUrl.clone();

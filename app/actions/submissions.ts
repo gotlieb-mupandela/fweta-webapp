@@ -346,7 +346,7 @@ export async function verifyLinkAccountAction(raw: unknown) {
     if (!bioContainsCode(pasted, account.bioCode)) {
       return {
         ok: false as const,
-        error: "Paste the public bio text that includes your code. This check is for local demo only.",
+        error: "Paste the public bio text that includes your code. Make sure the bio is public before you check.",
       };
     }
     checkSource = "local-paste";

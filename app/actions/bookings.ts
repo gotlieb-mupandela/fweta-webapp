@@ -20,7 +20,7 @@ import { findDealCreator, searchDealCreators, type DealCreator } from "@/lib/pub
 
 function escrowError(e: unknown, amountCents: number) {
   if (e instanceof Error && !e.message.startsWith("Insufficient available")) return e.message;
-  return `Insufficient wallet balance. You need ${formatMoney(amountCents)} available — record a deposit and wait for an admin to credit it.`;
+  return `Insufficient wallet balance. You need ${formatMoney(amountCents)} available. Record a deposit and wait for an admin to credit it.`;
 }
 
 /**
@@ -225,14 +225,14 @@ export async function cancelBookingAction(id: string) {
       const b = s.bookings.find((x) => x.id === id);
       if (!b || b.brandId !== session.id) throw new Error("Not found.");
       if (b.status !== "requested") {
-        throw new Error("The influencer already responded — this can no longer be withdrawn.");
+        throw new Error("The influencer already responded, so this can no longer be withdrawn.");
       }
       applyWalletDelta(s, {
         userId: b.brandId,
         availableDelta: b.amountCents,
         pendingDelta: -b.amountCents,
         type: "credit",
-        reason: "Booking withdrawn — escrow refunded",
+        reason: "Booking withdrawn, escrow refunded",
         referenceType: "booking_refund",
         referenceId: b.id,
       });
@@ -306,7 +306,7 @@ export async function approveBookingAction(id: string) {
   }
 
   // Atomic: release brand escrow + credit influencer + mark approved.
-  // Previously three separate writes — a crash mid-way left money half-moved.
+  // Previously three separate writes, a crash mid-way left money half-moved.
   try {
     await updateStore((s) => {
       const b = s.bookings.find((x) => x.id === id);

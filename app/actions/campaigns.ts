@@ -192,7 +192,7 @@ export async function refreshCampaignEarningsAction(id: string) {
     return { ok: false as const, error: "Campaign not found." };
   }
   if (campaign.status !== "active") {
-    return { ok: false as const, error: "Only active campaigns earn — activate it first." };
+    return { ok: false as const, error: "Only active campaigns earn. Activate it first." };
   }
 
   let waitMs = 0;

@@ -1,5 +1,5 @@
 /**
- * Trigger.dev job definitions — scaffold only.
+ * Trigger.dev job definitions, scaffold only.
  *
  * Install when ready:
  *   npm install @trigger.dev/sdk@latest

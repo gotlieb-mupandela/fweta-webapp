@@ -5,7 +5,7 @@ const buckets = new Map<string, Bucket>();
 /**
  * Best-effort in-memory limiter. Each serverless instance has its own map,
  * so this slows bursts and credential stuffing on a warm instance. It is not
- * a global lock — put the same routes behind the Vercel firewall for that.
+ * a global lock, put the same routes behind the Vercel firewall for that.
  */
 export function rateLimit(
   key: string,

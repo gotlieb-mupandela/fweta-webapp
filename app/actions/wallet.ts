@@ -140,7 +140,7 @@ export async function getMyPayoutMethodMasked() {
   };
 }
 
-/** Admin-only: decrypt for EFT processing — never log. */
+/** Admin-only: decrypt for EFT processing, never log. */
 export async function getPayoutMethodForAdmin(userId: string) {
   const session = await requireSession();
   if (!session.roles.includes("admin")) return null;
