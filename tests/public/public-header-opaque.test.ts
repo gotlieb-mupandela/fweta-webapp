@@ -10,3 +10,11 @@ test("public sticky header background is near opaque", () => {
   const pct = Number(block.match(/#ffffff (\d+)%/)?.[1] ?? 0);
   assert.ok(pct >= 95, `header white is ${pct}%`);
 });
+
+test("mobile tab bar background is near opaque", () => {
+  const css = readFileSync("app/globals.css", "utf8");
+  const start = css.indexOf(".mobile-tab-bar {");
+  const block = css.slice(start, css.indexOf("}", start));
+  const pct = Number(block.match(/#ffffff (\d+)%/)?.[1] ?? 0);
+  assert.ok(pct >= 95, `tab bar white is ${pct}%`);
+});

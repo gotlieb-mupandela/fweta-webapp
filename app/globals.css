@@ -418,7 +418,7 @@ h3,
 
 .mobile-tab-bar {
   padding-bottom: max(0.35rem, var(--safe-bottom));
-  background: color-mix(in srgb, #ffffff 82%, transparent);
+  background: color-mix(in srgb, #ffffff 97%, transparent);
   border-top: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
