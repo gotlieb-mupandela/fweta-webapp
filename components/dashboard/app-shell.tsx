@@ -11,6 +11,7 @@ export function AppShell({
   role,
   roles,
   displayName,
+  avatarUrl = null,
   unreadCount,
   workspaces = [],
   activeWorkspaceId = null,
@@ -19,6 +20,7 @@ export function AppShell({
   role: UserRole;
   roles: UserRole[];
   displayName: string;
+  avatarUrl?: string | null;
   unreadCount: number;
   workspaces?: WorkspaceOption[];
   activeWorkspaceId?: string | null;
@@ -30,6 +32,7 @@ export function AppShell({
         role={role}
         roles={roles}
         displayName={displayName}
+        avatarUrl={avatarUrl}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
       />
@@ -37,13 +40,14 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileTopBar
           displayName={displayName}
+          avatarUrl={avatarUrl}
           unreadCount={unreadCount}
           role={role}
           roles={roles}
           workspaces={workspaces}
           activeWorkspaceId={activeWorkspaceId}
         />
-        <DesktopTopBar unreadCount={unreadCount} />
+        <DesktopTopBar unreadCount={unreadCount} displayName={displayName} avatarUrl={avatarUrl} />
 
         <main id="main" className="app-main mx-auto w-full max-w-6xl flex-1 px-4 py-5 md:px-8 md:py-8 lg:px-10">
           <div className="animate-fade-up">{children}</div>

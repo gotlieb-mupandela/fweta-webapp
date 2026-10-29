@@ -7,6 +7,7 @@ import { Menu, X } from "lucide-react";
 
 import { Logo } from "@/components/brand/logo";
 import { RoleSwitcher } from "@/components/dashboard/role-switcher";
+import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { WorkspaceSwitcher, type WorkspaceOption } from "@/components/onboarding/workspace-switcher";
 import { ROLE_NAV, findActiveNav, navItemsFor } from "@/lib/dashboard/nav";
 import { cn } from "@/lib/utils";
@@ -15,11 +16,15 @@ import type { UserRole } from "@/types/enums";
 export function MobileMenu({
   role,
   roles,
+  displayName,
+  avatarUrl = null,
   workspaces = [],
   activeWorkspaceId = null,
 }: {
   role: UserRole;
   roles: UserRole[];
+  displayName: string;
+  avatarUrl?: string | null;
   workspaces?: WorkspaceOption[];
   activeWorkspaceId?: string | null;
 }) {
@@ -41,7 +46,7 @@ export function MobileMenu({
         {open ? <X className="size-5" /> : <Menu className="size-5" />}
       </button>
       {open ? (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div className="fixed inset-0 z-[60] md:hidden">
           <button
             type="button"
             className="absolute inset-0 bg-foreground/40"
@@ -58,6 +63,10 @@ export function MobileMenu({
               <button type="button" className="rounded-lg p-2" aria-label="Close menu" onClick={() => setOpen(false)}>
                 <X className="size-5" />
               </button>
+            </div>
+            <div className="mb-4 flex items-center gap-3 px-1">
+              <AvatarCircle src={avatarUrl} name={displayName} size="sm" />
+              <p className="min-w-0 truncate text-sm font-medium">{displayName}</p>
             </div>
             <div className="mb-4 space-y-2">
               <RoleSwitcher roles={roles} current={role} id="role-switcher-mobile" />

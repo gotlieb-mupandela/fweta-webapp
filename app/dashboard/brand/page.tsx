@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { listBrandCampaigns } from "@/app/actions/campaigns";
 import { listBrandBookings } from "@/app/actions/bookings";
 import { getMyWallet } from "@/app/actions/wallet";
+import { AvatarUpload } from "@/components/forms/avatar-upload";
 import { PlatformChip } from "@/components/platforms/platform-chip";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +20,7 @@ import { readStore } from "@/lib/db/store";
 
 export default async function BrandDashboardPage() {
   const session = await getSession();
-  if (!session?.roles.includes("brand") && !session?.roles.includes("admin")) {
+  if (!session || (!session.roles.includes("brand") && !session.roles.includes("admin"))) {
     redirect("/dashboard");
   }
 
@@ -35,6 +36,7 @@ export default async function BrandDashboardPage() {
   const pendingSubs = store.submissions.filter((s) =>
     campaigns.some((c) => c.id === s.campaignId && s.status === "pending"),
   ).length;
+  const me = store.profiles.find((item) => item.id === session.id);
 
   return (
     <div className="dash-stack">
@@ -52,6 +54,17 @@ export default async function BrandDashboardPage() {
           </div>
         }
       />
+
+      {session.roles.includes("brand") && me ? (
+        <section className="panel p-4 sm:p-5">
+          <AvatarUpload
+            avatarUrl={me.avatarUrl}
+            displayName={me.displayName}
+            kind="profile"
+            label="Business logo"
+          />
+        </section>
+      ) : null}
 
       <StatGrid>
         <Stat label="Active campaigns" value={String(active)} />

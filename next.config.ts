@@ -20,6 +20,13 @@ const nextConfig: NextConfig = {
   logging: {
     serverFunctions: false,
   },
+  // Default Server Action body limit is 1 MB, which turns a 2 MB photo into a
+  // dashboard error. 5 MB leaves room for a 4 MB ID photo plus multipart overhead.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "5mb",
+    },
+  },
   async headers() {
     return [
       {

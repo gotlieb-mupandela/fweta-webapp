@@ -13,6 +13,7 @@ import {
   submissionDecisionEmail,
   welcomeEmail,
   withdrawalAdminEmail,
+  passwordResetEmail,
   withdrawalPaidEmail,
   withdrawalRejectedEmail,
   withdrawalRequestedEmail,
@@ -36,7 +37,8 @@ export type EmailTemplateId =
   | "withdrawal-paid"
   | "withdrawal-rejected"
   | "withdrawal-admin"
-  | "deposit-confirmed";
+  | "deposit-confirmed"
+  | "password-reset";
 
 export type EmailTemplateMeta = {
   id: EmailTemplateId;
@@ -63,6 +65,7 @@ export const EMAIL_TEMPLATES: EmailTemplateMeta[] = [
   { id: "withdrawal-paid", group: "Wallet", label: "Withdrawal paid" },
   { id: "withdrawal-rejected", group: "Wallet", label: "Withdrawal returned" },
   { id: "withdrawal-admin", group: "Wallet", label: "Withdrawal requested, admin" },
+  { id: "password-reset", group: "Account", label: "Password reset" },
 ];
 
 export function isEmailTemplateId(value: string | undefined): value is EmailTemplateId {
@@ -179,6 +182,11 @@ export function renderEmailPreview(id: EmailTemplateId): RenderedEmail & { label
           creatorName: "Amara Nangolo",
           creatorEmail: "creator@fweta.test",
           amountCents: 180_000,
+          links,
+        });
+      case "password-reset":
+        return passwordResetEmail({
+          resetUrl: "https://app.fweta.com/reset-password?token=preview",
           links,
         });
       default:

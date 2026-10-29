@@ -1,33 +1,31 @@
-import { createClient } from "@supabase/supabase-js";
+import { AVATAR_MAX_BYTES, isAllowedImageType, uploadLimitMessage } from "@/lib/uploads/limits";
+import { createServiceStorageClient, isServiceStorageConfigured } from "@/lib/storage/service";
 
 const BUCKET = "avatars";
-const MAX_BYTES = 2 * 1024 * 1024;
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-function supabaseUrl(): string | undefined {
-  return (
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
-    process.env.SUPABASE_URL?.trim() ||
-    undefined
-  );
-}
-
-function supabaseServiceKey(): string | undefined {
-  return (
-    process.env.SUPABASE_SECRET_KEY?.trim() ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
-    undefined
-  );
-}
 
 export function isAvatarStorageConfigured(): boolean {
-  return Boolean(supabaseUrl() && supabaseServiceKey());
+  return isServiceStorageConfigured();
 }
 
 function extensionForMime(mime: string): string {
   if (mime === "image/png") return "png";
   if (mime === "image/webp") return "webp";
   return "jpg";
+}
+
+/** Path inside the avatars bucket, or null when the URL is not that user's object. */
+export function avatarObjectPath(publicUrl: string, userId: string): string | null {
+  try {
+    const url = new URL(publicUrl);
+    const marker = `/storage/v1/object/public/${BUCKET}/`;
+    const index = url.pathname.indexOf(marker);
+    if (index < 0) return null;
+    const path = decodeURIComponent(url.pathname.slice(index + marker.length));
+    if (!path.startsWith(`${userId}/`) || path.includes("..") || path.includes("\\")) return null;
+    return path;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -47,19 +45,13 @@ export async function uploadAvatarFile(opts: {
   }
 
   const mime = opts.file.type;
-  if (!ALLOWED.has(mime)) {
+  if (!isAllowedImageType(mime)) {
     return { ok: false, error: "Use a JPEG, PNG, or WebP image." };
   }
-  if (opts.file.size > MAX_BYTES) {
-    return { ok: false, error: "Image must be 2MB or smaller." };
-  }
+  const tooBig = uploadLimitMessage(opts.file, AVATAR_MAX_BYTES, "Image");
+  if (tooBig) return { ok: false, error: tooBig };
 
-  const url = supabaseUrl()!;
-  const key = supabaseServiceKey()!;
-  const client = createClient(url, key, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-
+  const client = createServiceStorageClient();
   const ext = extensionForMime(mime);
   const path = `${opts.userId}/${opts.kind}-${Date.now()}.${ext}`;
   const buffer = Buffer.from(await opts.file.arrayBuffer());
@@ -79,4 +71,11 @@ export async function uploadAvatarFile(opts: {
   }
 
   return { ok: true, url: data.publicUrl };
+}
+
+export async function deleteAvatarObject(objectPath: string): Promise<void> {
+  if (!isAvatarStorageConfigured()) return;
+  if (!objectPath || objectPath.includes("..")) return;
+  const client = createServiceStorageClient();
+  await client.storage.from(BUCKET).remove([objectPath]);
 }

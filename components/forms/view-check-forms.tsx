@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { confirmCreatorViewAction, saveAdminViewAction, saveBulkViewsAction } from "@/app/actions/views";
 import { Button } from "@/components/ui/button";
 import { FieldError, FieldSuccess, Input, Label, Textarea } from "@/components/ui/input";
+import { SCREENSHOT_MAX_BYTES, uploadLimitMessage } from "@/lib/uploads/limits";
 
 export type ViewCheckRow = {
   submissionId: string;
@@ -107,6 +108,14 @@ export function AdminViewForm({ row }: { row: ViewCheckRow }) {
         setSuccess(null);
         const body = new FormData(e.currentTarget);
         body.set("submissionId", row.submissionId);
+        const shot = body.get("screenshot");
+        if (shot instanceof File && shot.size > 0) {
+          const tooBig = uploadLimitMessage(shot, SCREENSHOT_MAX_BYTES, "Screenshot");
+          if (tooBig) {
+            setError(tooBig);
+            return;
+          }
+        }
         startTransition(async () => {
           const res = await saveAdminViewAction(body);
           if (!res.ok) setError(res.error);
@@ -126,6 +135,7 @@ export function AdminViewForm({ row }: { row: ViewCheckRow }) {
       <div>
         <Label>Screenshot</Label>
         <Input name="screenshot" type="file" accept="image/png,image/jpeg,image/webp" />
+        <p className="mt-1.5 text-xs text-muted">PNG, JPG, or WebP. 2 MB or smaller.</p>
       </div>
       <FieldError>{error}</FieldError>
       <FieldSuccess>{success}</FieldSuccess>

@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 
 const LINKS = [
-  { href: "/dashboard/settings/profile", label: "Profile", desc: "Display name and bio" },
+  { href: "/dashboard/settings/profile", label: "Profile", desc: "Photo, display name, and bio" },
   { href: "/dashboard/settings/roles", label: "Roles", desc: "Brand and creator on one login" },
   { href: "/dashboard/settings/accounts", label: "Connected accounts", desc: "Profiles you post from, plus the bio code" },
   { href: "/dashboard/settings/verification", label: "Bio code", desc: "Request a code and paste it into a social bio" },

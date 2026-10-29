@@ -12,10 +12,12 @@ export function ProfileSettingsForm({
   displayName,
   bio,
   avatarUrl,
+  photoLabel = "Profile photo",
 }: {
   displayName: string;
   bio: string;
   avatarUrl: string | null;
+  photoLabel?: string;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export function ProfileSettingsForm({
 
   return (
     <div className="max-w-md space-y-6">
-      <AvatarUpload avatarUrl={avatarUrl} displayName={displayName} kind="profile" />
+      <AvatarUpload avatarUrl={avatarUrl} displayName={displayName} kind="profile" label={photoLabel} />
 
       <form
         className="space-y-4"
