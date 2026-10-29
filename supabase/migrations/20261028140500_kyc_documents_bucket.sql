@@ -21,6 +21,5 @@ on conflict (id) do update set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
--- Hosted Supabase already enables RLS on storage.objects. Repeat it so a
--- private bucket cannot be left world-readable if this file is applied later.
-alter table storage.objects enable row level security;
+-- Hosted Supabase already enables RLS on storage.objects (owned by
+-- supabase_storage_admin), so it is not repeated here; doing so fails with 42501.
