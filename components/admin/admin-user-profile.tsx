@@ -129,7 +129,13 @@ function statusTone(status: string): "gold" | "success" | "danger" | "muted" | "
   return "muted";
 }
 
-export function AdminUserProfile({ dossier }: { dossier: AdminUserDossier }) {
+export function AdminUserProfile({
+  dossier,
+  isPublic = false,
+}: {
+  dossier: AdminUserDossier;
+  isPublic?: boolean;
+}) {
   const { profile } = dossier;
   const optionalFacts: Array<{ label: string; value: string }> = [];
   if (profile.firstName) optionalFacts.push({ label: "First name", value: profile.firstName });
@@ -357,9 +363,13 @@ export function AdminUserProfile({ dossier }: { dossier: AdminUserDossier }) {
             <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="Public name">{dossier.influencer.displayName}</Field>
               <Field label="Slug">
-                <Link href={`/influencers/${dossier.influencer.slug}`} className="section-link">
-                  /influencers/{dossier.influencer.slug}
-                </Link>
+                {isPublic ? (
+                  <Link href={`/influencers/${dossier.influencer.slug}`} className="section-link">
+                    /influencers/{dossier.influencer.slug}
+                  </Link>
+                ) : (
+                  <span>/influencers/{dossier.influencer.slug} (not public)</span>
+                )}
               </Field>
               <Field label="Visibility">{dossier.influencer.published ? "Published" : "Unpublished"}</Field>
               {dossier.influencer.headline ? (

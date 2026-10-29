@@ -11,3 +11,12 @@ test("influencer dashboard only links to the public profile when it is live", ()
   }
   assert.match(readFileSync("lib/influencers/public.ts", "utf8"), /export async function isPublicInfluencerSlug/);
 });
+
+// Admin user page linked hidden test profiles to a 404.
+test("admin user page only links to the public profile when it is live", () => {
+  const page = readFileSync("app/dashboard/admin/users/[id]/page.tsx", "utf8");
+  assert.match(page, /isPublicInfluencerSlug\(/);
+  assert.match(page, /isPublic=\{isPublic\}/);
+  const comp = readFileSync("components/admin/admin-user-profile.tsx", "utf8");
+  assert.match(comp, /isPublic \? \(/);
+});

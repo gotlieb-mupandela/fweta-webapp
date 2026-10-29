@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { loadAdminUserDossier } from "@/lib/admin/user-profile";
 import { getSession } from "@/lib/auth/session";
+import { isPublicInfluencerSlug } from "@/lib/influencers/public";
 
 export default async function AdminUserProfilePage({
   params,
@@ -35,5 +36,6 @@ export default async function AdminUserProfilePage({
     );
   }
 
-  return <AdminUserProfile dossier={dossier} />;
+  const isPublic = await isPublicInfluencerSlug(dossier.influencer?.slug);
+  return <AdminUserProfile dossier={dossier} isPublic={isPublic} />;
 }
