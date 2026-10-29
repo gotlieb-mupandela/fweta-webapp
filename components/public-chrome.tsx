@@ -18,7 +18,7 @@ export async function PublicChrome({
 
   return (
     <div className="bg-atmosphere min-h-dvh">
-      <header className="public-header sticky top-0 z-40">
+      <header className="public-header relative top-0 z-40 md:sticky">
         <div className="mx-auto flex min-w-0 max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-4 md:px-8">
           <div className="flex min-w-0 max-w-full flex-wrap items-center gap-4">
             <Logo href={session ? "/dashboard" : "/login"} />
