@@ -160,3 +160,46 @@ export function privateOfferChoices(
   });
   return dedupeCreators(eligible).sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
+
+/** What a brand sees when picking a creator for a private offer. No account id. */
+export type DealCreator = Omit<InfluencerProfile, "userId">;
+
+function withoutUserId(profile: InfluencerProfile): DealCreator {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { userId, ...rest } = profile;
+  return rest;
+}
+
+/** Private offer search: same eligibility as the page list, never the caller, no user ids. */
+export function searchDealCreators(
+  profiles: readonly InfluencerProfile[],
+  accounts: readonly Profile[],
+  viewerId: string,
+  query?: string,
+): DealCreator[] {
+  const needle = query?.trim().toLowerCase() ?? "";
+  return privateOfferChoices(
+    profiles.filter((profile) => profile.userId !== viewerId),
+    accounts,
+  )
+    .filter((profile) =>
+      needle
+        ? `${profile.displayName} ${profile.headline} ${profile.niche} ${profile.location}`
+            .toLowerCase()
+            .includes(needle)
+        : true,
+    )
+    .map(withoutUserId);
+}
+
+/** One private offer target, only if it passes the same eligibility rules. */
+export function findDealCreator(
+  profiles: readonly InfluencerProfile[],
+  accounts: readonly Profile[],
+  viewerId: string,
+  id: string,
+): DealCreator | null {
+  if (typeof id !== "string" || !id) return null;
+  const match = searchDealCreators(profiles, accounts, viewerId).find((profile) => profile.id === id);
+  return match ?? null;
+}

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -12,6 +13,8 @@ import {
 } from "@/lib/public/campaigns";
 import {
   dedupeCreators,
+  findDealCreator,
+  searchDealCreators,
   isTestOrDemoAccount,
   privateOfferChoices,
   publicCreatorChoices,
@@ -318,4 +321,43 @@ test("onboarding phone and socials can be skipped", () => {
     socials: {},
   });
   assert.equal(badPhone.success, false);
+});
+
+test("private offer actions filter creators and never return user ids", () => {
+  const accounts = [
+    account({ id: "inf", email: "amina@example.na", displayName: "Amina", roles: ["influencer"], primaryRole: "influencer" }),
+    account({ id: "clip", email: "kai@example.na", displayName: "Kai", roles: ["clipper"], primaryRole: "clipper" }),
+    account({ id: "admin", email: "ops@example.na", displayName: "Ops", roles: ["admin", "influencer"], primaryRole: "admin" }),
+    account({ id: "demo", email: "qa@example.com", displayName: "Demo", roles: ["influencer"], primaryRole: "influencer" }),
+    account({ id: "brand", email: "b@example.na", displayName: "Brand", roles: ["brand", "influencer"], primaryRole: "brand" }),
+  ];
+  const profiles = [
+    creator({ id: "1", userId: "inf", slug: "amina", displayName: "Amina" }),
+    creator({ id: "2", userId: "clip", slug: "kai", displayName: "Kai" }),
+    creator({ id: "3", userId: "admin", slug: "ops", displayName: "Ops" }),
+    creator({ id: "4", userId: "demo", slug: "demo", displayName: "Demo" }),
+    creator({ id: "5", userId: "brand", slug: "brand", displayName: "Brand" }),
+  ];
+  const found = searchDealCreators(profiles, accounts, "brand");
+  assert.deepEqual(found.map((row) => row.id), ["1"]);
+  assert.equal(found.some((row) => "userId" in row), false);
+  assert.deepEqual(searchDealCreators(profiles, accounts, "brand", "nobody"), []);
+  assert.equal(findDealCreator(profiles, accounts, "brand", "1")?.id, "1");
+  assert.equal(findDealCreator(profiles, accounts, "brand", "2"), null);
+  assert.equal(findDealCreator(profiles, accounts, "brand", "3"), null);
+  assert.equal(findDealCreator(profiles, accounts, "brand", "5"), null);
+  assert.equal(findDealCreator(profiles, accounts, "brand", ""), null);
+  assert.equal("userId" in (findDealCreator(profiles, accounts, "brand", "1") ?? {}), false);
+});
+
+test("private offer actions require a brand or admin session and use the filter", () => {
+  const src = readFileSync(new URL("../../app/actions/bookings.ts", import.meta.url), "utf8");
+  for (const name of ["searchInfluencersForDeal", "getInfluencerForDeal"]) {
+    const start = src.indexOf(`export async function ${name}`);
+    const body = src.slice(start, src.indexOf("\n}\n", start));
+    assert.match(body, /requireSession\(\)/);
+    assert.match(body, /roles\.includes\("brand"\)/);
+    assert.match(body, /(searchDealCreators|findDealCreator)\(/);
+    assert.equal(body.includes("store.influencerProfiles.find"), false);
+  }
 });

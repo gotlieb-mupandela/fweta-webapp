@@ -12,10 +12,11 @@ import {
   notifyBookingDeclined,
   notifyBookingRequested,
 } from "@/lib/notifications/events";
-import type { Booking, InfluencerProfile } from "@/lib/db/types";
+import type { Booking } from "@/lib/db/types";
 import { applyWalletDelta } from "@/lib/wallet/ledger";
 import { bookingSchema, privateDealSchema } from "@/lib/validations/booking";
 import { formatMoney } from "@/lib/utils";
+import { findDealCreator, searchDealCreators, type DealCreator } from "@/lib/public/creators";
 
 function escrowError(e: unknown, amountCents: number) {
   if (e instanceof Error && !e.message.startsWith("Insufficient available")) return e.message;
@@ -155,28 +156,19 @@ export async function requestPrivateDealAction(raw: unknown) {
   return { ok: true as const, id: booking.id };
 }
 
-export async function searchInfluencersForDeal(q?: string): Promise<InfluencerProfile[]> {
+export async function searchInfluencersForDeal(q?: string): Promise<DealCreator[]> {
   const session = await requireSession();
   if (!session.roles.includes("brand") && !session.roles.includes("admin")) return [];
   const store = await readStore();
-  const needle = q?.trim().toLowerCase() ?? "";
-  return store.influencerProfiles
-    .filter((p) => p.userId !== session.id)
-    .filter((p) =>
-      needle
-        ? `${p.displayName} ${p.headline} ${p.niche} ${p.location}`
-            .toLowerCase()
-            .includes(needle)
-        : true,
-    )
-    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+  const query = typeof q === "string" ? q.slice(0, 100) : undefined;
+  return searchDealCreators(store.influencerProfiles, store.profiles, session.id, query);
 }
 
-export async function getInfluencerForDeal(id: string): Promise<InfluencerProfile | null> {
+export async function getInfluencerForDeal(id: string): Promise<DealCreator | null> {
   const session = await requireSession();
   if (!session.roles.includes("brand") && !session.roles.includes("admin")) return null;
   const store = await readStore();
-  return store.influencerProfiles.find((p) => p.id === id) ?? null;
+  return findDealCreator(store.influencerProfiles, store.profiles, session.id, id);
 }
 
 export async function respondBookingAction(id: string, accept: boolean) {

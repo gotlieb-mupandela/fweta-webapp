@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { getSession } from "@/lib/auth/session";
-import { readStore } from "@/lib/db/store";
-import { privateOfferChoices } from "@/lib/public/creators";
 
 export default async function NewPrivateDealPage({
   searchParams,
@@ -24,16 +22,12 @@ export default async function NewPrivateDealPage({
   const q = params.q?.trim() ?? "";
   const selectedId = params.influencer?.trim() ?? "";
 
-  const [found, selected, store] = await Promise.all([
+  // Both actions apply the private offer eligibility rules and drop user ids.
+  const [matches, selectedAllowed] = await Promise.all([
     searchInfluencersForDeal(q || undefined),
     selectedId ? getInfluencerForDeal(selectedId) : Promise.resolve(null),
-    readStore(),
   ]);
-  const matches = privateOfferChoices(found, store.profiles);
-  const selectedAllowed =
-    selected && privateOfferChoices([selected], store.profiles).some((profile) => profile.id === selected.id)
-      ? selected
-      : null;
+  const selected = selectedAllowed;
 
   return (
     <div className="dash-stack">
