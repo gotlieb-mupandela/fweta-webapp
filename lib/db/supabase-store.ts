@@ -116,7 +116,7 @@ function hasData(store: DatabaseStore): boolean {
 }
 
 function isStoreConflict(error: { message?: string; code?: string }): boolean {
-  if (error.code === "40001") return true;
+  if (error.code === "40001" || error.code === "PT409") return true;
   return (error.message ?? "").includes("fweta_store_conflict");
 }
 
