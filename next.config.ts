@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+import { contentSecurityPolicy } from "./lib/security/csp";
+
 const supabaseHost = (() => {
   const raw =
     process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
@@ -14,6 +16,10 @@ const supabaseHost = (() => {
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Do not log server function arguments. They can include passwords.
+  logging: {
+    serverFunctions: false,
+  },
   async headers() {
     return [
       {
@@ -23,6 +29,13 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          {
+            key: "Content-Security-Policy",
+            value: contentSecurityPolicy({
+              supabaseHost,
+              allowEval: process.env.NODE_ENV !== "production",
+            }),
+          },
         ],
       },
     ];

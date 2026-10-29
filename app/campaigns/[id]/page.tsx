@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getCampaign } from "@/app/actions/campaigns";
+import { getPublicCampaign } from "@/lib/campaigns/public";
 import { listClipperSubmissions } from "@/app/actions/submissions";
 import { PlatformChip } from "@/components/platforms/platform-chip";
 import { PostingGuide } from "@/components/platforms/posting-guide";
@@ -31,7 +31,7 @@ export default async function PublicCampaignPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const campaign = await getCampaign(id);
+  const campaign = await getPublicCampaign(id);
   // Drafts were never shared. A closed or paused campaign still has a public link.
   if (!campaign || campaign.status === "draft" || campaign.status === "pending") notFound();
   const open = campaignIsDiscoverable(campaign);

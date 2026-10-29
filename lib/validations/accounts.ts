@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { MAX_DEPOSIT_CENTS } from "@/lib/money/cents";
+
 import { socialPlatformSchema } from "./shared";
 
 export const addSocialAccountSchema = z.object({
@@ -21,6 +23,10 @@ export const recordViewsSchema = z.object({
 });
 
 export const payInRequestSchema = z.object({
-  amountCents: z.number().int().positive().max(100_000_000_00),
+  amountCents: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_DEPOSIT_CENTS, "Deposit cannot exceed N$1,000,000."),
   note: z.string().trim().max(240).optional(),
 });

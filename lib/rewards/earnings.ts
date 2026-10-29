@@ -23,6 +23,21 @@ function syncEarnings(sub: Submission) {
   sub.earningsCents = sub.reservedCents + sub.releasedCents;
 }
 
+/** Older approvals credited Available directly. Count those so a later view save does not pay them again. */
+function netLegacyEarningCents(store: DatabaseStore, sub: Submission): number {
+  let net = 0;
+  for (const entry of store.ledgerEntries) {
+    if (entry.referenceId !== sub.id || entry.userId !== sub.clipperId) continue;
+    if (entry.referenceType !== "campaign_earning") continue;
+    net += entry.type === "credit" ? entry.amountCents : -entry.amountCents;
+  }
+  return Math.max(0, net);
+}
+
+function alreadyPaidCents(store: DatabaseStore, sub: Submission): number {
+  return sub.reservedCents + sub.releasedCents + netLegacyEarningCents(store, sub);
+}
+
 function creditBrand(
   store: DatabaseStore,
   campaign: Campaign,
@@ -133,7 +148,7 @@ function accrueCpm(store: DatabaseStore, sub: Submission, camp: Campaign, nowMs:
   const qualified = Math.max(0, sub.views - (sub.baselineViews ?? 0));
   sub.payableViews = qualified;
   const capped = qualified < camp.minViews ? 0 : uncappedEarningsCents(qualified, camp);
-  const already = sub.reservedCents + sub.releasedCents;
+  const already = alreadyPaidCents(store, sub);
   const room = Math.max(0, camp.budgetTotalCents - camp.budgetSpentCents) + already;
   const target = Math.min(capped, room);
   const delta = target - already;
@@ -195,7 +210,7 @@ export function applyConfirmedViews(
       remainingBudgetCents(camp) > 0 &&
       campaignWindowOpen(camp, nowMs) &&
       (earningUntilMs == null || nowMs < earningUntilMs);
-    const already = sub.reservedCents + sub.releasedCents;
+    const already = alreadyPaidCents(store, sub);
     const capped = sub.payableViews < camp.minViews ? 0 : uncappedEarningsCents(sub.payableViews, camp);
     if (canIncrease || capped < already) accrueCpm(store, sub, camp, nowMs);
   }

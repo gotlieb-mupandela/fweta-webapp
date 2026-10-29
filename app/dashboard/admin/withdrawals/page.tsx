@@ -7,6 +7,13 @@ import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { formatMoney } from "@/lib/utils";
 
+function idStatusLabel(status: string | undefined, hasKyc: boolean): string {
+  if (!hasKyc) return "ID missing";
+  if (status === "verified") return "ID verified";
+  if (status === "rejected") return "ID rejected";
+  return "ID pending review";
+}
+
 export default async function AdminWithdrawalsPage() {
   const session = await getSession();
   if (!session?.roles.includes("admin")) {
@@ -54,6 +61,9 @@ export default async function AdminWithdrawalsPage() {
                     ) : (
                       <p className="mt-2 text-sm text-danger">No payout method on file</p>
                     )}
+                    <p className="mt-1 text-sm text-muted">
+                      {idStatusLabel(user?.kyc?.status, Boolean(user?.kyc))}
+                    </p>
                     <p className="text-xs text-muted">{new Date(w.createdAt).toLocaleString()}</p>
                   </div>
                   <Badge

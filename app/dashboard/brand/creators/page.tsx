@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { listPublicInfluencers } from "@/app/actions/influencer";
+import { listPublicInfluencers } from "@/lib/influencers/public";
 import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

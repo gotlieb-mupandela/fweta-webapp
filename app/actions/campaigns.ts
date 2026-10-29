@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 
-import { pollSubmissionViewsJob } from "@/app/actions/jobs";
 import { getSession, requireSession } from "@/lib/auth/session";
-import { isCampaignFunded } from "@/lib/campaigns/fund";
+import { endDateHasPassed } from "@/lib/campaigns/dates";
+import { adjustFundedBudget, allocateCampaignFunds, isCampaignFunded, returnUnusedCampaignFunds } from "@/lib/campaigns/fund";
+import { canViewCampaign } from "@/lib/campaigns/public";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { Campaign } from "@/lib/db/types";
 import { hydrateCampaign } from "@/lib/rewards/content-rewards";
@@ -12,8 +13,7 @@ import {
   campaignCreateSchema,
   campaignUpdateSchema,
 } from "@/lib/validations/campaign";
-import { applyWalletDelta } from "@/lib/wallet/ledger";
-import { formatMoney } from "@/lib/utils";
+import { pollSubmissionViews } from "@/lib/jobs/poll-submission-views";
 import type { CampaignStatus } from "@/types/enums";
 
 function assertBrand(roles: string[]) {
@@ -33,15 +33,20 @@ export async function listBrandCampaigns() {
 }
 
 export async function getCampaign(id: string) {
+  const session = await getSession();
   const store = await readStore();
-  return store.campaigns.find((c) => c.id === id) ?? null;
+  const campaign = store.campaigns.find((c) => c.id === id) ?? null;
+  if (!canViewCampaign(session, campaign)) return null;
+  return campaign;
 }
 
 export async function createCampaignAction(raw: unknown) {
   const session = await requireSession();
   if (!assertBrand(session.roles)) return { ok: false as const, error: "Brand role required." };
   const parsed = campaignCreateSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Invalid campaign details." };
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid campaign details." };
+  }
 
   const now = nowIso();
   const campaign = hydrateCampaign({
@@ -80,22 +85,12 @@ export async function createCampaignAction(raw: unknown) {
   // unfunded "active" campaign or orphan a wallet debit.
   try {
     await updateStore((s) => {
+      if (endDateHasPassed(campaign.endDate)) {
+        throw new Error("End date must be in the future.");
+      }
       s.campaigns.push(campaign);
-      if (campaign.status === "active" && !isCampaignFunded(s, campaign.id)) {
-        const wallet = s.wallets.find((w) => w.userId === session.id);
-        if (!wallet || wallet.availableCents < campaign.budgetTotalCents) {
-          throw new Error(
-            `Insufficient wallet balance. You need ${formatMoney(campaign.budgetTotalCents)} available. Submit an EFT deposit and wait for admin confirmation, then publish.`,
-          );
-        }
-        applyWalletDelta(s, {
-          userId: session.id,
-          availableDelta: -campaign.budgetTotalCents,
-          type: "debit",
-          reason: "Campaign budget allocated",
-          referenceType: "campaign_fund",
-          referenceId: campaign.id,
-        });
+      if (campaign.status === "active") {
+        allocateCampaignFunds(s, campaign);
       }
     });
   } catch (e) {
@@ -113,7 +108,9 @@ export async function updateCampaignAction(id: string, raw: unknown) {
   const session = await requireSession();
   if (!assertBrand(session.roles)) return { ok: false as const, error: "Brand role required." };
   const parsed = campaignUpdateSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Invalid campaign details." };
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid campaign details." };
+  }
 
   // Status changes go through setCampaignStatusAction, which handles funding.
   const updates = { ...parsed.data };
@@ -126,32 +123,12 @@ export async function updateCampaignAction(id: string, raw: unknown) {
       if (c.brandId !== session.id && !session.roles.includes("admin")) {
         throw new Error("Campaign not found.");
       }
+      if (updates.endDate && endDateHasPassed(updates.endDate)) {
+        throw new Error("End date must be in the future.");
+      }
       const nextBudget = updates.budgetTotalCents;
       if (nextBudget !== undefined && nextBudget !== c.budgetTotalCents) {
-        if (nextBudget < c.budgetSpentCents) {
-          throw new Error(
-            `Budget can't go below the ${formatMoney(c.budgetSpentCents)} already paid out.`,
-          );
-        }
-        if (isCampaignFunded(s, c.id)) {
-          const delta = nextBudget - c.budgetTotalCents;
-          if (delta > 0) {
-            const wallet = s.wallets.find((w) => w.userId === c.brandId);
-            if (!wallet || wallet.availableCents < delta) {
-              throw new Error(
-                `Insufficient wallet balance. Raising the budget needs ${formatMoney(delta)} available — record a deposit and wait for an admin to credit it.`,
-              );
-            }
-          }
-          applyWalletDelta(s, {
-            userId: c.brandId,
-            availableDelta: -delta,
-            type: delta > 0 ? "debit" : "credit",
-            reason: delta > 0 ? "Campaign budget increased" : "Campaign budget reduced — returned",
-            referenceType: "campaign_fund",
-            referenceId: c.id,
-          });
-        }
+        adjustFundedBudget(s, c, nextBudget);
       }
       Object.assign(c, updates, { updatedAt: nowIso() });
     });
@@ -180,36 +157,14 @@ export async function setCampaignStatusAction(id: string, status: CampaignStatus
       }
       // Atomic fund + activate: previously two writes, so a crash could
       // debit the wallet without flipping status (or vice versa).
-      if (status === "active" && c.status !== "active" && !isCampaignFunded(s, c.id)) {
-        const wallet = s.wallets.find((w) => w.userId === c.brandId);
-        if (!wallet || wallet.availableCents < c.budgetTotalCents) {
-          throw new Error(
-            `Insufficient wallet balance. You need ${formatMoney(c.budgetTotalCents)} available. Submit an EFT deposit and wait for admin confirmation, then publish.`,
-          );
-        }
-        applyWalletDelta(s, {
-          userId: c.brandId,
-          availableDelta: -c.budgetTotalCents,
-          type: "debit",
-          reason: "Campaign budget allocated",
-          referenceType: "campaign_fund",
-          referenceId: c.id,
-        });
+      if (status === "active" && endDateHasPassed(c.endDate)) {
+        throw new Error("End date must be in the future.");
       }
-      // Shrinking the budget to what was spent keeps delete/reactivate from refunding twice.
-      if (status === "completed" && c.status !== "completed" && isCampaignFunded(s, c.id)) {
-        const remaining = Math.max(0, c.budgetTotalCents - c.budgetSpentCents);
-        if (remaining > 0) {
-          applyWalletDelta(s, {
-            userId: c.brandId,
-            availableDelta: remaining,
-            type: "credit",
-            reason: "Campaign completed — unused budget returned",
-            referenceType: "campaign_fund",
-            referenceId: c.id,
-          });
-          c.budgetTotalCents = c.budgetSpentCents;
-        }
+      if (status === "active" && c.status !== "active") {
+        allocateCampaignFunds(s, c);
+      }
+      if (status === "completed" && c.status !== "completed") {
+        returnUnusedCampaignFunds(s, c);
       }
       c.status = status;
       c.updatedAt = nowIso();
@@ -256,7 +211,7 @@ export async function refreshCampaignEarningsAction(id: string) {
     };
   }
 
-  const result = await pollSubmissionViewsJob([id]);
+  const result = await pollSubmissionViews([id]);
   revalidatePath(`/dashboard/brand/campaigns/${id}`);
   revalidatePath(`/dashboard/brand/campaigns/${id}/submissions`);
   revalidatePath("/dashboard/brand/submissions");
@@ -308,17 +263,7 @@ export async function deleteCampaignAction(id: string) {
         );
       }
       if (isCampaignFunded(s, campaign.id)) {
-        const remaining = Math.max(0, campaign.budgetTotalCents - campaign.budgetSpentCents);
-        if (remaining > 0) {
-          applyWalletDelta(s, {
-            userId: campaign.brandId,
-            availableDelta: remaining,
-            type: "credit",
-            reason: "Campaign deleted. Unused budget returned",
-            referenceType: "campaign_fund",
-            referenceId: campaign.id,
-          });
-        }
+        returnUnusedCampaignFunds(s, campaign);
       }
       const submissionIds = new Set(related.map((sub) => sub.id));
       s.submissions = s.submissions.filter((sub) => sub.campaignId !== id);
@@ -337,24 +282,3 @@ export async function deleteCampaignAction(id: string) {
   return { ok: true as const };
 }
 
-export async function listActiveCampaignsPublic(filters?: {
-  platform?: string;
-  type?: string;
-  q?: string;
-}) {
-  const store = await readStore();
-  return store.campaigns
-    .filter((c) => c.status === "active")
-    .filter((c) => (filters?.type ? c.type === filters.type : true))
-    .filter((c) =>
-      filters?.platform ? c.platforms.includes(filters.platform as never) : true,
-    )
-    .filter((c) =>
-      filters?.q
-        ? `${c.title} ${c.category} ${c.description}`
-            .toLowerCase()
-            .includes(filters.q.toLowerCase())
-        : true,
-    )
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}

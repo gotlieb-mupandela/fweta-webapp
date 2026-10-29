@@ -1,12 +1,24 @@
 import { z } from "zod";
 
+import { postUrlMatchesPlatform } from "@/lib/clips/post-url";
+
 import { socialPlatformSchema } from "./shared";
 
-export const submissionSchema = z.object({
-  campaignId: z.string().uuid(),
-  postUrl: z.string().url(),
-  platform: socialPlatformSchema,
-});
+export const submissionSchema = z
+  .object({
+    campaignId: z.string().uuid(),
+    postUrl: z.string().url(),
+    platform: socialPlatformSchema,
+  })
+  .superRefine((value, ctx) => {
+    if (!postUrlMatchesPlatform(value.postUrl, value.platform)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "That link is not a post on the selected platform.",
+        path: ["postUrl"],
+      });
+    }
+  });
 
 export const submissionReviewSchema = z.object({
   status: z.enum(["approved", "rejected", "flagged"]),

@@ -9,6 +9,7 @@ import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+import { clipEarnedCents } from "@/lib/rewards/paid";
 import { formatMoney, formatNumber } from "@/lib/utils";
 
 export default async function CampaignSubmissionsPage({
@@ -71,8 +72,8 @@ export default async function CampaignSubmissionsPage({
                         {s.postUrl}
                       </a>
                       <p className="mt-1 text-xs text-muted">
-                        {s.platform} · {formatNumber(s.views)} views · {formatMoney(s.earningsCents)}{" "}
-                        earned
+                        {s.platform} · {formatNumber(s.views)} views ·{" "}
+                        {formatMoney(clipEarnedCents(store.ledgerEntries, s))} earned
                       </p>
                     </div>
                     <Badge

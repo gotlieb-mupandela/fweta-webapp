@@ -13,7 +13,7 @@ export default async function SettingsPayoutPage() {
 
   return (
     <div className="dash-stack">
-      <PageHeader title="Payout method" description="SA EFT bank details for withdrawals." />
+      <PageHeader title="Payout method" description="Namibian EFT bank details for withdrawals." />
 
       {method ? (
         <Card className="panel-interactive">

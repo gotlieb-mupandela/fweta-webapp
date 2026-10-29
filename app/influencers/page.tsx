@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { listPublicInfluencers } from "@/app/actions/influencer";
+import { listPublicInfluencers } from "@/lib/influencers/public";
 import { PlatformChip } from "@/components/platforms/platform-chip";
 import { PublicChrome } from "@/components/public-chrome";
 import { AvatarCircle } from "@/components/ui/avatar-circle";

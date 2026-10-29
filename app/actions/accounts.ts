@@ -307,6 +307,7 @@ export async function adminReviewSocialAccountAction(raw: unknown) {
 }
 
 export async function adminVerifySocialAccountAction(accountId: string) {
+  await requireSession();
   return adminReviewSocialAccountAction({ accountId, decision: "verified" });
 }
 

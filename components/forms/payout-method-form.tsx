@@ -63,7 +63,15 @@ export function PayoutMethodForm({
       </div>
       <div>
         <Label htmlFor="accountNumber">Account number</Label>
-        <Input id="accountNumber" name="accountNumber" required minLength={8} />
+        <Input
+          id="accountNumber"
+          name="accountNumber"
+          required
+          inputMode="numeric"
+          pattern="\d{8,20}"
+          minLength={8}
+          maxLength={20}
+        />
       </div>
       <div>
         <Label htmlFor="accountHolderName">Account holder name</Label>

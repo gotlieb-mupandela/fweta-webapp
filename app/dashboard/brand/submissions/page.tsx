@@ -6,6 +6,7 @@ import { BrandSubmissionQueue } from "@/components/dashboard/brand-submission-qu
 import { PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+import { clipEarnedCents } from "@/lib/rewards/paid";
 import { parseSubmissionFilters } from "@/lib/submissions/filter";
 import { formatMoney } from "@/lib/utils";
 
@@ -31,7 +32,7 @@ export default async function BrandSubmissionsPage({
     readStore(),
   ]);
 
-  const paid = submissions.reduce((sum, s) => sum + s.earningsCents, 0);
+  const paid = submissions.reduce((sum, s) => sum + clipEarnedCents(store.ledgerEntries, s), 0);
 
   return (
     <div className="dash-stack">
@@ -48,6 +49,7 @@ export default async function BrandSubmissionsPage({
         submissions={submissions}
         campaigns={campaigns}
         profiles={store.profiles}
+        ledgerEntries={store.ledgerEntries}
         filters={filters}
         action="/dashboard/brand/submissions"
       />
