@@ -100,7 +100,12 @@ export async function requestPrivateDealAction(raw: unknown) {
     return { ok: false as const, error: "Brand role required." };
   }
   const parsed = privateDealSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Invalid private offer." };
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Check the offer amount and brief.",
+    };
+  }
 
   const store = await readStore();
   const profile = store.influencerProfiles.find((p) => p.id === parsed.data.influencerProfileId);

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { listInfluencerBookings } from "@/app/actions/bookings";
+import { getMyInfluencerProfile } from "@/app/actions/influencer";
 import { InfluencerBookingActions } from "@/components/forms/influencer-booking-actions";
 import { EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,12 @@ export default async function InfluencerBookingsPage() {
     redirect("/dashboard");
   }
 
-  const [bookings, store] = await Promise.all([listInfluencerBookings(), readStore()]);
+  const [bookings, store, influencer] = await Promise.all([
+    listInfluencerBookings(),
+    readStore(),
+    getMyInfluencerProfile(),
+  ]);
+  const profileReady = Boolean(influencer?.published && influencer.headline && influencer.bio);
 
   return (
     <div className="dash-stack">
@@ -34,15 +40,29 @@ export default async function InfluencerBookingsPage() {
       />
 
       {bookings.length === 0 ? (
-        <EmptyState
-          title="No bookings"
-          description="Publish your profile and rate card so brands can book you."
-          action={
-            <Link href="/dashboard/influencer/profile">
-              <Button size="sm">Finish profile</Button>
-            </Link>
-          }
-        />
+        profileReady ? (
+          <EmptyState
+            title="No bookings yet"
+            description="When a brand requests you from your public profile, it shows up here."
+            action={
+              <Link href={`/influencers/${influencer!.slug}`}>
+                <Button size="sm" variant="secondary">
+                  View public profile
+                </Button>
+              </Link>
+            }
+          />
+        ) : (
+          <EmptyState
+            title="No bookings"
+            description="Publish your profile and rate card so brands can book you."
+            action={
+              <Link href="/dashboard/influencer/profile">
+                <Button size="sm">Finish profile</Button>
+              </Link>
+            }
+          />
+        )
       ) : (
         <ul className="space-y-2.5">
           {bookings.map((b) => {

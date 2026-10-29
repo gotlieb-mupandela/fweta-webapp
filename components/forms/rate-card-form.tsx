@@ -1,48 +1,80 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import { addRateCardAction } from "@/app/actions/influencer";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { FieldError, FieldSuccess, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { MAX_RATE_CENTS } from "@/lib/validations/influencer";
+
+const MAX_NAD = MAX_RATE_CENTS / 100;
 
 export function RateCardForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const lock = useRef(false);
 
   return (
     <form
       className="panel space-y-4 p-5"
       onSubmit={(e) => {
         e.preventDefault();
+        if (lock.current || pending) return;
         const form = e.currentTarget;
         const fd = new FormData(form);
+        const title = String(fd.get("title") || "").trim();
         const price = parseFloat(String(fd.get("price") || ""));
+        if (title.length < 2) {
+          setSuccess(null);
+          setError("Enter a title.");
+          return;
+        }
         if (Number.isNaN(price) || price <= 0) {
+          setSuccess(null);
           setError("Enter a valid price.");
           return;
         }
+        if (price > MAX_NAD) {
+          setSuccess(null);
+          setError("Price cannot exceed N$1,000,000.");
+          return;
+        }
         setError(null);
+        setSuccess(null);
+        lock.current = true;
         startTransition(async () => {
-          const res = await addRateCardAction({
-            title: String(fd.get("title") || ""),
-            description: String(fd.get("description") || ""),
-            type: String(fd.get("type") || "per_post") as "per_post" | "per_reel" | "per_1k_views" | "package" | "ugc_flat",
-            platform: String(fd.get("platform") || "multi") as
-              | "tiktok"
-              | "youtube"
-              | "instagram"
-              | "facebook"
-              | "x"
-              | "multi",
-            priceCents: Math.round(price * 100),
-          });
-          if (!res.ok) setError(res.error);
-          else {
-            form.reset();
-            router.refresh();
+          try {
+            const res = await addRateCardAction({
+              title,
+              description: String(fd.get("description") || ""),
+              type: String(fd.get("type") || "per_post") as
+                | "per_post"
+                | "per_reel"
+                | "per_1k_views"
+                | "package"
+                | "ugc_flat",
+              platform: String(fd.get("platform") || "multi") as
+                | "tiktok"
+                | "youtube"
+                | "instagram"
+                | "facebook"
+                | "x"
+                | "multi",
+              priceCents: Math.round(price * 100),
+            });
+            if (!res.ok) setError(res.error);
+            else {
+              form.reset();
+              setSuccess("Rate added.");
+              router.refresh();
+            }
+          } catch {
+            setError("Could not add the rate. Try again.");
+          } finally {
+            lock.current = false;
           }
         });
       }}
@@ -61,16 +93,16 @@ export function RateCardForm() {
           <Label htmlFor="type">Type</Label>
           <Select id="type" name="type" defaultValue="per_post">
             <option value="per_post">Per post</option>
-            <option value="per_reel">Per reel</option>
-            <option value="per_1k_views">Per 1K views</option>
+            <option value="per_reel">Per Reel</option>
+            <option value="per_1k_views">Per 1,000 views</option>
             <option value="package">Package</option>
-            <option value="ugc_flat">UGC flat</option>
+            <option value="ugc_flat">UGC flat fee</option>
           </Select>
         </div>
         <div>
           <Label htmlFor="platform">Platform</Label>
           <Select id="platform" name="platform" defaultValue="multi">
-            <option value="multi">Multi</option>
+            <option value="multi">Any platform</option>
             <option value="tiktok">TikTok</option>
             <option value="youtube">YouTube</option>
             <option value="instagram">Instagram</option>
@@ -80,10 +112,20 @@ export function RateCardForm() {
         </div>
         <div>
           <Label htmlFor="price">Price (NAD)</Label>
-          <Input id="price" name="price" type="number" step="0.01" min="0.01" required placeholder="500.00" />
+          <Input
+            id="price"
+            name="price"
+            type="number"
+            step="0.01"
+            min="0.01"
+            max={MAX_NAD}
+            required
+            placeholder="500.00"
+          />
         </div>
       </div>
       <FieldError>{error}</FieldError>
+      <FieldSuccess>{success}</FieldSuccess>
       <Button type="submit" size="sm" disabled={pending}>
         {pending ? "Adding…" : "Add item"}
       </Button>

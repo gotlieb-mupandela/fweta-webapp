@@ -4,6 +4,7 @@ import { PlatformChip } from "@/components/platforms/platform-chip";
 import { Badge } from "@/components/ui/card";
 import { BudgetBar } from "@/components/rewards/budget-bar";
 import type { Campaign } from "@/lib/db/types";
+import { campaignCardExcerpt, campaignTypeLabel } from "@/lib/public/campaigns";
 import { audienceLabel, remainingBudgetCents } from "@/lib/rewards/content-rewards";
 import { formatMoney, formatNumber } from "@/lib/utils";
 
@@ -23,7 +24,7 @@ export function CampaignCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
-            {pool ? "Pool" : "CPM"} · {campaign.type === "clipping" ? "Clipping" : "UGC"} · {campaign.category}
+            {pool ? "Pool" : "CPM"} · {campaignTypeLabel(campaign.type)} · {campaign.category}
           </p>
           <h2 className="mt-1 font-display text-[1.55rem] leading-tight tracking-tight md:text-[1.75rem]">
             {campaign.title}
@@ -43,7 +44,7 @@ export function CampaignCard({
           <PlatformChip key={platform} platform={platform} />
         ))}
       </div>
-      <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-muted">{campaign.description}</p>
+      <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-muted">{campaignCardExcerpt(campaign)}</p>
       <BudgetBar campaign={campaign} className="mt-4" />
       <p className="mt-2 text-xs text-muted">
         {formatMoney(remaining)} left
@@ -57,7 +58,7 @@ export function CampaignCard({
       <p className="mt-3 text-xs text-muted">{audienceLabel(campaign.countries)} · Brand approves each clip</p>
       <p className="mt-1 text-xs text-muted">
         {campaign.assets.length} source {campaign.assets.length === 1 ? "file" : "files"}
-        {campaign.rules ? ` · ${campaign.rules.split("\n")[0]}` : ""}
+        {campaign.rules ? ` · ${campaignCardExcerpt({ description: campaign.rules.split("\n")[0] ?? "" })}` : ""}
       </p>
     </Link>
   );

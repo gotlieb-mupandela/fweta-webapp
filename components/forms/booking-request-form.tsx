@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -11,9 +12,11 @@ import type { RateCardItem } from "@/lib/db/types";
 export function BookingRequestForm({
   influencerProfileId,
   rates,
+  cancelHref,
 }: {
   influencerProfileId: string;
   rates: RateCardItem[];
+  cancelHref: string;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -29,15 +32,24 @@ export function BookingRequestForm({
       onSubmit={(e) => {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
+        const brief = String(fd.get("brief") || "").trim();
+        if (brief.length < 10) {
+          setError("Brief must be at least 10 characters.");
+          return;
+        }
         setError(null);
         startTransition(async () => {
-          const res = await requestBookingAction({
-            influencerProfileId,
-            rateCardItemId: String(fd.get("rateCardItemId") || ""),
-            brief: String(fd.get("brief") || ""),
-          });
-          if (!res.ok) setError(res.error);
-          else router.push("/dashboard/brand/bookings");
+          try {
+            const res = await requestBookingAction({
+              influencerProfileId,
+              rateCardItemId: String(fd.get("rateCardItemId") || ""),
+              brief,
+            });
+            if (!res.ok) setError(res.error);
+            else router.push("/dashboard/brand/bookings");
+          } catch {
+            setError("Could not send the booking. Try again.");
+          }
         });
       }}
     >
@@ -56,9 +68,16 @@ export function BookingRequestForm({
         <Textarea id="brief" name="brief" required placeholder="Describe what you need delivered…" />
       </div>
       <FieldError>{error}</FieldError>
-      <Button type="submit" disabled={pending}>
-        {pending ? "Sending…" : "Request booking"}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Sending…" : "Request booking"}
+        </Button>
+        <Link href={cancelHref}>
+          <Button type="button" variant="secondary">
+            Cancel
+          </Button>
+        </Link>
+      </div>
     </form>
   );
 }

@@ -3,10 +3,10 @@ import { redirect } from "next/navigation";
 
 import { getMyInfluencerProfile, listMyRateCards } from "@/app/actions/influencer";
 import { RateCardForm } from "@/components/forms/rate-card-form";
-import { Badge, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui/card";
+import { RateCardList } from "@/components/forms/rate-card-list";
+import { Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
-import { formatMoney } from "@/lib/utils";
 
 export default async function RateCardsPage() {
   const session = await getSession();
@@ -19,7 +19,7 @@ export default async function RateCardsPage() {
   return (
     <div className="dash-stack">
       <PageHeader
-        title="Rate cards"
+        title="Rate card"
         description="Set your pricing for brand bookings."
         action={
           profile ? (
@@ -55,21 +55,7 @@ export default async function RateCardsPage() {
         {rates.length === 0 ? (
           <EmptyState title="No rate cards" description="Add your first offering above." />
         ) : (
-          <ul className="space-y-2.5">
-            {rates.map((r) => (
-              <li key={r.id} className="list-row">
-                <div>
-                  <p className="font-medium">{r.title}</p>
-                  <p className="text-sm text-muted">
-                    {r.type} · {r.platform} · {formatMoney(r.priceCents)}
-                  </p>
-                </div>
-                <Badge tone={r.active ? "success" : "muted"}>
-                  {r.active ? "Active" : "Inactive"}
-                </Badge>
-              </li>
-            ))}
-          </ul>
+          <RateCardList rates={rates} />
         )}
       </section>
     </div>

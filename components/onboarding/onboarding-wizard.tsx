@@ -22,16 +22,6 @@ const PLATFORMS: { id: SocialPlatform; label: string }[] = SOCIAL_PLATFORMS.map(
   label: PLATFORM_LABEL[id],
 }));
 
-const SOCIAL_FIELDS = [
-  "socialTiktok",
-  "socialInstagram",
-  "socialFacebook",
-  "socialYoutube",
-  "socialX",
-] as const;
-
-type SocialField = (typeof SOCIAL_FIELDS)[number];
-
 type Answers = {
   firstName: string;
   lastName: string;
@@ -64,10 +54,6 @@ const INITIAL: Answers = {
   primaryPlatform: "tiktok",
 };
 
-function hasAnySocial(answers: Answers): boolean {
-  return SOCIAL_FIELDS.some((f) => answers[f].trim().length >= 2);
-}
-
 export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
   const router = useRouter();
   const steps = useMemo(() => getOnboardingSteps(roles), [roles]);
@@ -92,16 +78,18 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
 
   function validateCurrent(): string | null {
     if (!step) return "Missing step.";
+    if (step.id === "phone") {
+      if (!answers.phone.trim()) return null;
+      return /^[+]?[\d\s()-]{8,24}$/.test(answers.phone.trim())
+        ? null
+        : "Enter a valid phone number, or skip this step.";
+    }
     if (step.optional) return null;
     switch (step.id) {
       case "firstName":
         return answers.firstName.trim() ? null : "Enter your first name.";
       case "lastName":
         return answers.lastName.trim() ? null : "Enter your surname.";
-      case "phone":
-        return /^[+]?[\d\s()-]{8,24}$/.test(answers.phone.trim())
-          ? null
-          : "Enter a valid phone number.";
       case "companyName":
         return answers.companyName.trim() ? null : "Enter your business name.";
       case "niche":
@@ -172,18 +160,8 @@ export function OnboardingWizard({ roles }: { roles: UserRole[] }) {
   }
 
   function finish() {
-    const isCreator = roles.includes("influencer") || roles.includes("clipper");
-    // A business can open an account without TikTok, Instagram, YouTube, or X.
-    // Socials stay required only for creator-only accounts.
-    if (isCreator && !roles.includes("brand") && !hasAnySocial(answers)) {
-      setError("Add at least one social profile before finishing.");
-      const socialIndex = steps.findIndex((s) =>
-        SOCIAL_FIELDS.includes(s.id as SocialField),
-      );
-      if (socialIndex >= 0) setIndex(socialIndex);
-      return;
-    }
-
+    // Help says each step can be skipped. Social steps already have Skip, so
+    // Finish does not demand a profile link.
     startTransition(async () => {
       const res = await completeOnboardingAction(buildPayload());
       if (!res.ok) {

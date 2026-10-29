@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -10,9 +11,11 @@ import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
 export function PrivateDealForm({
   influencerProfileId,
   influencerName,
+  cancelHref = "/dashboard/brand/bookings",
 }: {
   influencerProfileId: string;
   influencerName: string;
+  cancelHref?: string;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -25,19 +28,28 @@ export function PrivateDealForm({
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
         const amount = parseFloat(String(fd.get("amount") || ""));
+        const brief = String(fd.get("brief") || "").trim();
         if (Number.isNaN(amount) || amount <= 0) {
           setError("Enter a valid offer amount.");
           return;
         }
+        if (brief.length < 10) {
+          setError("Brief must be at least 10 characters.");
+          return;
+        }
         setError(null);
         startTransition(async () => {
-          const res = await requestPrivateDealAction({
-            influencerProfileId,
-            amountCents: Math.round(amount * 100),
-            brief: String(fd.get("brief") || ""),
-          });
-          if (!res.ok) setError(res.error);
-          else router.push("/dashboard/brand/bookings");
+          try {
+            const res = await requestPrivateDealAction({
+              influencerProfileId,
+              amountCents: Math.round(amount * 100),
+              brief,
+            });
+            if (!res.ok) setError(res.error);
+            else router.push("/dashboard/brand/bookings");
+          } catch {
+            setError("Could not send the offer. Try again.");
+          }
         });
       }}
     >
@@ -68,9 +80,16 @@ export function PrivateDealForm({
         />
       </div>
       <FieldError>{error}</FieldError>
-      <Button type="submit" disabled={pending}>
-        {pending ? "Sending…" : "Send private offer"}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Sending…" : "Send private offer"}
+        </Button>
+        <Link href={cancelHref}>
+          <Button type="button" variant="secondary">
+            Cancel
+          </Button>
+        </Link>
+      </div>
     </form>
   );
 }

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { getSession } from "@/lib/auth/session";
+import { readStore } from "@/lib/db/store";
+import { privateOfferChoices } from "@/lib/public/creators";
 
 export default async function NewPrivateDealPage({
   searchParams,
@@ -22,10 +24,16 @@ export default async function NewPrivateDealPage({
   const q = params.q?.trim() ?? "";
   const selectedId = params.influencer?.trim() ?? "";
 
-  const [matches, selected] = await Promise.all([
+  const [found, selected, store] = await Promise.all([
     searchInfluencersForDeal(q || undefined),
     selectedId ? getInfluencerForDeal(selectedId) : Promise.resolve(null),
+    readStore(),
   ]);
+  const matches = privateOfferChoices(found, store.profiles);
+  const selectedAllowed =
+    selected && privateOfferChoices([selected], store.profiles).some((profile) => profile.id === selected.id)
+      ? selected
+      : null;
 
   return (
     <div className="dash-stack">
@@ -90,13 +98,14 @@ export default async function NewPrivateDealPage({
         )}
       </Card>
 
-      {selected ? (
+      {selectedAllowed ? (
         <Card className="panel-interactive">
-          <h2 className="font-display text-xl tracking-tight">Offer for {selected.displayName}</h2>
+          <h2 className="font-display text-xl tracking-tight">Offer for {selectedAllowed.displayName}</h2>
           <div className="mt-5">
             <PrivateDealForm
-              influencerProfileId={selected.id}
-              influencerName={selected.displayName}
+              influencerProfileId={selectedAllowed.id}
+              influencerName={selectedAllowed.displayName}
+              cancelHref="/dashboard/brand/deals/new"
             />
           </div>
         </Card>

@@ -34,7 +34,11 @@ export default async function BookInfluencerPage({
             description="Funds are held in escrow until you approve delivery."
           />
           <Card>
-            <BookingRequestForm influencerProfileId={profile.id} rates={rates} />
+            <BookingRequestForm
+              influencerProfileId={profile.id}
+              rates={rates}
+              cancelHref={`/influencers/${slug}`}
+            />
           </Card>
         </div>
       </div>

@@ -11,9 +11,11 @@ export const onboardingCompleteSchema = z
     phone: z
       .string()
       .trim()
-      .min(8, "Enter a valid phone number")
       .max(24)
-      .regex(/^[+]?[\d\s()-]{8,24}$/, "Use digits, spaces, or +country code"),
+      .refine(
+        (value) => value.length === 0 || /^[+]?[\d\s()-]{8,24}$/.test(value),
+        "Enter a valid phone number, or leave it blank.",
+      ),
     socials: z.object({
       tiktok: socialHandleField.optional().default(""),
       instagram: socialHandleField.optional().default(""),
@@ -26,15 +28,7 @@ export const onboardingCompleteSchema = z
     niche: z.string().trim().max(80).optional(),
     location: z.string().trim().max(80).optional(),
     primaryPlatform: socialPlatformSchema.optional(),
-  })
-  .refine(
-    (d) =>
-      Boolean(d.companyName?.trim()) ||
-      [d.socials.tiktok, d.socials.instagram, d.socials.facebook, d.socials.youtube, d.socials.x].some(
-        (v) => (v ?? "").trim().length >= 2,
-      ),
-    { message: "Add a business name or at least one social profile", path: ["socials"] },
-  );
+  });
 
 export type OnboardingCompleteInput = z.infer<typeof onboardingCompleteSchema>;
 
