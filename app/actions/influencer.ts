@@ -4,11 +4,12 @@ import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
-import type { InfluencerProfile, ProfileSocials, RateCardItem } from "@/lib/db/types";
+import type { InfluencerProfile, ProfileSocials } from "@/lib/db/types";
 import {
   influencerProfileSchema,
   rateCardSchema,
 } from "@/lib/validations/influencer";
+import { addRateCardOnce } from "@/lib/influencers/rate-cards";
 import { slugify } from "@/lib/utils";
 
 function socialsFromForm(socials?: {
@@ -130,21 +131,7 @@ export async function addRateCardAction(raw: unknown) {
     return { ok: false as const, error: "Create your public profile first." };
   }
 
-  const now = nowIso();
-  const recentDuplicate = store.rateCards.find((rate) => {
-    if (rate.influencerProfileId !== profile.id) return false;
-    if (rate.title !== parsed.data.title || rate.type !== parsed.data.type) return false;
-    if (rate.platform !== parsed.data.platform || rate.priceCents !== parsed.data.priceCents) return false;
-    const age = Date.now() - Date.parse(rate.createdAt);
-    return Number.isFinite(age) && age >= 0 && age < 15_000;
-  });
-  if (recentDuplicate) {
-    revalidatePath("/dashboard/influencer/rate-cards");
-    return { ok: true as const, id: recentDuplicate.id };
-  }
-
-  const item: RateCardItem = {
-    id: newId(),
+  const card = {
     influencerProfileId: profile.id,
     title: parsed.data.title,
     description: parsed.data.description ?? "",
@@ -152,16 +139,16 @@ export async function addRateCardAction(raw: unknown) {
     platform: parsed.data.platform,
     priceCents: parsed.data.priceCents,
     active: parsed.data.active ?? true,
-    createdAt: now,
-    updatedAt: now,
   };
-
+  // The duplicate check runs inside the compare-and-swap save, so a conflict
+  // reruns it on the fresh document and two simultaneous adds make one card.
+  let result = { id: "", created: false };
   await updateStore((s) => {
-    s.rateCards.push(item);
+    result = addRateCardOnce(s, card, newId);
   });
   revalidatePath("/dashboard/influencer/rate-cards");
   revalidatePath(`/influencers/${profile.slug}`);
-  return { ok: true as const, id: item.id };
+  return { ok: true as const, id: result.id };
 }
 
 export async function updateRateCardAction(id: string, raw: unknown) {
