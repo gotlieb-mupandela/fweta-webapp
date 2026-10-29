@@ -191,6 +191,7 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
             id="endDate"
             name="endDate"
             type="date"
+            min={mode === "create" ? new Date(Date.now() + 86_400_000).toISOString().slice(0, 10) : undefined}
             defaultValue={campaign?.endDate?.slice(0, 10) ?? ""}
           />
         </div>
