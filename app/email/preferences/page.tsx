@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { saveTokenPreferencesAction } from "@/app/actions/email-preferences";
+import { pageParam } from "@/lib/email/preference-form";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { getProfileById } from "@/lib/auth/session";
@@ -16,10 +17,10 @@ export const metadata = {
 export default async function EmailPreferencesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string; saved?: string; error?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const token = params.token?.trim() || "";
+  const token = pageParam(params.token);
   const userId = token ? await verifyPrefsToken(token) : null;
   const profile = userId ? await getProfileById(userId) : null;
 
@@ -32,9 +33,9 @@ export default async function EmailPreferencesPage({
           These switches control email only. The notification bell in your dashboard stays on.
         </p>
 
-        {params.error === "expired" || (token && !userId) ? (
+        {pageParam(params.error) === "expired" || (token && !userId) ? (
           <Expired />
-        ) : params.error === "missing" || (userId && !profile) ? (
+        ) : pageParam(params.error) === "missing" || (userId && !profile) ? (
           <p className="mt-6 text-sm text-muted">We could not find that account.</p>
         ) : !token ? (
           <div className="mt-6 space-y-3 text-sm text-muted">
@@ -46,7 +47,7 @@ export default async function EmailPreferencesPage({
         ) : profile ? (
           <form action={saveTokenPreferencesAction} className="mt-6 space-y-4">
             <input type="hidden" name="token" value={token} />
-            {params.saved === "1" ? (
+            {pageParam(params.saved) === "1" ? (
               <p className="rounded-2xl bg-success-soft px-3 py-2 text-sm text-success">Preferences saved.</p>
             ) : null}
             <p className="text-sm text-muted">Updating mail for {profile.email}.</p>

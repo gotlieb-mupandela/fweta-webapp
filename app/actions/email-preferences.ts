@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { nowIso, updateStore } from "@/lib/db/store";
 import { parseEmailScope, verifyPrefsToken, type EmailScope } from "@/lib/email/preferences";
+import { isValidTokenInput, readPreferencesForm, readUnsubscribeForm } from "@/lib/email/preference-form";
 import { notificationPrefsSchema } from "@/lib/validations/auth";
 
 async function applyPreferencePatch(
@@ -23,14 +24,16 @@ async function applyPreferencePatch(
 }
 
 export async function saveTokenPreferencesAction(formData: FormData) {
-  const token = String(formData.get("token") || "");
+  const form = readPreferencesForm(formData);
+  if (!form) redirect("/email/preferences?error=expired");
+  const token = form.token;
   const userId = await verifyPrefsToken(token);
   if (!userId) redirect("/email/preferences?error=expired");
 
   const parsed = notificationPrefsSchema.safeParse({
-    notifyEmail: formData.get("notifyEmail") === "on",
-    notifyWithdrawals: formData.get("notifyWithdrawals") === "on",
-    notifyBookings: formData.get("notifyBookings") === "on",
+    notifyEmail: form.notifyEmail,
+    notifyWithdrawals: form.notifyWithdrawals,
+    notifyBookings: form.notifyBookings,
   });
   if (!parsed.success) redirect(`/email/preferences?token=${encodeURIComponent(token)}&error=invalid`);
 
@@ -40,10 +43,11 @@ export async function saveTokenPreferencesAction(formData: FormData) {
 }
 
 export async function confirmUnsubscribeAction(formData: FormData) {
-  const token = String(formData.get("token") || "");
-  const scope = parseEmailScope(String(formData.get("scope") || ""));
+  const form = readUnsubscribeForm(formData);
+  if (!form) redirect("/email/unsubscribe?error=expired");
+  const { token, scope } = form;
   const userId = await verifyPrefsToken(token);
-  if (!userId || !scope) redirect("/email/unsubscribe?error=expired");
+  if (!userId) redirect("/email/unsubscribe?error=expired");
 
   const patch =
     scope === "bookings"
@@ -57,6 +61,9 @@ export async function confirmUnsubscribeAction(formData: FormData) {
 }
 
 export async function unsubscribeByToken(token: string, scope: EmailScope) {
+  if (!isValidTokenInput(token) || !parseEmailScope(scope)) {
+    return { ok: false as const, error: "expired" };
+  }
   const userId = await verifyPrefsToken(token);
   if (!userId) return { ok: false as const, error: "expired" };
   const patch =

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { confirmUnsubscribeAction } from "@/app/actions/email-preferences";
+import { pageParam } from "@/lib/email/preference-form";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { getProfileById } from "@/lib/auth/session";
@@ -31,15 +32,15 @@ const COPY: Record<string, { title: string; body: string }> = {
 export default async function UnsubscribePage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string; scope?: string; done?: string; error?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const token = params.token?.trim() || "";
-  const scope = parseEmailScope(params.scope) ?? "email";
+  const token = pageParam(params.token);
+  const scope = parseEmailScope(pageParam(params.scope, 20)) ?? "email";
   const userId = token ? await verifyPrefsToken(token) : null;
   const profile = userId ? await getProfileById(userId) : null;
   const copy = COPY[scope];
-  const done = params.done === "1";
+  const done = pageParam(params.done) === "1";
 
   return (
     <div className="bg-atmosphere flex min-h-dvh items-center justify-center px-4 py-12">
@@ -49,14 +50,14 @@ export default async function UnsubscribePage({
           {done ? "You are unsubscribed." : copy.title}
         </h1>
 
-        {params.error === "expired" || (token && !userId) ? (
+        {pageParam(params.error) === "expired" || (token && !userId) ? (
           <div className="mt-4 space-y-3 text-sm text-muted">
             <p>This link has expired. Sign in to update what we email you.</p>
             <Link href="/login?next=/dashboard/settings/notifications" className="font-medium text-foreground">
               Sign in
             </Link>
           </div>
-        ) : params.error === "missing" || (userId && !profile) ? (
+        ) : pageParam(params.error) === "missing" || (userId && !profile) ? (
           <p className="mt-4 text-sm text-muted">We could not find that account.</p>
         ) : !token ? (
           <div className="mt-4 space-y-3 text-sm text-muted">
