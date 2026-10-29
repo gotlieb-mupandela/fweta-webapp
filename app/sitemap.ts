@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 
 import { readStore } from "@/lib/db/store";
 import { directoryCategoryPath, isPublicListing, publicBusinesses } from "@/lib/directory/public";
+import { publicCreatorChoices } from "@/lib/public/creators";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/campaigns`, lastModified: now, changeFrequency: "hourly", priority: 0.8 },
     { url: `${base}/influencers`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
     { url: `${base}/directory`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
+    { url: `${base}/about`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
+    { url: `${base}/pricing`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
+    { url: `${base}/faq`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
+    { url: `${base}/contact`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${base}/verify-email`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },
+    { url: `${base}/terms`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${base}/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${base}/legal/terms`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${base}/legal/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${base}/legal/creator-terms`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
@@ -28,8 +36,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.6,
       });
     }
-    for (const profile of store.influencerProfiles) {
-      if (!profile.published) continue;
+    for (const profile of publicCreatorChoices(store.influencerProfiles, store.profiles)) {
       entries.push({
         url: `${base}/influencers/${profile.slug}`,
         lastModified: new Date(profile.updatedAt),

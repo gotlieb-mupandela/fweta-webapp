@@ -6,12 +6,13 @@ import { useState, useTransition } from "react";
 import { upsertInfluencerProfileAction } from "@/app/actions/influencer";
 import { AvatarUpload } from "@/components/forms/avatar-upload";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
+import { FieldError, FieldSuccess, Input, Label, Textarea } from "@/components/ui/input";
 import type { InfluencerProfile } from "@/lib/db/types";
 
 export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile | null }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
   const displayName = profile?.displayName ?? "Creator";
 
@@ -29,24 +30,32 @@ export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile 
           e.preventDefault();
           const fd = new FormData(e.currentTarget);
           setError(null);
+          setSuccess(false);
           startTransition(async () => {
-            const res = await upsertInfluencerProfileAction({
-              displayName: String(fd.get("displayName") || ""),
-              headline: String(fd.get("headline") || ""),
-              bio: String(fd.get("bio") || ""),
-              niche: String(fd.get("niche") || ""),
-              location: String(fd.get("location") || ""),
-              socials: {
-                tiktok: String(fd.get("tiktok") || ""),
-                youtube: String(fd.get("youtube") || ""),
-                instagram: String(fd.get("instagram") || ""),
-                facebook: String(fd.get("facebook") || ""),
-                x: String(fd.get("x") || ""),
-              },
-              published: fd.get("published") === "on",
-            });
-            if (!res.ok) setError(res.error);
-            else router.refresh();
+            try {
+              const res = await upsertInfluencerProfileAction({
+                displayName: String(fd.get("displayName") || ""),
+                headline: String(fd.get("headline") || ""),
+                bio: String(fd.get("bio") || ""),
+                niche: String(fd.get("niche") || ""),
+                location: String(fd.get("location") || ""),
+                socials: {
+                  tiktok: String(fd.get("tiktok") || ""),
+                  youtube: String(fd.get("youtube") || ""),
+                  instagram: String(fd.get("instagram") || ""),
+                  facebook: String(fd.get("facebook") || ""),
+                  x: String(fd.get("x") || ""),
+                },
+                published: fd.get("published") === "on",
+              });
+              if (!res.ok) setError(res.error);
+              else {
+                setSuccess(true);
+                router.refresh();
+              }
+            } catch {
+              setError("Could not save the profile. Try again.");
+            }
           });
         }}
       >
@@ -119,6 +128,7 @@ export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile 
           Publish profile publicly
         </label>
         <FieldError>{error}</FieldError>
+        <FieldSuccess>{success ? "Profile saved." : null}</FieldSuccess>
         <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save profile"}
         </Button>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { readStore } from "@/lib/db/store";
+import { publicCreatorChoices } from "@/lib/public/creators";
 
 export async function generateMetadata({
   params,
@@ -10,7 +11,9 @@ export async function generateMetadata({
   const { slug } = await params;
   try {
     const store = await readStore();
-    const profile = store.influencerProfiles.find((row) => row.slug === slug && row.published);
+    const profile = publicCreatorChoices(store.influencerProfiles, store.profiles).find(
+      (row) => row.slug === slug,
+    );
     if (!profile) return { title: "Influencer" };
     const description = (profile.headline || profile.bio).replace(/\s+/g, " ").trim().slice(0, 160);
     return {

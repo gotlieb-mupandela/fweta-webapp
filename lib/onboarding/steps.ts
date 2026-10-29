@@ -43,8 +43,9 @@ const CORE: OnboardingStep[] = [
   {
     id: "phone",
     title: "What's your phone number?",
-    subtitle: "For payouts and account recovery. Namibia +264 works great.",
+    subtitle: "Optional. Skip this step and add it later. Namibia +264 works.",
     xp: 15,
+    optional: true,
     placeholder: "+264 81 000 0000",
     inputType: "tel",
   },

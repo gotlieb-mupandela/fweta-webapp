@@ -71,7 +71,36 @@ export async function PublicChrome({
         ) : null}
         <div className="animate-fade-up delay-1">{children}</div>
       </main>
-      <footer className="mx-auto w-full max-w-5xl px-5 pb-10 md:px-8">
+      <footer className="mx-auto w-full max-w-5xl space-y-3 px-5 pb-10 md:px-8">
+        <nav aria-label="Company">
+          <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
+            <li>
+              <Link href="/about" className="underline-offset-2 hover:text-foreground hover:underline">
+                About
+              </Link>
+            </li>
+            <li>
+              <Link href="/pricing" className="underline-offset-2 hover:text-foreground hover:underline">
+                Pricing
+              </Link>
+            </li>
+            <li>
+              <Link href="/faq" className="underline-offset-2 hover:text-foreground hover:underline">
+                FAQ
+              </Link>
+            </li>
+            <li>
+              <Link href="/contact" className="underline-offset-2 hover:text-foreground hover:underline">
+                Contact
+              </Link>
+            </li>
+            <li>
+              <Link href="/help" className="underline-offset-2 hover:text-foreground hover:underline">
+                Help
+              </Link>
+            </li>
+          </ul>
+        </nav>
         <LegalFooter />
       </footer>
     </div>

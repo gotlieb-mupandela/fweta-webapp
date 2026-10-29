@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getCampaign } from "@/app/actions/campaigns";
-import { listClipperSubmissions } from "@/app/actions/submissions";
 import { PlatformChip } from "@/components/platforms/platform-chip";
 import { PostingGuide } from "@/components/platforms/posting-guide";
 import { PublicChrome } from "@/components/public-chrome";
@@ -15,15 +13,18 @@ import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { accountsForUser } from "@/lib/onboarding/accounts";
+import { toPublicCampaign } from "@/lib/public/campaigns";
+import { isTestOrDemoAccount, publicCreatorName } from "@/lib/public/creators";
 import {
   ABUSE_RULES,
   audienceLabel,
   campaignEnded,
   campaignIsDiscoverable,
   campaignLeaderboard,
-  remainingBudgetCents,
 } from "@/lib/rewards/content-rewards";
 import { formatMoney } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
 
 export default async function PublicCampaignPage({
   params,
@@ -31,22 +32,24 @@ export default async function PublicCampaignPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const campaign = await getCampaign(id);
-  // Drafts were never shared. A closed or paused campaign still has a public link.
-  if (!campaign || campaign.status === "draft" || campaign.status === "pending") notFound();
-  const open = campaignIsDiscoverable(campaign);
+  // Touch the session first so a logged-out visit is still rendered on demand.
+  const session = await getSession();
+  const store = await readStore();
+  const source = store.campaigns.find((row) => row.id === id) ?? null;
+  const campaign = source ? toPublicCampaign(source) : null;
+  // Drafts stay private. A closed or paused campaign still has a public link.
+  if (!campaign || !source) notFound();
+  const open = campaignIsDiscoverable(source);
   const closedNote = open
     ? null
     : campaign.status === "paused"
       ? "This campaign is paused. New clips are not being accepted."
-      : campaignEnded(campaign)
+      : campaignEnded(source)
         ? "This campaign has ended. New clips are not being accepted."
-        : remainingBudgetCents(campaign) <= 0
+        : campaign.remainingCents <= 0
           ? "This campaign's budget is used up. New clips are not being accepted."
           : "This campaign is not open for new clips.";
 
-  const session = await getSession();
-  const store = await readStore();
   const accounts = session
     ? accountsForUser(store.socialAccounts, session.id)
         .filter((account) => account.status === "verified" && campaign.platforms.includes(account.platform))
@@ -63,10 +66,28 @@ export default async function PublicCampaignPage({
         session.roles.includes("influencer") ||
         session.roles.includes("admin")),
   );
-  const remaining = remainingBudgetCents(campaign);
-  const leaderboard = campaignLeaderboard(store, campaign.id);
+  const remaining = campaign.remainingCents;
+  const leaderboard = campaignLeaderboard(store, campaign.id)
+    .filter((row) => {
+      const account = store.profiles.find((profile) => profile.id === row.clipperId);
+      return !isTestOrDemoAccount({ email: account?.email, displayName: account?.displayName ?? row.displayName });
+    })
+    .map((row) => {
+      const account = store.profiles.find((profile) => profile.id === row.clipperId);
+      return {
+        displayName: publicCreatorName(
+          { displayName: row.displayName, socials: account?.socials },
+          account,
+        ),
+        handle: row.handle,
+        views: row.views,
+        earningsCents: row.earningsCents,
+        clips: row.clips,
+        estimate: row.estimate,
+      };
+    });
   const mySubs = canSubmit
-    ? (await listClipperSubmissions()).filter((s) => s.campaignId === campaign.id)
+    ? store.submissions.filter((submission) => submission.campaignId === campaign.id && submission.clipperId === session!.id)
     : [];
 
   return (
@@ -77,7 +98,7 @@ export default async function PublicCampaignPage({
         </Link>
 
         <div className="mt-6 flex flex-wrap gap-2">
-          <Badge tone="gold">{campaign.type === "clipping" ? "Clipping" : "UGC"}</Badge>
+          <Badge tone="gold">{campaign.typeLabel}</Badge>
           <Badge>{campaign.category}</Badge>
           {closedNote ? <Badge tone="muted">{campaign.status === "paused" ? "Paused" : "Closed"}</Badge> : null}
           {campaign.platforms.map((platform) => (

@@ -33,15 +33,33 @@ export function ProfileSettingsForm({
           const fd = new FormData(e.currentTarget);
           setError(null);
           setSuccess(false);
+          const displayName = String(fd.get("displayName") || "").trim();
+          const bio = String(fd.get("bio") || "");
+          if (displayName.length < 2) {
+            setError("Display name must be at least 2 characters.");
+            return;
+          }
+          if (displayName.length > 80) {
+            setError("Display name must be 80 characters or fewer.");
+            return;
+          }
+          if (bio.length > 1000) {
+            setError("Bio must be 1,000 characters or fewer.");
+            return;
+          }
           startTransition(async () => {
-            const res = await updateProfileAction({
-              displayName: String(fd.get("displayName") || ""),
-              bio: String(fd.get("bio") || ""),
-            });
-            if (!res.ok) setError(res.error);
-            else {
-              setSuccess(true);
-              router.refresh();
+            try {
+              const res = await updateProfileAction({
+                displayName,
+                bio,
+              });
+              if (!res.ok) setError(res.error);
+              else {
+                setSuccess(true);
+                router.refresh();
+              }
+            } catch {
+              setError("Could not save the profile. Try again.");
             }
           });
         }}

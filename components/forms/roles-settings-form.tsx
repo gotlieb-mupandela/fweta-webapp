@@ -5,10 +5,17 @@ import { useState, useTransition } from "react";
 
 import { updateRolesAction } from "@/app/actions/settings";
 import { Button } from "@/components/ui/button";
-import { FieldError, Label } from "@/components/ui/input";
+import { FieldError, FieldSuccess, Label } from "@/components/ui/input";
 import type { UserRole } from "@/types/enums";
 
 const ROLES: UserRole[] = ["brand", "influencer", "clipper"];
+
+const ROLE_LABEL: Record<string, string> = {
+  brand: "Brand",
+  influencer: "Influencer",
+  clipper: "Clipper",
+  admin: "Admin",
+};
 
 export function RolesSettingsForm({
   roles,
@@ -19,6 +26,7 @@ export function RolesSettingsForm({
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -28,14 +36,31 @@ export function RolesSettingsForm({
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
         const selected = ROLES.filter((r) => fd.get(`role-${r}`) === "on");
+        const primaryRole = String(fd.get("primaryRole") || "") as UserRole;
+        setSuccess(false);
+        if (selected.length === 0) {
+          setError("Pick at least one role.");
+          return;
+        }
+        if (!selected.includes(primaryRole)) {
+          setError("Choose a primary role you have turned on.");
+          return;
+        }
         setError(null);
         startTransition(async () => {
-          const res = await updateRolesAction({
-            roles: selected,
-            primaryRole: String(fd.get("primaryRole") || selected[0]) as UserRole,
-          });
-          if (!res.ok) setError(res.error);
-          else router.refresh();
+          try {
+            const res = await updateRolesAction({
+              roles: selected,
+              primaryRole,
+            });
+            if (!res.ok) setError(res.error);
+            else {
+              setSuccess(true);
+              router.refresh();
+            }
+          } catch {
+            setError("Could not update roles. Try again.");
+          }
         });
       }}
     >
@@ -45,7 +70,7 @@ export function RolesSettingsForm({
           {ROLES.map((r) => (
             <label key={r} className="flex items-center gap-2 text-sm">
               <input type="checkbox" name={`role-${r}`} defaultChecked={roles.includes(r)} />
-              {r}
+              {ROLE_LABEL[r]}
             </label>
           ))}
         </div>
@@ -55,12 +80,13 @@ export function RolesSettingsForm({
         <select id="primaryRole" name="primaryRole" defaultValue={primaryRole} className="input-capsule w-full">
           {ROLES.map((r) => (
             <option key={r} value={r}>
-              {r}
+              {ROLE_LABEL[r]}
             </option>
           ))}
         </select>
       </div>
       <FieldError>{error}</FieldError>
+      <FieldSuccess>{success ? "Roles saved." : null}</FieldSuccess>
       <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : "Update roles"}
       </Button>

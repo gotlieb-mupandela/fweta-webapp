@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/session";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { DatabaseStore, InfluencerProfile, Profile, ProfileSocials, RateCardItem } from "@/lib/db/types";
+import { publicCreatorChoices } from "@/lib/public/creators";
 import {
   influencerProfileSchema,
   rateCardSchema,
@@ -104,7 +105,12 @@ export async function upsertInfluencerProfileAction(raw: unknown) {
     return { ok: false as const, error: "Influencer role required." };
   }
   const parsed = influencerProfileSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Invalid profile." };
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Check the profile fields.",
+    };
+  }
 
   const store = await readStore();
   const existing = store.influencerProfiles.find((p) => p.userId === session.id);
@@ -179,7 +185,12 @@ export async function addRateCardAction(raw: unknown) {
     return { ok: false as const, error: "Influencer role required." };
   }
   const parsed = rateCardSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Invalid rate card." };
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Check the rate card fields.",
+    };
+  }
 
   const store = await readStore();
   const profile = store.influencerProfiles.find((p) => p.userId === session.id);
@@ -188,6 +199,18 @@ export async function addRateCardAction(raw: unknown) {
   }
 
   const now = nowIso();
+  const recentDuplicate = store.rateCards.find((rate) => {
+    if (rate.influencerProfileId !== profile.id) return false;
+    if (rate.title !== parsed.data.title || rate.type !== parsed.data.type) return false;
+    if (rate.platform !== parsed.data.platform || rate.priceCents !== parsed.data.priceCents) return false;
+    const age = Date.now() - Date.parse(rate.createdAt);
+    return Number.isFinite(age) && age >= 0 && age < 15_000;
+  });
+  if (recentDuplicate) {
+    revalidatePath("/dashboard/influencer/rate-cards");
+    return { ok: true as const, id: recentDuplicate.id };
+  }
+
   const item: RateCardItem = {
     id: newId(),
     influencerProfileId: profile.id,
@@ -205,7 +228,70 @@ export async function addRateCardAction(raw: unknown) {
     s.rateCards.push(item);
   });
   revalidatePath("/dashboard/influencer/rate-cards");
+  revalidatePath(`/influencers/${profile.slug}`);
   return { ok: true as const, id: item.id };
+}
+
+export async function updateRateCardAction(id: string, raw: unknown) {
+  const session = await requireSession();
+  if (!session.roles.includes("influencer") && !session.roles.includes("admin")) {
+    return { ok: false as const, error: "Influencer role required." };
+  }
+  const parsed = rateCardSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Check the rate card fields.",
+    };
+  }
+  const store = await readStore();
+  const profile = store.influencerProfiles.find((p) => p.userId === session.id);
+  if (!profile) return { ok: false as const, error: "Create your public profile first." };
+  const existing = store.rateCards.find((rate) => rate.id === id && rate.influencerProfileId === profile.id);
+  if (!existing) return { ok: false as const, error: "Rate not found." };
+
+  await updateStore((s) => {
+    const item = s.rateCards.find((rate) => rate.id === id && rate.influencerProfileId === profile.id);
+    if (!item) return;
+    item.title = parsed.data.title;
+    item.description = parsed.data.description ?? "";
+    item.type = parsed.data.type;
+    item.platform = parsed.data.platform;
+    item.priceCents = parsed.data.priceCents;
+    item.active = parsed.data.active ?? item.active;
+    item.updatedAt = nowIso();
+  });
+  revalidatePath("/dashboard/influencer/rate-cards");
+  revalidatePath(`/influencers/${profile.slug}`);
+  return { ok: true as const };
+}
+
+export async function deleteRateCardAction(id: string) {
+  const session = await requireSession();
+  if (!session.roles.includes("influencer") && !session.roles.includes("admin")) {
+    return { ok: false as const, error: "Influencer role required." };
+  }
+  const store = await readStore();
+  const profile = store.influencerProfiles.find((p) => p.userId === session.id);
+  if (!profile) return { ok: false as const, error: "Rate not found." };
+  const existing = store.rateCards.find((rate) => rate.id === id && rate.influencerProfileId === profile.id);
+  if (!existing) return { ok: false as const, error: "Rate not found." };
+  const inUse = store.bookings.some(
+    (booking) => booking.rateCardItemId === id && booking.status !== "cancelled",
+  );
+  if (inUse) {
+    return {
+      ok: false as const,
+      error: "A booking uses this rate, so it cannot be deleted. Edit the price instead.",
+    };
+  }
+
+  await updateStore((s) => {
+    s.rateCards = s.rateCards.filter((rate) => !(rate.id === id && rate.influencerProfileId === profile.id));
+  });
+  revalidatePath("/dashboard/influencer/rate-cards");
+  revalidatePath(`/influencers/${profile.slug}`);
+  return { ok: true as const };
 }
 
 export async function toggleRateCardAction(id: string, active: boolean) {
@@ -238,23 +324,19 @@ export async function listMyRateCards() {
 export async function listPublicInfluencers(filters?: { q?: string; niche?: string }) {
   await ensureDiscoverableCreators();
   const store = await readStore();
-  return store.influencerProfiles
-    .filter((p) => p.published)
-    .filter((p) => (filters?.niche ? p.niche.toLowerCase().includes(filters.niche.toLowerCase()) : true))
+  const niche = filters?.niche?.trim().toLowerCase() ?? "";
+  const q = filters?.q?.trim().toLowerCase() ?? "";
+  return publicCreatorChoices(store.influencerProfiles, store.profiles)
+    .filter((p) => (niche ? p.niche.toLowerCase().includes(niche) : true))
     .filter((p) =>
-      filters?.q
-        ? `${p.displayName} ${p.headline} ${p.niche} ${p.bio}`
-            .toLowerCase()
-            .includes(filters.q.toLowerCase())
-        : true,
-    )
-    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+      q ? `${p.displayName} ${p.headline} ${p.niche} ${p.bio}`.toLowerCase().includes(q) : true,
+    );
 }
 
 export async function getPublicInfluencer(slug: string) {
   await ensureDiscoverableCreators();
   const store = await readStore();
-  const profile = store.influencerProfiles.find((p) => p.slug === slug && p.published);
+  const profile = publicCreatorChoices(store.influencerProfiles, store.profiles).find((p) => p.slug === slug);
   if (!profile) return null;
   const rates = store.rateCards.filter(
     (r) => r.influencerProfileId === profile.id && r.active,

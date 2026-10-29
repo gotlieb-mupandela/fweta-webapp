@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { listActiveCampaignsPublic } from "@/app/actions/campaigns";
 import { listClipperSubmissions } from "@/app/actions/submissions";
 import { SubmitClipForm } from "@/components/forms/submit-clip-form";
 import { PlatformPicker } from "@/components/platforms/platform-picker";
@@ -9,7 +8,15 @@ import { PostingGuide } from "@/components/platforms/posting-guide";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
-import { isSocialPlatform } from "@/lib/platforms/guides";
+import { readStore } from "@/lib/db/store";
+import { PLATFORM_GUIDES } from "@/lib/platforms/guides";
+import {
+  campaignCardExcerpt,
+  campaignTypeLabel,
+  cleanCampaignCardText,
+  filterPublicCampaignList,
+  normalizePlatform,
+} from "@/lib/public/campaigns";
 import { PLATFORM_LABEL } from "@/lib/social/platforms";
 import { formatMoney } from "@/lib/utils";
 
@@ -28,14 +35,14 @@ export default async function ClipperCampaignsPage({
   }
 
   const params = await searchParams;
-  const [campaigns, submissions] = await Promise.all([
-    listActiveCampaignsPublic({
-      platform: params.platform,
-      q: params.q,
-      type: params.type,
-    }),
-    listClipperSubmissions(),
-  ]);
+  const [store, submissions] = await Promise.all([readStore(), listClipperSubmissions()]);
+  const campaigns = filterPublicCampaignList(store.campaigns, {
+    platform: params.platform,
+    q: params.q,
+    type: params.type,
+  });
+  const platform = normalizePlatform(params.platform);
+  const platformLabel = platform ? PLATFORM_GUIDES[platform].label : null;
 
   return (
     <div className="dash-stack">
@@ -44,7 +51,8 @@ export default async function ClipperCampaignsPage({
         description="Join open campaigns and submit your clips."
       />
       <PlatformPicker basePath="/dashboard/clipper/campaigns" params={params} />
-      {isSocialPlatform(params.platform) ? <PostingGuide platforms={[params.platform]} /> : null}
+      {platform ? <PostingGuide platforms={[platform]} /> : null}
+      {platformLabel ? <p className="text-sm text-muted">Showing {platformLabel} campaigns.</p> : null}
 
       {campaigns.length === 0 ? (
         <EmptyState
@@ -62,8 +70,8 @@ export default async function ClipperCampaignsPage({
         <ul className="space-y-3.5">
           {campaigns.map((c) => {
             const remaining = Math.max(0, c.budgetTotalCents - c.budgetSpentCents);
-            const excerpt =
-              c.description.length > 180 ? `${c.description.slice(0, 180)}…` : c.description;
+            const cleaned = campaignCardExcerpt(c);
+            const excerpt = cleaned.length > 180 ? `${cleaned.slice(0, 180)}…` : cleaned;
             const mine = submissions.filter((s) => s.campaignId === c.id);
             return (
               <li key={c.id}>
@@ -73,7 +81,7 @@ export default async function ClipperCampaignsPage({
                       <h3 className="font-display text-xl tracking-tight">{c.title}</h3>
                       <p className="mt-1.5 text-sm leading-relaxed text-muted">{excerpt}</p>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <Badge tone="gold">{c.type}</Badge>
+                        <Badge tone="gold">{campaignTypeLabel(c.type)}</Badge>
                         <Badge>{c.category}</Badge>
                         <Badge tone="muted">CPM {formatMoney(c.cpmCents)}</Badge>
                         <Badge tone="muted">Max {formatMoney(c.maxPayoutPerSubmissionCents)}</Badge>
@@ -83,8 +91,10 @@ export default async function ClipperCampaignsPage({
                         {c.platforms.map((platform) => PLATFORM_LABEL[platform] ?? platform).join(" · ")}
                         {c.endDate ? ` · Ends ${c.endDate.slice(0, 10)}` : ""}
                       </p>
-                      {c.requirements ? (
-                        <p className="mt-2 whitespace-pre-wrap text-xs text-muted">{c.requirements}</p>
+                      {cleanCampaignCardText(c.requirements ?? "") ? (
+                        <p className="mt-2 whitespace-pre-wrap text-xs text-muted">
+                          {cleanCampaignCardText(c.requirements ?? "")}
+                        </p>
                       ) : null}
                       <Link
                         href={`/campaigns/${c.id}`}

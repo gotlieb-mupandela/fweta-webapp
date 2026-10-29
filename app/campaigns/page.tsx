@@ -1,13 +1,21 @@
 import Link from "next/link";
 
-import { listActiveCampaignsPublic } from "@/app/actions/campaigns";
 import { PlatformPicker } from "@/components/platforms/platform-picker";
 import { PostingGuide } from "@/components/platforms/posting-guide";
 import { PublicChrome } from "@/components/public-chrome";
-import { isSocialPlatform } from "@/lib/platforms/guides";
 import { Badge, Card, EmptyState } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { readStore } from "@/lib/db/store";
+import { PLATFORM_GUIDES } from "@/lib/platforms/guides";
+import {
+  campaignCardExcerpt,
+  campaignTypeLabel,
+  filterPublicCampaignList,
+  normalizePlatform,
+} from "@/lib/public/campaigns";
 import { formatMoney } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
 
 export default async function CampaignsPage({
   searchParams,
@@ -15,11 +23,14 @@ export default async function CampaignsPage({
   searchParams: Promise<{ q?: string; type?: string; platform?: string }>;
 }) {
   const params = await searchParams;
-  const campaigns = await listActiveCampaignsPublic({
+  const store = await readStore();
+  const campaigns = filterPublicCampaignList(store.campaigns, {
     q: params.q,
     type: params.type,
     platform: params.platform,
   });
+  const platform = normalizePlatform(params.platform);
+  const platformLabel = platform ? PLATFORM_GUIDES[platform].label : null;
 
   return (
     <PublicChrome
@@ -27,12 +38,12 @@ export default async function CampaignsPage({
       description="Browse content rewards campaigns and start earning."
     >
       <PlatformPicker basePath="/campaigns" params={params} />
-      {isSocialPlatform(params.platform) ? (
+      {platform ? (
         <div className="mt-4">
-          <PostingGuide platforms={[params.platform]} />
+          <PostingGuide platforms={[platform]} />
         </div>
       ) : null}
-      <form className="mt-4 flex flex-wrap gap-3">
+      <form className="mt-4 flex flex-wrap gap-3" action="/campaigns" method="get">
         <input
           name="q"
           defaultValue={params.q}
@@ -44,7 +55,7 @@ export default async function CampaignsPage({
           <option value="clipping">Clipping</option>
           <option value="ugc">UGC</option>
         </select>
-        <select name="platform" defaultValue={params.platform ?? ""} className="input-capsule h-11">
+        <select name="platform" defaultValue={platform ?? ""} className="input-capsule h-11">
           <option value="">All platforms</option>
           <option value="tiktok">TikTok</option>
           <option value="youtube">YouTube</option>
@@ -57,9 +68,20 @@ export default async function CampaignsPage({
         </Button>
       </form>
 
+      {platformLabel ? (
+        <p className="mt-4 text-sm text-muted">Showing {platformLabel} campaigns.</p>
+      ) : null}
+
       <div className="mt-10">
         {campaigns.length === 0 ? (
-          <EmptyState title="No campaigns found" description="Try adjusting your filters." />
+          <EmptyState
+            title="No campaigns found"
+            description={
+              platformLabel
+                ? `Nothing open on ${platformLabel} matches these filters.`
+                : "Try adjusting your filters."
+            }
+          />
         ) : (
           <ul className="grid gap-4 sm:grid-cols-2">
             {campaigns.map((c) => (
@@ -68,10 +90,10 @@ export default async function CampaignsPage({
                   <Card className="h-full transition hover:border-foreground/20 hover:shadow-[var(--shadow-lift)]">
                     <h2 className="font-display text-xl tracking-tight">{c.title}</h2>
                     <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted">
-                      {c.description}
+                      {campaignCardExcerpt(c)}
                     </p>
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <Badge tone="gold">{c.type}</Badge>
+                      <Badge tone="gold">{campaignTypeLabel(c.type)}</Badge>
                       <Badge>{c.category}</Badge>
                       <Badge tone="muted">CPM {formatMoney(c.cpmCents)}</Badge>
                     </div>

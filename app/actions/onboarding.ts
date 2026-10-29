@@ -109,7 +109,8 @@ export async function completeOnboardingAction(raw: unknown) {
 
     profile.firstName = data.firstName;
     profile.lastName = data.lastName;
-    profile.phone = data.phone.replace(/\s+/g, " ").trim();
+    const phone = data.phone.replace(/\s+/g, " ").trim();
+    if (phone) profile.phone = phone;
     profile.displayName = displayName;
     profile.socials = { ...(profile.socials ?? {}), ...socials };
     const pickedPlatform = data.primaryPlatform ?? firstFilledPlatform(socials);

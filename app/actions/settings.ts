@@ -24,7 +24,12 @@ import type { UserRole } from "@/types/enums";
 export async function updateProfileAction(raw: unknown) {
   const session = await requireSession();
   const parsed = profileUpdateSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Invalid profile." };
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: parsed.error.issues[0]?.message ?? "Check the display name and bio.",
+    };
+  }
   await updateStore((s) => {
     const p = s.profiles.find((x) => x.id === session.id);
     if (!p) return;
