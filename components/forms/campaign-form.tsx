@@ -32,6 +32,8 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [intent, setIntent] = useState<"publish" | "draft" | null>(null);
   const [pending, startTransition] = useTransition();
+  // Tomorrow, computed once. A past end date is refused at publish anyway.
+  const [minEndDate] = useState(() => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10));
   const [platforms, setPlatforms] = useState<SocialPlatform[]>(campaign?.platforms ?? []);
 
   function togglePlatform(p: SocialPlatform) {
@@ -191,7 +193,7 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
             id="endDate"
             name="endDate"
             type="date"
-            min={mode === "create" ? new Date(Date.now() + 86_400_000).toISOString().slice(0, 10) : undefined}
+            min={mode === "create" ? minEndDate : undefined}
             defaultValue={campaign?.endDate?.slice(0, 10) ?? ""}
           />
         </div>
