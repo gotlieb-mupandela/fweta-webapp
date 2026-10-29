@@ -35,7 +35,7 @@ export function MobileTopBar({
   const title = getScreenTitle(pathname);
 
   return (
-    <header className="public-header sticky top-0 z-40 md:hidden">
+    <header className="public-header sticky top-0 z-[60] md:hidden">
       <div
         className="flex h-12 items-center gap-2 px-3"
         style={{ paddingTop: "env(safe-area-inset-top)" }}

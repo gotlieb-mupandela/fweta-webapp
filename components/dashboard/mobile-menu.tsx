@@ -46,7 +46,7 @@ export function MobileMenu({
         {open ? <X className="size-5" /> : <Menu className="size-5" />}
       </button>
       {open ? (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div className="fixed inset-0 z-[60] md:hidden">
           <button
             type="button"
             className="absolute inset-0 bg-foreground/40"

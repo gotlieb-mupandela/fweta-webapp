@@ -96,7 +96,7 @@ export function AvatarUpload({
                   return;
                 }
                 replacePreview(res.url);
-                setSuccess("Profile photo saved.");
+                setSuccess(`${label} saved.`);
                 router.refresh();
               });
             }}
@@ -127,7 +127,7 @@ export function AvatarUpload({
                       return;
                     }
                     replacePreview(null);
-                    setSuccess("Profile photo removed.");
+                    setSuccess(`${label} removed.`);
                     router.refresh();
                   });
                 }}
