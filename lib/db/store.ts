@@ -7,16 +7,31 @@ import { getPayoutSecret } from "@/lib/auth/secret";
 import { hydrateStoreCampaigns } from "@/lib/rewards/content-rewards";
 
 import { activeStoreDriver } from "./adapter";
+import {
+  createCoherentCache,
+  forgetCache,
+  readCoherent,
+  rememberCommit,
+  type CoherentCache,
+} from "./read-coherence";
 import type { DatabaseStore } from "./types";
-import { commitStoreToSupabase, loadStoreFromSupabase, StorePersistError } from "./supabase-store";
+import {
+  commitStoreToSupabase,
+  loadStoreFromSupabase,
+  loadStoreRevision,
+  loadVersionedJsonStore,
+  StorePersistError,
+} from "./supabase-store";
 
 /**
  * Store adapter.
  * - Local dev (no Supabase keys, or FWETA_STORE=file): data/store.json
  * - Production (Supabase URL + service role key): Postgres JSON document.
  *   Writes reload that document and compare-and-swap on its revision.
- *   The in-memory copy is a read cache only. It is not the base for a save,
- *   so another instance or a direct SQL edit cannot be overwritten by it.
+ *   Reads reuse a per-process copy only while `fweta_app_store.revision`
+ *   still matches. A save on another serverless instance bumps that revision,
+ *   so the next read loads the new document instead of the copy from when
+ *   this process first started.
  *   Relational tables are optional, and only when FWETA_RELATIONAL_SYNC=true.
  * A failed Supabase load serves an empty view for that request and does not
  * write it back. See lib/db/adapter.ts.
@@ -64,8 +79,17 @@ const emptyStore = (): DatabaseStore => ({
 });
 
 declare global {
-  // Read cache for this process. Writes do not use it as the document they save.
+  // File driver only. The Supabase driver keeps a revision-checked copy in
+  // __fwetaCoherent and does not serve this object.
   var __fwetaStore: DatabaseStore | undefined;
+  var __fwetaCoherent: CoherentCache<DatabaseStore> | undefined;
+}
+
+function supabaseCache(): CoherentCache<DatabaseStore> {
+  if (!globalThis.__fwetaCoherent) {
+    globalThis.__fwetaCoherent = createCoherentCache<DatabaseStore>();
+  }
+  return globalThis.__fwetaCoherent;
 }
 
 let writeQueue: Promise<void> = Promise.resolve();
@@ -123,24 +147,6 @@ async function initStore(): Promise<DatabaseStore> {
     return globalThis.__fwetaStore;
   }
 
-  if (activeStoreDriver() === "supabase") {
-    try {
-      const fromRemote = await loadStoreFromSupabase();
-      if (!fromRemote) {
-        console.warn(
-          "[fweta] Supabase store could not be loaded. Serving an empty view for this request and not writing it back.",
-        );
-        return hydrateStoreCampaigns(emptyStore());
-      }
-      const store = hydrateStoreCampaigns(fromRemote);
-      globalThis.__fwetaStore = store;
-      return store;
-    } catch (err) {
-      console.warn("[fweta] ensureStore supabase failed:", err instanceof Error ? err.message : err);
-      return hydrateStoreCampaigns(emptyStore());
-    }
-  }
-
   const fromDisk = await loadFromDisk();
   const store = hydrateStoreCampaigns(fromDisk ?? emptyStore());
   globalThis.__fwetaStore = store;
@@ -150,7 +156,56 @@ async function initStore(): Promise<DatabaseStore> {
   return store;
 }
 
+async function ensureSupabaseStore(): Promise<DatabaseStore> {
+  // When relational sync is on, the SQL mirror can move without the JSON
+  // revision. Live leaves the flag unset and reads the JSON document.
+  if (process.env.FWETA_RELATIONAL_SYNC === "true") {
+    try {
+      const loaded = await loadStoreFromSupabase();
+      if (!loaded) {
+        console.warn(
+          "[fweta] Supabase store could not be loaded. Serving an empty view for this request and not writing it back.",
+        );
+        return hydrateStoreCampaigns(emptyStore());
+      }
+      return hydrateStoreCampaigns(loaded);
+    } catch (err) {
+      console.warn("[fweta] ensureStore supabase failed:", err instanceof Error ? err.message : err);
+      return hydrateStoreCampaigns(emptyStore());
+    }
+  }
+
+  try {
+    const fresh = await readCoherent(supabaseCache(), {
+      readRevision: loadStoreRevision,
+      load: loadVersionedJsonStore,
+    });
+    if (fresh) return fresh;
+  } catch (err) {
+    console.warn("[fweta] ensureStore supabase failed:", err instanceof Error ? err.message : err);
+  }
+
+  // The revision check failed, or this database has no revision column.
+  // Load once for this request and do not pin the result in memory.
+  try {
+    const loaded = await loadStoreFromSupabase();
+    if (!loaded) {
+      console.warn(
+        "[fweta] Supabase store could not be loaded. Serving an empty view for this request and not writing it back.",
+      );
+      return hydrateStoreCampaigns(emptyStore());
+    }
+    return hydrateStoreCampaigns(loaded);
+  } catch (err) {
+    console.warn("[fweta] ensureStore supabase failed:", err instanceof Error ? err.message : err);
+    return hydrateStoreCampaigns(emptyStore());
+  }
+}
+
 async function ensureStore(): Promise<DatabaseStore> {
+  if (activeStoreDriver() === "supabase") {
+    return ensureSupabaseStore();
+  }
   if (globalThis.__fwetaStore) {
     return globalThis.__fwetaStore;
   }
@@ -178,9 +233,14 @@ export async function updateStore(
       // cache here is what let one instance drop another instance's signup.
       try {
         const saved = await commitStoreToSupabase(mutator);
-        globalThis.__fwetaStore = saved;
+        if (saved.revision === null) {
+          forgetCache(supabaseCache());
+        } else {
+          rememberCommit(supabaseCache(), saved.store, saved.revision);
+        }
       } catch (err) {
         if (err instanceof StorePersistError) {
+          forgetCache(supabaseCache());
           globalThis.__fwetaStore = undefined;
         }
         throw err;

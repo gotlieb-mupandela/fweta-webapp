@@ -2,11 +2,13 @@ import { createClient } from "@supabase/supabase-js";
 
 import { hydrateStoreCampaigns } from "@/lib/rewards/content-rewards";
 
+import { fwetaSupabaseFetch } from "./supabase-fetch";
 import {
   commitLoadedMutation,
   parseStoreRevision,
   StoreConflictError,
   type CasResult,
+  type CommitOutcome,
 } from "./store-commit";
 import type { DatabaseStore } from "./types";
 
@@ -85,6 +87,7 @@ function createServiceClient() {
   const key = supabaseServiceKey()!;
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: { fetch: fwetaSupabaseFetch },
   });
 }
 
@@ -165,6 +168,30 @@ async function loadJsonBlob(): Promise<LoadResult> {
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "JSON blob load failed" };
   }
+}
+
+/** Revision only. A mismatch means another instance wrote the document. */
+export async function loadStoreRevision(): Promise<number | null> {
+  if (!isSupabaseStoreEnabled()) return null;
+  try {
+    const supabase = createServiceClient();
+    const { data, error } = await supabase
+      .from("fweta_app_store")
+      .select("revision")
+      .eq("id", STORE_ROW_ID)
+      .maybeSingle();
+    if (error || !data) return null;
+    return parseStoreRevision(data.revision);
+  } catch {
+    return null;
+  }
+}
+
+/** JSON document plus revision. Null when the row is missing a revision or the read failed. */
+export async function loadVersionedJsonStore(): Promise<{ value: DatabaseStore; revision: number } | null> {
+  const loaded = await loadJsonBlob();
+  if (!loaded.ok || !loaded.versioned || loaded.revision === null) return null;
+  return { value: loaded.store, revision: loaded.revision };
 }
 
 async function compareAndSwap(store: DatabaseStore, expectedRevision: number | null): Promise<CasResult> {
@@ -390,10 +417,10 @@ export async function diagnoseSupabaseStore(options?: {
  */
 export async function commitStoreToSupabase(
   mutator: (store: DatabaseStore) => void | Promise<void>,
-): Promise<DatabaseStore> {
-  let saved: DatabaseStore;
+): Promise<{ store: DatabaseStore; revision: number | null; wrote: boolean }> {
+  let outcome: CommitOutcome<DatabaseStore>;
   try {
-    saved = await commitLoadedMutation({
+    outcome = await commitLoadedMutation({
       load: async () => {
         const loaded = await loadJsonBlob();
         if (!loaded.ok) throw new StorePersistError(loaded.error);
@@ -424,8 +451,8 @@ export async function commitStoreToSupabase(
 
   // JSON is the source of truth. The relational replace stays opt-in and only
   // mirrors a document that compare-and-swap already accepted.
-  if (process.env.FWETA_RELATIONAL_SYNC === "true") {
-    await saveRelationalStore(saved);
+  if (outcome.wrote && process.env.FWETA_RELATIONAL_SYNC === "true") {
+    await saveRelationalStore(outcome.value);
   }
-  return saved;
+  return { store: outcome.value, revision: outcome.revision, wrote: outcome.wrote };
 }

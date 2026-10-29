@@ -39,6 +39,21 @@ export function parseStoreRevision(value: unknown): number | null {
 
 const DEFAULT_ATTEMPTS = 8;
 
+export type CommitOutcome<T> = {
+  value: T;
+  /** Null only when the row still does not exist and nothing was written. */
+  revision: number | null;
+  wrote: boolean;
+};
+
+function jsonSnapshot(value: unknown): string | null {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return null;
+  }
+}
+
 export async function commitLoadedMutation<T>(args: {
   load: () => Promise<LoadedDocument<T>>;
   save: (store: T, expectedRevision: number | null) => Promise<CasResult>;
@@ -46,15 +61,22 @@ export async function commitLoadedMutation<T>(args: {
   clone: (store: T) => T;
   beforeSave?: (draft: T, base: T) => void;
   maxAttempts?: number;
-}): Promise<T> {
+}): Promise<CommitOutcome<T>> {
   const maxAttempts = args.maxAttempts ?? DEFAULT_ATTEMPTS;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const loaded = await args.load();
     const draft = args.clone(loaded.store);
+    // A repair that rechecks on the fresh document often changes nothing.
+    // Writing the whole JSON anyway bumps traffic and collides with real saves.
+    const before = jsonSnapshot(draft);
     await args.mutate(draft);
     args.beforeSave?.(draft, loaded.store);
+    const after = jsonSnapshot(draft);
+    if (before !== null && before === after) {
+      return { value: draft, revision: loaded.revision, wrote: false };
+    }
     const saved = await args.save(draft, loaded.revision);
-    if (saved.ok) return draft;
+    if (saved.ok) return { value: draft, revision: saved.revision, wrote: true };
   }
   throw new StoreConflictError();
 }
