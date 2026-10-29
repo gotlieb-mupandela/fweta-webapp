@@ -6,6 +6,7 @@ import { PublicChrome } from "@/components/public-chrome";
 import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { Badge, Card, EmptyState } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { cleanDisplayName } from "@/lib/text/display-name";
 import type { SocialPlatform } from "@/types/enums";
 
 export default async function InfluencersPage({
@@ -24,7 +25,7 @@ export default async function InfluencersPage({
       title="Influencers"
       description="Browse creator profiles and book at listed rates."
     >
-      <form className="flex flex-wrap gap-3" role="search">
+      <form className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-[minmax(0,1fr)_10rem_auto] min-[400px]:items-center" role="search">
         <label className="sr-only" htmlFor="influencer-q">
           Search influencers
         </label>
@@ -33,7 +34,7 @@ export default async function InfluencersPage({
           name="q"
           defaultValue={params.q}
           placeholder="Search…"
-          className="input-capsule h-11 min-w-[200px] flex-1"
+          className="input-capsule h-11 w-full min-w-0"
         />
         <label className="sr-only" htmlFor="influencer-niche">
           Niche
@@ -43,9 +44,9 @@ export default async function InfluencersPage({
           name="niche"
           defaultValue={params.niche}
           placeholder="Niche"
-          className="input-capsule h-11 w-40"
+          className="input-capsule h-11 w-full min-w-0"
         />
-        <Button type="submit" size="sm">
+        <Button type="submit" size="sm" className="w-fit">
           Search
         </Button>
       </form>
@@ -54,16 +55,18 @@ export default async function InfluencersPage({
         {influencers.length === 0 ? (
           <EmptyState title="No influencers found" description="Try a different search." />
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {influencers.map((p) => (
-              <li key={p.id}>
-                <Link href={`/influencers/${p.slug}`} className="block h-full">
-                  <Card className="h-full transition hover:border-foreground/20 hover:shadow-[var(--shadow-lift)]">
-                    <div className="flex items-start gap-3">
-                      <AvatarCircle src={p.avatarUrl} name={p.displayName} />
+          <ul className="creator-grid creator-grid-3">
+            {influencers.map((p) => {
+              const name = cleanDisplayName(p.displayName) || "Creator";
+              return (
+              <li key={p.id} className="min-w-0">
+                <Link href={`/influencers/${p.slug}`} className="block h-full min-w-0">
+                  <Card className="h-full min-w-0 overflow-hidden transition hover:border-foreground/20 hover:shadow-[var(--shadow-lift)]">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <AvatarCircle src={p.avatarUrl} name={name} />
                       <div className="min-w-0">
-                        <h2 className="font-display text-xl tracking-tight">{p.displayName}</h2>
-                        <p className="mt-1 text-sm leading-relaxed text-muted">{p.headline}</p>
+                        <h2 className="wrap-anywhere font-display text-xl tracking-tight">{name}</h2>
+                        <p className="mt-1 wrap-anywhere text-sm leading-relaxed text-muted">{p.headline}</p>
                       </div>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -78,7 +81,8 @@ export default async function InfluencersPage({
                   </Card>
                 </Link>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>

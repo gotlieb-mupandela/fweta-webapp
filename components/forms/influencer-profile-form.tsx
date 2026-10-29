@@ -8,12 +8,13 @@ import { AvatarUpload } from "@/components/forms/avatar-upload";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
 import type { InfluencerProfile } from "@/lib/db/types";
+import { cleanDisplayName } from "@/lib/text/display-name";
 
 export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile | null }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const displayName = profile?.displayName ?? "Creator";
+  const displayName = cleanDisplayName(profile?.displayName ?? "") || "Creator";
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -28,10 +29,17 @@ export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile 
         onSubmit={(e) => {
           e.preventDefault();
           const fd = new FormData(e.currentTarget);
+          const nameInput = e.currentTarget.elements.namedItem("displayName");
+          const displayNameValue = cleanDisplayName(String(fd.get("displayName") || ""));
+          if (nameInput instanceof HTMLInputElement) nameInput.value = displayNameValue;
           setError(null);
+          if (displayNameValue.length < 2) {
+            setError("Enter a display name without HTML tags.");
+            return;
+          }
           startTransition(async () => {
             const res = await upsertInfluencerProfileAction({
-              displayName: String(fd.get("displayName") || ""),
+              displayName: displayNameValue,
               headline: String(fd.get("headline") || ""),
               bio: String(fd.get("bio") || ""),
               niche: String(fd.get("niche") || ""),
@@ -52,7 +60,7 @@ export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile 
       >
         <div>
           <Label htmlFor="displayName">Display name</Label>
-          <Input id="displayName" name="displayName" required defaultValue={profile?.displayName} />
+          <Input id="displayName" name="displayName" required maxLength={80} defaultValue={displayName} />
         </div>
         <div>
           <Label htmlFor="headline">Headline</Label>

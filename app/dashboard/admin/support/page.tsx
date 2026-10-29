@@ -4,6 +4,7 @@ import { TicketReplyForm } from "@/components/forms/support-forms";
 import { Badge, EmptyState, PageHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+import { formatSupportTimestamp, SUPPORT_TIME_ZONE_LABEL } from "@/lib/format/time";
 
 export default async function AdminSupportPage() {
   const session = await getSession();
@@ -13,7 +14,10 @@ export default async function AdminSupportPage() {
 
   return (
     <div className="dash-stack">
-      <PageHeader title="Support queue" description="Reply in the app. Closing a ticket keeps the thread." />
+      <PageHeader
+        title="Support queue"
+        description={`Reply in the app. Closing a ticket keeps the thread. Times are ${SUPPORT_TIME_ZONE_LABEL}.`}
+      />
       {tickets.length === 0 ? (
         <EmptyState title="No tickets" description="Creator and brand messages will land here." />
       ) : (
@@ -33,7 +37,8 @@ export default async function AdminSupportPage() {
                 <ul className="space-y-2">
                   {messages.map((message) => (
                     <li key={message.id} className="text-sm">
-                      <p className="whitespace-pre-wrap">{message.body}</p>
+                      <p className="text-xs text-muted">{formatSupportTimestamp(message.createdAt)}</p>
+                      <p className="mt-1 whitespace-pre-wrap wrap-anywhere">{message.body}</p>
                     </li>
                   ))}
                 </ul>

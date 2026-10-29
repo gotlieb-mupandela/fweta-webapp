@@ -23,7 +23,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium tracking-wide",
+        "inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-medium tracking-wide wrap-anywhere",
         tone === "neutral" && "bg-surface-2 text-foreground",
         tone === "gold" && "bg-gold-soft text-foreground",
         tone === "success" && "bg-success-soft text-success",
@@ -77,16 +77,18 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-5 flex flex-col gap-3.5 sm:mb-7 sm:flex-row sm:items-end sm:justify-between md:mb-8">
-      <div className="space-y-1.5">
+    <div className="mb-5 flex min-w-0 flex-col gap-3.5 sm:mb-7 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between md:mb-8">
+      <div className="min-w-0 flex-1 space-y-1.5 max-lg:basis-full">
         <p className="sr-only">{title}</p>
         {description ? (
-          <p className="max-w-2xl text-[13px] leading-relaxed text-muted md:text-sm md:text-[15px]">
+          <p className="max-w-2xl text-[13px] leading-relaxed text-muted md:text-sm md:text-[15px] wrap-anywhere">
             {description}
           </p>
         ) : null}
       </div>
-      {action ? <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div> : null}
+      {action ? (
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 max-lg:basis-full">{action}</div>
+      ) : null}
     </div>
   );
 }

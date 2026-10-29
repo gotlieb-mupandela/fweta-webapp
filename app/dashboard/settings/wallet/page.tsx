@@ -12,12 +12,17 @@ export default async function SettingsWalletPage() {
   if (!session) redirect("/login");
 
   const wallet = await getMyWallet();
+  const creatorPayout = session.primaryRole === "clipper" || session.primaryRole === "influencer";
 
   return (
     <div className="dash-stack">
       <PageHeader
         title="Wallet"
-        description="Available can be withdrawn by Namibian EFT. Pending is money set aside until a hold ends. Bank payouts are marked paid by an admin."
+        description={
+          creatorPayout
+            ? "Available can be withdrawn by Namibian EFT. Pending is money set aside until a hold ends. Bank payouts are marked paid by an admin."
+            : "Available balance pays for campaigns and bookings. Pending is money set aside until a hold ends."
+        }
       />
 
       <StatGrid>
@@ -26,14 +31,22 @@ export default async function SettingsWalletPage() {
       </StatGrid>
 
       <div className="flex flex-wrap gap-2">
-        <Link href="/dashboard/settings/payout">
-          <Button size="sm" variant="secondary">
-            Manage payout method
-          </Button>
-        </Link>
-        <Link href="/dashboard/settings/withdraw">
-          <Button size="sm">Request a payout</Button>
-        </Link>
+        {creatorPayout ? (
+          <>
+            <Link href="/dashboard/settings/payout">
+              <Button size="sm" variant="secondary">
+                Manage payout method
+              </Button>
+            </Link>
+            <Link href="/dashboard/settings/withdraw">
+              <Button size="sm">Request a payout</Button>
+            </Link>
+          </>
+        ) : (
+          <Link href="/dashboard/brand/deposits">
+            <Button size="sm">Record a deposit</Button>
+          </Link>
+        )}
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ import { RoleSwitcher } from "@/components/dashboard/role-switcher";
 import { WorkspaceSwitcher, type WorkspaceOption } from "@/components/onboarding/workspace-switcher";
 import { Button } from "@/components/ui/button";
 import { ROLE_NAV, findActiveNav, navItemsFor, type NavItem } from "@/lib/dashboard/nav";
+import { cleanDisplayName } from "@/lib/text/display-name";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/enums";
 
@@ -52,6 +53,7 @@ export function DashboardSidebar({
   const pathname = usePathname();
   const config = ROLE_NAV[role] ?? ROLE_NAV.clipper;
   const active = findActiveNav(pathname, navItemsFor(role));
+  const safeName = cleanDisplayName(displayName) || "Account";
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col overflow-hidden border-r border-border bg-white md:flex">
@@ -81,7 +83,9 @@ export function DashboardSidebar({
       </nav>
 
       <div className="border-t border-border p-4">
-        <p className="truncate px-1 text-sm font-medium text-foreground">{displayName}</p>
+        <p className="block max-w-full truncate px-1 text-sm font-medium text-foreground" title={safeName}>
+          {safeName}
+        </p>
         <form action={logoutAction} className="mt-2">
           <Button type="submit" variant="ghost" size="sm" className="w-full justify-start gap-2">
             <LogOut className="size-3.5" aria-hidden />

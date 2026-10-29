@@ -7,6 +7,7 @@ import { useRef, useState, useTransition } from "react";
 import { uploadAvatarAction } from "@/app/actions/avatar";
 import { Button } from "@/components/ui/button";
 import { FieldError, Label } from "@/components/ui/input";
+import { cleanDisplayName } from "@/lib/text/display-name";
 
 export function AvatarUpload({
   avatarUrl,
@@ -23,7 +24,8 @@ export function AvatarUpload({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const initials = displayName
+  const safeName = cleanDisplayName(displayName) || "Creator";
+  const initials = safeName
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
@@ -38,7 +40,7 @@ export function AvatarUpload({
           {preview ? (
             <Image
               src={preview}
-              alt={displayName}
+              alt={safeName}
               fill
               className="object-cover"
               sizes="80px"
@@ -58,22 +60,33 @@ export function AvatarUpload({
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
+              e.target.value = "";
               if (!file) return;
               setError(null);
-              const local = URL.createObjectURL(file);
-              setPreview(local);
+              const allowed = new Set(["image/jpeg", "image/png", "image/webp"]);
+              const extOk = /\.(jpe?g|png|webp)$/i.test(file.name);
+              if (!allowed.has(file.type) && !extOk) {
+                setError("Use a JPEG, PNG, or WebP image.");
+                setPreview(avatarUrl);
+                return;
+              }
               const fd = new FormData();
               fd.set("file", file);
               fd.set("kind", kind);
               startTransition(async () => {
-                const res = await uploadAvatarAction(fd);
-                if (!res.ok) {
-                  setError(res.error);
+                try {
+                  const res = await uploadAvatarAction(fd);
+                  if (!res.ok) {
+                    setError(res.error || "Upload failed.");
+                    setPreview(avatarUrl);
+                    return;
+                  }
+                  setPreview(res.url);
+                  router.refresh();
+                } catch (err) {
+                  setError(err instanceof Error && err.message ? err.message : "Upload failed.");
                   setPreview(avatarUrl);
-                  return;
                 }
-                setPreview(res.url);
-                router.refresh();
               });
             }}
           />

@@ -6,6 +6,7 @@ import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
+import { cleanDisplayName } from "@/lib/text/display-name";
 
 export default async function BrandCreatorsPage({
   searchParams,
@@ -30,20 +31,22 @@ export default async function BrandCreatorsPage({
         description="Influencers and clippers who finished setup. Open a profile to view rates and request a booking."
       />
 
-      <form className="flex flex-wrap gap-3">
+      <form className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-[minmax(0,1fr)_10rem_auto] min-[400px]:items-center">
         <input
           name="q"
           defaultValue={params.q}
           placeholder="Search name or niche"
-          className="input-capsule h-11 min-w-[200px] flex-1"
+          aria-label="Search name or niche"
+          className="input-capsule h-11 w-full min-w-0"
         />
         <input
           name="niche"
           defaultValue={params.niche}
           placeholder="Niche"
-          className="input-capsule h-11 w-40"
+          aria-label="Niche"
+          className="input-capsule h-11 w-full min-w-0"
         />
-        <Button type="submit" size="sm">
+        <Button type="submit" size="sm" className="w-fit">
           Search
         </Button>
       </form>
@@ -54,16 +57,18 @@ export default async function BrandCreatorsPage({
           description="Creators appear here after they finish onboarding. Try a broader search."
         />
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2">
-          {creators.map((creator) => (
-            <li key={creator.id}>
-              <Link href={`/influencers/${creator.slug}`} className="block h-full">
-                <Card className="h-full transition hover:border-foreground/20">
-                  <div className="flex items-start gap-3">
-                    <AvatarCircle src={creator.avatarUrl} name={creator.displayName} />
+        <ul className="creator-grid creator-grid-2">
+          {creators.map((creator) => {
+            const name = cleanDisplayName(creator.displayName) || "Creator";
+            return (
+            <li key={creator.id} className="min-w-0">
+              <Link href={`/influencers/${creator.slug}`} className="block h-full min-w-0">
+                <Card className="h-full min-w-0 overflow-hidden transition hover:border-foreground/20">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <AvatarCircle src={creator.avatarUrl} name={name} />
                     <div className="min-w-0">
-                      <h2 className="font-display text-xl tracking-tight">{creator.displayName}</h2>
-                      <p className="mt-1 text-sm leading-relaxed text-muted">{creator.headline}</p>
+                      <h2 className="wrap-anywhere font-display text-xl tracking-tight">{name}</h2>
+                      <p className="mt-1 wrap-anywhere text-sm leading-relaxed text-muted">{creator.headline}</p>
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -73,7 +78,8 @@ export default async function BrandCreatorsPage({
                 </Card>
               </Link>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>

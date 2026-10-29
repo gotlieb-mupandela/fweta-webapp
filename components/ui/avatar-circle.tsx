@@ -1,3 +1,5 @@
+import { cleanDisplayName } from "@/lib/text/display-name";
+
 function initialsFromName(name: string): string {
   return name
     .split(/\s+/)
@@ -16,6 +18,7 @@ export function AvatarCircle({
   name: string;
   size?: "sm" | "md" | "lg" | "xl";
 }) {
+  const safeName = cleanDisplayName(name) || "Creator";
   const dim =
     size === "xl" ? "size-28 md:size-32" : size === "lg" ? "size-24" : size === "sm" ? "size-10" : "size-14";
   const text =
@@ -26,7 +29,7 @@ export function AvatarCircle({
       // eslint-disable-next-line @next/next/no-img-element -- remote Supabase URLs; avoid layout shift config deps
       <img
         src={src}
-        alt={name}
+        alt={safeName}
         className={`${dim} shrink-0 rounded-full border border-border object-cover`}
       />
     );
@@ -37,7 +40,7 @@ export function AvatarCircle({
       className={`flex ${dim} shrink-0 items-center justify-center rounded-full border border-border bg-surface-2 font-display ${text} text-muted`}
       aria-hidden
     >
-      {initialsFromName(name) || "?"}
+      {initialsFromName(safeName) || "?"}
     </span>
   );
 }
