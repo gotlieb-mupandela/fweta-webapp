@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { bookingKind } from "@/lib/bookings/kind";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+import { isPublicInfluencerSlug } from "@/lib/influencers/public";
 import { formatMoney } from "@/lib/utils";
 
 export default async function InfluencerBookingsPage() {
@@ -24,6 +25,7 @@ export default async function InfluencerBookingsPage() {
     getMyInfluencerProfile(),
   ]);
   const profileReady = Boolean(influencer?.published && influencer.headline && influencer.bio);
+  const isPublic = await isPublicInfluencerSlug(influencer?.slug);
 
   return (
     <div className="dash-stack">
@@ -45,11 +47,13 @@ export default async function InfluencerBookingsPage() {
             title="No bookings yet"
             description="When a brand requests you from your public profile, it shows up here."
             action={
-              <Link href={`/influencers/${influencer!.slug}`}>
-                <Button size="sm" variant="secondary">
-                  View public profile
-                </Button>
-              </Link>
+              isPublic ? (
+                <Link href={`/influencers/${influencer!.slug}`}>
+                  <Button size="sm" variant="secondary">
+                    View public profile
+                  </Button>
+                </Link>
+              ) : undefined
             }
           />
         ) : (

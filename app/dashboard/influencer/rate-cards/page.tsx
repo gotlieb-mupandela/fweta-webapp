@@ -7,6 +7,7 @@ import { RateCardList } from "@/components/forms/rate-card-list";
 import { Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
+import { isPublicInfluencerSlug } from "@/lib/influencers/public";
 
 export default async function RateCardsPage() {
   const session = await getSession();
@@ -15,6 +16,8 @@ export default async function RateCardsPage() {
   }
 
   const [rates, profile] = await Promise.all([listMyRateCards(), getMyInfluencerProfile()]);
+  // Only link to the public page when it is live, otherwise the button opens a 404.
+  const isPublic = await isPublicInfluencerSlug(profile?.slug);
 
   return (
     <div className="dash-stack">
@@ -22,7 +25,7 @@ export default async function RateCardsPage() {
         title="Rate card"
         description="Set your pricing for brand bookings."
         action={
-          profile ? (
+          profile && isPublic ? (
             <Link href={`/influencers/${profile.slug}`} target="_blank">
               <Button size="sm" variant="secondary">
                 View public profile

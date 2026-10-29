@@ -20,3 +20,9 @@ export async function getPublicInfluencer(slug: string) {
   const rates = store.rateCards.filter((item) => item.influencerProfileId === profile.id && item.active);
   return { profile, rates };
 }
+
+/** True when /influencers/[slug] would render (not a 404) for this profile. */
+export async function isPublicInfluencerSlug(slug: string | undefined | null): Promise<boolean> {
+  if (!slug) return false;
+  return (await getPublicInfluencer(slug)) !== null;
+}
