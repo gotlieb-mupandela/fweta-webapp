@@ -7,6 +7,7 @@ import { uploadKycDocumentAction } from "@/app/actions/growth";
 import { saveKycAction } from "@/app/actions/wallet";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
+import { ID_PHOTO_MAX_BYTES, isAllowedImageType, uploadLimitMessage } from "@/lib/uploads/limits";
 
 export function KycForm() {
   const router = useRouter();
@@ -21,6 +22,19 @@ export function KycForm() {
         const fd = new FormData(e.currentTarget);
         setError(null);
         const file = fd.get("idDocument");
+        if (!(file instanceof File) || file.size === 0) {
+          setError("Upload a photo of your ID.");
+          return;
+        }
+        const tooBig = uploadLimitMessage(file, ID_PHOTO_MAX_BYTES, "ID photo");
+        if (tooBig) {
+          setError(tooBig);
+          return;
+        }
+        if (!isAllowedImageType(file.type)) {
+          setError("Use a PNG, JPG, or WebP photo of the ID.");
+          return;
+        }
         startTransition(async () => {
           const res = await saveKycAction({
             legalName: String(fd.get("legalName") || ""),
@@ -29,10 +43,6 @@ export function KycForm() {
           });
           if (!res.ok) {
             setError(res.error);
-            return;
-          }
-          if (!(file instanceof File) || file.size === 0) {
-            setError("Upload a photo of your ID.");
             return;
           }
           const uploadData = new FormData();
@@ -59,7 +69,7 @@ export function KycForm() {
       <div>
         <Label htmlFor="idDocument">ID photo</Label>
         <Input id="idDocument" name="idDocument" type="file" accept="image/png,image/jpeg,image/webp" required />
-        <p className="mt-1 text-xs text-muted">PNG, JPG, or WebP. An admin reviews it before the first payout.</p>
+        <p className="mt-1 text-xs text-muted">PNG, JPG, or WebP. 4 MB or smaller. An admin reviews it before the first payout.</p>
       </div>
       <FieldError>{error}</FieldError>
       <Button type="submit" disabled={pending}>

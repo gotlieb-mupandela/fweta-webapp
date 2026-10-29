@@ -21,7 +21,8 @@ export function NewTicketForm() {
       className="max-w-xl space-y-3"
       onSubmit={(event) => {
         event.preventDefault();
-        const data = new FormData(event.currentTarget);
+        const form = event.currentTarget;
+        const data = new FormData(form);
         setError(null);
         startTransition(async () => {
           const res = await createSupportTicketAction({
@@ -30,7 +31,7 @@ export function NewTicketForm() {
           });
           if (!res.ok) setError(res.error);
           else {
-            event.currentTarget.reset();
+            form.reset();
             router.refresh();
           }
         });
@@ -62,13 +63,14 @@ export function TicketReplyForm({ ticketId, admin = false }: { ticketId: string;
       className="space-y-2"
       onSubmit={(event) => {
         event.preventDefault();
-        const data = new FormData(event.currentTarget);
+        const form = event.currentTarget;
+        const data = new FormData(form);
         setError(null);
         startTransition(async () => {
           const res = await replySupportTicketAction(ticketId, { body: String(data.get("reply") || "") });
           if (!res.ok) setError(res.error);
           else {
-            event.currentTarget.reset();
+            form.reset();
             router.refresh();
           }
         });

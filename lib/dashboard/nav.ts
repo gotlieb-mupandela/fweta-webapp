@@ -427,6 +427,13 @@ export const ROLE_NAV: Record<UserRole, RoleNavConfig> = {
       {
         label: "Account",
         items: [
+          {
+            href: "/dashboard/settings/profile",
+            label: "Profile",
+            shortLabel: "Profile",
+            icon: BadgeCheck,
+            match: "exact",
+          },
           notificationsItem,
           {
             href: "/dashboard/support",

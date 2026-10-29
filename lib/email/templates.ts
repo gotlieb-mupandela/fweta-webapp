@@ -553,3 +553,22 @@ export function previewWelcomeProfile(
     primaryRole: "influencer",
   };
 }
+
+export function passwordResetEmail(input: { resetUrl: string; links: PreferenceLinks }): EmailDocument {
+  return {
+    subject: "Reset your fweta password",
+    preheader: "This link expires in 30 minutes.",
+    eyebrow: "Password reset",
+    headline: "Choose a new password.",
+    kicker: "The link works once.",
+    paragraphs: [
+      "We received a request to reset the password for your fweta account.",
+      "The link expires in 30 minutes and works one time. If you did not ask for this, you can ignore the email.",
+    ],
+    actions: [{ label: "Reset password", href: input.resetUrl }],
+    footnote: "fweta will never ask you to send a password by email.",
+    preferencesHref: input.links.preferencesHref,
+    unsubscribeHref: input.links.unsubscribeHref,
+    unsubscribeLabel: unsubscribeLabel("email"),
+  };
+}

@@ -233,7 +233,7 @@ export async function uploadKycDocumentAction(formData: FormData) {
   }
   let documentPath: string;
   try {
-    documentPath = await saveKycDocument(file);
+    documentPath = await saveKycDocument(session.id, file);
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : "Could not store the photo." };
   }

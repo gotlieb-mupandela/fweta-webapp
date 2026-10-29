@@ -21,15 +21,19 @@ export function PasswordChangeForm() {
         setError(null);
         setSuccess(false);
         startTransition(async () => {
-          const res = await changePasswordAction({
-            currentPassword: String(fd.get("currentPassword") || ""),
-            newPassword: String(fd.get("newPassword") || ""),
-            confirmPassword: String(fd.get("confirmPassword") || ""),
-          });
-          if (!res.ok) setError(res.error);
-          else {
-            setSuccess(true);
-            form.reset();
+          try {
+            const res = await changePasswordAction({
+              currentPassword: String(fd.get("currentPassword") || ""),
+              newPassword: String(fd.get("newPassword") || ""),
+              confirmPassword: String(fd.get("confirmPassword") || ""),
+            });
+            if (!res.ok) setError(res.error);
+            else {
+              setSuccess(true);
+              form.reset();
+            }
+          } catch {
+            setError("Could not update the password. Sign in and try again.");
           }
         });
       }}

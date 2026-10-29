@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import {
   getProfileById,
+  getSession,
   refreshSessionFromProfile,
   requireSession,
 } from "@/lib/auth/session";
@@ -80,38 +81,59 @@ export async function updateNotificationsAction(raw: unknown) {
 }
 
 export async function changePasswordAction(raw: unknown) {
-  const session = await requireSession();
-  const parsed = passwordChangeSchema.safeParse(raw);
-  if (!parsed.success) {
-    return {
-      ok: false as const,
-      error: parsed.error.issues[0]?.message ?? "Check password fields.",
-    };
+  // A stale credential version used to throw Unauthorized and the dashboard
+  // error page. The current password is the check, then the cookie is replaced.
+  try {
+    const session = await getSession();
+    if (!session) return { ok: false as const, error: "Sign in again, then change your password." };
+    const parsed = passwordChangeSchema.safeParse(raw);
+    if (!parsed.success) {
+      return {
+        ok: false as const,
+        error: parsed.error.issues[0]?.message ?? "Check password fields.",
+      };
+    }
+    const limited = rateLimit(`password:${await clientIp()}:${session.id}`, 5, 15 * 60 * 1000);
+    if (!limited.ok) {
+      return { ok: false as const, error: `Too many attempts. Try again in ${limited.retryAfterSec}s.` };
+    }
+    const profile = await getProfileById(session.id);
+    if (!profile) return { ok: false as const, error: "Sign in again, then change your password." };
+    if (profile.suspended) return { ok: false as const, error: "Account suspended." };
+    const matches = await bcrypt.compare(parsed.data.currentPassword, profile.passwordHash);
+    if (!matches) return { ok: false as const, error: "Current password incorrect." };
+    const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+    let nextVersion: number | null = null;
+    try {
+      await updateStore((s) => {
+        nextVersion = null;
+        const p = s.profiles.find((x) => x.id === session.id);
+        if (!p) return;
+        p.passwordHash = passwordHash;
+        p.credentialVersion = (p.credentialVersion ?? 0) + 1;
+        nextVersion = p.credentialVersion;
+        p.updatedAt = nowIso();
+      });
+    } catch {
+      return { ok: false as const, error: "Could not update the password. Try again." };
+    }
+    if (nextVersion === null) return { ok: false as const, error: "Could not update the password." };
+    try {
+      await refreshSessionFromProfile({
+        ...profile,
+        passwordHash,
+        credentialVersion: nextVersion,
+      });
+    } catch {
+      return {
+        ok: false as const,
+        error: "Password updated. Sign in again with the new password.",
+      };
+    }
+    return { ok: true as const };
+  } catch {
+    return { ok: false as const, error: "Could not update the password. Sign in and try again." };
   }
-  const limited = rateLimit(`password:${await clientIp()}:${session.id}`, 5, 15 * 60 * 1000);
-  if (!limited.ok) {
-    return { ok: false as const, error: `Too many attempts. Try again in ${limited.retryAfterSec}s.` };
-  }
-  const profile = await getProfileById(session.id);
-  if (!profile) return { ok: false as const, error: "Not found." };
-  const ok = await bcrypt.compare(parsed.data.currentPassword, profile.passwordHash);
-  if (!ok) return { ok: false as const, error: "Current password incorrect." };
-  const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
-  let nextVersion = (profile.credentialVersion ?? 0) + 1;
-  await updateStore((s) => {
-    const p = s.profiles.find((x) => x.id === session.id);
-    if (!p) return;
-    p.passwordHash = passwordHash;
-    p.credentialVersion = (p.credentialVersion ?? 0) + 1;
-    nextVersion = p.credentialVersion;
-    p.updatedAt = nowIso();
-  });
-  const updated = await getProfileById(session.id);
-  if (updated) {
-    updated.credentialVersion = nextVersion;
-    await refreshSessionFromProfile(updated);
-  }
-  return { ok: true as const };
 }
 
 export async function adminListUsers() {

@@ -54,6 +54,7 @@ export default async function DashboardLayout({
       role={role}
       roles={session.roles.length ? session.roles : [role]}
       displayName={session.displayName}
+      avatarUrl={profile?.avatarUrl ?? null}
       unreadCount={unreadCount}
       workspaces={workspaces}
       activeWorkspaceId={profile?.activeWorkspaceId ?? null}

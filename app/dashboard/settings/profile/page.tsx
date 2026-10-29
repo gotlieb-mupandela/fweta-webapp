@@ -13,11 +13,12 @@ export default async function SettingsProfilePage() {
 
   return (
     <div className="dash-stack">
-      <PageHeader title="Profile" description="Update your display name and bio." />
+      <PageHeader title="Profile" description="Update your photo, display name, and bio." />
       <ProfileSettingsForm
         displayName={profile.displayName}
         bio={profile.bio}
         avatarUrl={profile.avatarUrl}
+        photoLabel={profile.primaryRole === "brand" ? "Business logo" : "Profile photo"}
       />
     </div>
   );

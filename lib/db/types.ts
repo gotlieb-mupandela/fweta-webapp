@@ -130,7 +130,7 @@ export type Profile = {
     idNumberEnc: string;
     country: string;
     submittedAt: string;
-    /** Filename in data/kyc. Never a public URL. */
+    /** File name in the private kyc-documents bucket. Never a public URL. */
     documentPath?: string | null;
     status?: "pending" | "verified" | "rejected";
     reviewedAt?: string | null;
@@ -138,6 +138,11 @@ export type Profile = {
   } | null;
   /** Bumped on password change so older session cookies stop working. */
   credentialVersion?: number;
+  /** Latest unused password reset grant. Cleared when the link is used. */
+  passwordReset?: {
+    jti: string;
+    expiresAt: string;
+  } | null;
 };
 
 export type CampaignAsset = {

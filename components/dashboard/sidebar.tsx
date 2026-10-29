@@ -7,6 +7,7 @@ import { LogOut } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { Logo } from "@/components/brand/logo";
 import { RoleSwitcher } from "@/components/dashboard/role-switcher";
+import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { WorkspaceSwitcher, type WorkspaceOption } from "@/components/onboarding/workspace-switcher";
 import { Button } from "@/components/ui/button";
 import { ROLE_NAV, findActiveNav, navItemsFor, type NavItem } from "@/lib/dashboard/nav";
@@ -40,12 +41,14 @@ export function DashboardSidebar({
   role,
   roles,
   displayName,
+  avatarUrl = null,
   workspaces = [],
   activeWorkspaceId = null,
 }: {
   role: UserRole;
   roles: UserRole[];
   displayName: string;
+  avatarUrl?: string | null;
   workspaces?: WorkspaceOption[];
   activeWorkspaceId?: string | null;
 }) {
@@ -81,7 +84,10 @@ export function DashboardSidebar({
       </nav>
 
       <div className="border-t border-border p-4">
-        <p className="truncate px-1 text-sm font-medium text-foreground">{displayName}</p>
+        <div className="flex items-center gap-3 px-1">
+          <AvatarCircle src={avatarUrl} name={displayName} size="sm" />
+          <p className="min-w-0 truncate text-sm font-medium text-foreground">{displayName}</p>
+        </div>
         <form action={logoutAction} className="mt-2">
           <Button type="submit" variant="ghost" size="sm" className="w-full justify-start gap-2">
             <LogOut className="size-3.5" aria-hidden />

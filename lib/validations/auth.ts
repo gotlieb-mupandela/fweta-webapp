@@ -31,10 +31,29 @@ export const notificationPrefsSchema = z.object({
 export const passwordChangeSchema = z
   .object({
     currentPassword: z.string().min(8),
-    newPassword: z.string().min(8),
-    confirmPassword: z.string().min(8),
+    newPassword: z.string().min(8).max(72, "Use 72 characters or fewer."),
+    confirmPassword: z.string().min(8).max(72, "Use 72 characters or fewer."),
   })
   .refine((d) => d.newPassword === d.confirmPassword, {
+    message: "Passwords must match",
+    path: ["confirmPassword"],
+  })
+  .refine((d) => d.newPassword !== d.currentPassword, {
+    message: "New password must be different from the current password.",
+    path: ["newPassword"],
+  });
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().min(20),
+    password: z.string().min(8).max(72, "Use 72 characters or fewer."),
+    confirmPassword: z.string().min(8).max(72, "Use 72 characters or fewer."),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
     message: "Passwords must match",
     path: ["confirmPassword"],
   });

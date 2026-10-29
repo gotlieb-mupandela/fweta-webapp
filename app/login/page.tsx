@@ -13,7 +13,7 @@ function safeNextPath(value: string | undefined): string {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; email?: string }>;
+  searchParams: Promise<{ next?: string; email?: string; reset?: string }>;
 }) {
   try {
     await seedDemoAccounts();
@@ -23,5 +23,6 @@ export default async function LoginPage({
 
   const params = await searchParams;
   const email = (params.email ?? "").trim().slice(0, 200);
-  return <LoginForm nextPath={safeNextPath(params.next)} email={email} />;
+  const notice = params.reset === "1" ? "Password updated. Sign in with the new password." : null;
+  return <LoginForm nextPath={safeNextPath(params.next)} email={email} notice={notice} />;
 }

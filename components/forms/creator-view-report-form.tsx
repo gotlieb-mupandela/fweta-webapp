@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { reportCreatorViewsAction } from "@/app/actions/views";
 import { Button } from "@/components/ui/button";
 import { FieldError, FieldSuccess, Input, Label, Textarea } from "@/components/ui/input";
+import { SCREENSHOT_MAX_BYTES, uploadLimitMessage } from "@/lib/uploads/limits";
 
 export function CreatorViewReportForm({ submissionId }: { submissionId: string }) {
   const router = useRouter();
@@ -31,6 +32,14 @@ export function CreatorViewReportForm({ submissionId }: { submissionId: string }
         setSuccess(null);
         const body = new FormData(e.currentTarget);
         body.set("submissionId", submissionId);
+        const shot = body.get("screenshot");
+        if (shot instanceof File && shot.size > 0) {
+          const tooBig = uploadLimitMessage(shot, SCREENSHOT_MAX_BYTES, "Screenshot");
+          if (tooBig) {
+            setError(tooBig);
+            return;
+          }
+        }
         startTransition(async () => {
           const res = await reportCreatorViewsAction(body);
           if (!res.ok) setError(res.error);

@@ -13,9 +13,11 @@ import { loginAction } from "@/app/actions/auth";
 export function LoginForm({
   nextPath = "/dashboard",
   email = "",
+  notice = null,
 }: {
   nextPath?: string;
   email?: string;
+  notice?: string | null;
 }) {
   const router = useRouter();
   const next = nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/dashboard";
@@ -108,7 +110,15 @@ export function LoginForm({
             </div>
 
             <div>
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="password">Password</Label>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs font-medium text-gold-deep underline-offset-4 hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <Lock
                   className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-light"
@@ -140,6 +150,8 @@ export function LoginForm({
                 </button>
               </div>
             </div>
+
+            {notice && !error ? <p className="text-sm text-success">{notice}</p> : null}
 
             {error ? (
               <div

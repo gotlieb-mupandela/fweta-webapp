@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 
 import { uploadAvatarAction } from "@/app/actions/avatar";
 import { FieldError, Input, Label } from "@/components/ui/input";
+import { AVATAR_MAX_BYTES, isAllowedImageType, uploadLimitMessage } from "@/lib/uploads/limits";
 import { PLATFORM_LABEL, PLATFORMS } from "@/lib/onboarding/model";
 import type { OnboardingDraft } from "@/lib/db/types";
 import type { SocialPlatform } from "@/types/enums";
@@ -96,7 +97,19 @@ export function CompanyStep({
               accept="image/png,image/jpeg,image/webp"
               onChange={(event) => {
                 const file = event.target.files?.[0];
+                event.target.value = "";
                 if (!file) return;
+                const tooBig = uploadLimitMessage(file, AVATAR_MAX_BYTES, "Logo");
+                if (tooBig) {
+                  setLogoError(tooBig);
+                  setLogoNote(null);
+                  return;
+                }
+                if (!isAllowedImageType(file.type)) {
+                  setLogoError("Use a JPEG, PNG, or WebP image.");
+                  setLogoNote(null);
+                  return;
+                }
                 setPreview(URL.createObjectURL(file));
                 setLogoError(null);
                 setLogoNote(null);
@@ -107,6 +120,7 @@ export function CompanyStep({
                   const res = await uploadAvatarAction(body);
                   if (!res.ok) {
                     setLogoError(res.error);
+                    setPreview(avatarUrl);
                     return;
                   }
                   setPreview(res.url);
@@ -114,7 +128,7 @@ export function CompanyStep({
                 });
               }}
             />
-            <p className="mt-1 text-xs text-muted">{pending ? "Uploading..." : "PNG, JPEG, or WebP. Optional."}</p>
+            <p className="mt-1 text-xs text-muted">{pending ? "Uploading..." : "PNG, JPEG, or WebP. 2 MB or smaller. Optional."}</p>
           </div>
         </div>
         <FieldError>{logoError}</FieldError>
