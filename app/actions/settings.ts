@@ -1,5 +1,6 @@
 "use server";
 
+import { cleanDisplayName } from "@/lib/text/display-name";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 
@@ -31,10 +32,15 @@ export async function updateProfileAction(raw: unknown) {
       error: parsed.error.issues[0]?.message ?? "Check the display name and bio.",
     };
   }
+  // Item 41: clean on save, not only on display.
+  const displayName = cleanDisplayName(parsed.data.displayName);
+  if (displayName.length < 2) {
+    return { ok: false as const, error: "Display name must be at least 2 characters." };
+  }
   await updateStore((s) => {
     const p = s.profiles.find((x) => x.id === session.id);
     if (!p) return;
-    p.displayName = parsed.data.displayName;
+    p.displayName = displayName;
     p.bio = parsed.data.bio ?? "";
     p.updatedAt = nowIso();
   });

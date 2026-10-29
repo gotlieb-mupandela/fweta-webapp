@@ -1,5 +1,6 @@
 "use server";
 
+import { cleanDisplayName } from "@/lib/text/display-name";
 import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
@@ -56,6 +57,10 @@ export async function upsertInfluencerProfileAction(raw: unknown) {
     }
   }
 
+  const cleanName = cleanDisplayName(parsed.data.displayName);
+  if (cleanName.length < 2) {
+    return { ok: false as const, error: "Display name must be at least 2 characters." };
+  }
   const now = nowIso();
   await updateStore((s) => {
     const current = s.influencerProfiles.find((p) => p.userId === session.id);
@@ -64,7 +69,7 @@ export async function upsertInfluencerProfileAction(raw: unknown) {
 
     if (current) {
       Object.assign(current, {
-        displayName: parsed.data.displayName,
+        displayName: cleanName,
         headline: parsed.data.headline,
         bio: parsed.data.bio,
         niche: parsed.data.niche,
@@ -78,7 +83,7 @@ export async function upsertInfluencerProfileAction(raw: unknown) {
         id: newId(),
         userId: session.id,
         slug,
-        displayName: parsed.data.displayName,
+        displayName: cleanName,
         headline: parsed.data.headline,
         bio: parsed.data.bio,
         niche: parsed.data.niche,

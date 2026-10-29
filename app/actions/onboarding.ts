@@ -1,5 +1,6 @@
 "use server";
 
+import { cleanDisplayName } from "@/lib/text/display-name";
 import { revalidatePath } from "next/cache";
 
 import {
@@ -97,7 +98,7 @@ export async function completeOnboardingAction(raw: unknown) {
   }
 
   const data = parsed.data;
-  const displayName = `${data.firstName} ${data.lastName}`.trim();
+  const displayName = cleanDisplayName(`${data.firstName} ${data.lastName}`);
   const socials = socialsFromAnswers(data.socials);
   const now = nowIso();
 
@@ -107,8 +108,8 @@ export async function completeOnboardingAction(raw: unknown) {
     const profile = s.profiles.find((p) => p.id === session.id);
     if (!profile) throw new Error("Profile not found.");
 
-    profile.firstName = data.firstName;
-    profile.lastName = data.lastName;
+    profile.firstName = cleanDisplayName(data.firstName);
+    profile.lastName = cleanDisplayName(data.lastName);
     const phone = data.phone.replace(/\s+/g, " ").trim();
     if (phone) profile.phone = phone;
     profile.displayName = displayName;
@@ -119,7 +120,7 @@ export async function completeOnboardingAction(raw: unknown) {
     profile.onboardingCompletedAt = now;
 
     if (profile.roles.includes("brand")) {
-      const company = data.companyName?.trim();
+      const company = cleanDisplayName(data.companyName ?? "");
       if (company) profile.companyName = company;
       const site = data.website?.trim();
       if (site) {
@@ -251,8 +252,8 @@ function cleanSocialInput(input: {
 
 function applyPatch(draft: OnboardingDraft, userId: string, patch: StepPatch & { stepId: OnboardingDraft["stepId"] }) {
   if (patch.stepId === "name") {
-    if (patch.firstName !== undefined) draft.firstName = patch.firstName.trim();
-    if (patch.lastName !== undefined) draft.lastName = patch.lastName.trim();
+    if (patch.firstName !== undefined) draft.firstName = cleanDisplayName(patch.firstName);
+    if (patch.lastName !== undefined) draft.lastName = cleanDisplayName(patch.lastName);
     if (patch.phone !== undefined) draft.phone = patch.phone.trim();
   }
   if (patch.stepId === "interests") {
@@ -274,7 +275,7 @@ function applyPatch(draft: OnboardingDraft, userId: string, patch: StepPatch & {
     draft.socials = socialsFromChecks(draft.checks);
   }
   if (patch.stepId === "company") {
-    if (patch.companyName !== undefined) draft.companyName = patch.companyName.trim();
+    if (patch.companyName !== undefined) draft.companyName = cleanDisplayName(patch.companyName);
     if (patch.website !== undefined) draft.website = patch.website.trim();
     if (patch.brandSocials) draft.brandSocials = cleanSocialInput(patch.brandSocials);
   }
@@ -285,7 +286,7 @@ function applyPatch(draft: OnboardingDraft, userId: string, patch: StepPatch & {
 
 function upsertInfluencer(store: DatabaseStore, profile: Profile, draft: OnboardingDraft, now: string) {
   if (!profile.roles.includes("influencer")) return;
-  const personal = `${draft.firstName} ${draft.lastName}`.trim() || profile.displayName;
+  const personal = cleanDisplayName(`${draft.firstName} ${draft.lastName}`) || profile.displayName;
   const niche = draft.interests[0] || profile.niche || "Creator";
   const location = draft.location.trim() || profile.location || "Namibia";
   const socials = socialsFromChecks(draft.checks);

@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 
+import { cleanDisplayName } from "@/lib/text/display-name";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
@@ -134,7 +135,7 @@ export async function signup(input: {
     id: newId(),
     email,
     passwordHash,
-    displayName: input.displayName?.trim() || email.split("@")[0],
+    displayName: cleanDisplayName(input.displayName ?? "") || email.split("@")[0],
     bio: "",
     avatarUrl: null,
     roles: input.roles,
