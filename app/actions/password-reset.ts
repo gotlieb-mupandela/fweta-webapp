@@ -24,13 +24,13 @@ import {
 import { sendEmails } from "@/lib/email/send";
 import { passwordResetEmail } from "@/lib/email/templates";
 import { clientIp } from "@/lib/security/client-ip";
-import { rateLimit } from "@/lib/security/rate-limit";
+import { sharedRateLimit } from "@/lib/security/shared-rate-limit";
 import { forgotPasswordSchema, resetPasswordSchema } from "@/lib/validations/auth";
 
 export async function requestPasswordResetAction(raw: unknown) {
   const parsed = forgotPasswordSchema.safeParse(raw);
   if (!parsed.success) return { ok: false as const, error: "Enter a valid email address." };
-  const limited = rateLimit(`password-reset:${await clientIp()}`, 5, 15 * 60 * 1000);
+  const limited = await sharedRateLimit(`password-reset:${await clientIp()}`, 5, 15 * 60 * 1000);
   if (!limited.ok) {
     return { ok: false as const, error: `Too many attempts. Try again in ${limited.retryAfterSec}s.` };
   }
@@ -83,7 +83,7 @@ export async function resetPasswordAction(raw: unknown) {
   if (!parsed.success) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Check the password fields." };
   }
-  const limited = rateLimit(`password-reset-use:${await clientIp()}`, 8, 15 * 60 * 1000);
+  const limited = await sharedRateLimit(`password-reset-use:${await clientIp()}`, 8, 15 * 60 * 1000);
   if (!limited.ok) {
     return { ok: false as const, error: `Too many attempts. Try again in ${limited.retryAfterSec}s.` };
   }

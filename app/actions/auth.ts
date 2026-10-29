@@ -15,6 +15,7 @@ import { loginSchema, signupSchema } from "@/lib/validations/auth";
 import { updateStore, nowIso } from "@/lib/db/store";
 import { clientIp } from "@/lib/security/client-ip";
 import { rateLimit } from "@/lib/security/rate-limit";
+import { sharedRateLimit } from "@/lib/security/shared-rate-limit";
 import type { UserRole } from "@/types/enums";
 
 export async function loginAction(input: { email: string; password: string }) {
@@ -46,7 +47,7 @@ export async function signupAction(input: {
   if (!parsed.success) return { ok: false as const, error: "Check your details and try again." };
   const ip = await clientIp();
   const signupCap = process.env.NODE_ENV === "production" ? 5 : 30;
-  const limited = rateLimit(`signup:${ip}`, signupCap, 60 * 60 * 1000);
+  const limited = await sharedRateLimit(`signup:${ip}`, signupCap, 60 * 60 * 1000);
   if (!limited.ok) {
     return { ok: false as const, error: `Too many signups from this network. Try again in ${limited.retryAfterSec}s.` };
   }

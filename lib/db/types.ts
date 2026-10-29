@@ -704,6 +704,12 @@ export type CreatorReview = {
   updatedAt: string;
 };
 
+export type RateLimitBucket = {
+  /** Hashed key, never the raw IP. */
+  key: string;
+  hits: number[];
+};
+
 export type DatabaseStore = {
   profiles: Profile[];
   campaigns: Campaign[];
@@ -738,4 +744,6 @@ export type DatabaseStore = {
   creatorPortfolios: CreatorPortfolio[];
   businessListings: BusinessListing[];
   creatorReviews: CreatorReview[];
+  /** Shared rate limit counters (signup, password reset). Optional so old documents load. */
+  rateLimits?: RateLimitBucket[];
 };
