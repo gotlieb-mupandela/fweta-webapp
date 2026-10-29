@@ -5,6 +5,7 @@ import { BrandDepositForm } from "@/components/forms/brand-deposit-form";
 import { Badge, Card, EmptyState, PageHeader, SectionHeader } from "@/components/ui/card";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+import { FWETA_EFT_INSTRUCTIONS, depositReferenceFor } from "@/lib/payments/eft-instructions";
 import { formatMoney } from "@/lib/utils";
 
 export default async function BrandDepositsPage() {
@@ -14,6 +15,7 @@ export default async function BrandDepositsPage() {
   }
 
   const [store, wallet] = await Promise.all([readStore(), getMyWallet()]);
+  const reference = depositReferenceFor(session.id);
   const deposits = store.brandDeposits
     .filter((d) => d.brandId === session.id)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -24,6 +26,33 @@ export default async function BrandDepositsPage() {
         title="Deposits"
         description="Submit the EFT you sent. An admin confirms it, then your wallet is credited."
       />
+
+      <Card className="panel-interactive">
+        <h2 className="font-display text-xl tracking-tight">Where to send the EFT</h2>
+        <p className="mt-1.5 text-sm text-muted">{FWETA_EFT_INSTRUCTIONS.warning}</p>
+        <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-xs text-muted">Bank</dt>
+            <dd>{FWETA_EFT_INSTRUCTIONS.bankName}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted">Account name</dt>
+            <dd>{FWETA_EFT_INSTRUCTIONS.accountName}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted">Account number</dt>
+            <dd className="font-mono">{FWETA_EFT_INSTRUCTIONS.accountNumber}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted">Branch code</dt>
+            <dd className="font-mono">{FWETA_EFT_INSTRUCTIONS.branchCode}</dd>
+          </div>
+          <div className="sm:col-span-2">
+            <dt className="text-xs text-muted">Your reference</dt>
+            <dd className="font-mono">{reference}</dd>
+          </div>
+        </dl>
+      </Card>
 
       <Card className="panel-interactive">
         <h2 className="font-display text-xl tracking-tight">Submit an EFT</h2>

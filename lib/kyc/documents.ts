@@ -2,10 +2,12 @@ import { randomUUID } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 
+import { imageKindForUpload, type ImageKind } from "@/lib/kyc/magic";
+
 const DIR = path.join(process.cwd(), "data", "kyc");
 const NAME = /^[0-9a-f-]{36}\.(png|jpg|webp)$/i;
 
-const TYPES: Record<string, "png" | "jpg" | "webp"> = {
+const TYPES: Record<string, ImageKind> = {
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/webp": "webp",
@@ -34,11 +36,12 @@ export function kycAbsolutePath(name: string): string | null {
 export async function saveKycDocument(file: File): Promise<string> {
   if (file.size <= 0) throw new Error("That ID photo is empty.");
   if (file.size > 4 * 1024 * 1024) throw new Error("ID photo must be 4 MB or smaller.");
-  const ext = TYPES[file.type];
-  if (!ext) throw new Error("Use a PNG, JPG, or WebP photo of the ID.");
+  if (!TYPES[file.type]) throw new Error("Use a PNG, JPG, or WebP photo of the ID.");
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const ext = imageKindForUpload(file.type, bytes);
+  if (!ext) throw new Error("That file is not a PNG, JPG, or WebP photo.");
   const name = `${randomUUID()}.${ext}`;
   await mkdir(DIR, { recursive: true });
-  const bytes = Buffer.from(await file.arrayBuffer());
   await writeFile(path.join(DIR, name), bytes);
   return name;
 }

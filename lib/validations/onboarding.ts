@@ -102,7 +102,7 @@ export const onboardingCampaignSchema = z
 export const onboardingPayoutSchema = z.object({
   bankName: z.string().trim().min(2).max(100),
   branchCode: z.string().regex(/^\d{6}$/, "Branch code must be 6 digits"),
-  accountNumber: z.string().trim().min(8).max(20),
+  accountNumber: z.string().trim().regex(/^\d{8,20}$/, "Account number must be digits only"),
   accountHolderName: z.string().trim().min(2).max(120),
   accountType: z.enum(["cheque", "savings", "transmission"]),
 });

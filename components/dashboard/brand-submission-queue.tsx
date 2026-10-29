@@ -8,8 +8,9 @@ import { Card, EmptyState } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
+import type { Campaign, LedgerEntry, Profile, Submission } from "@/lib/db/types";
+import { clipEarnedCents } from "@/lib/rewards/paid";
 import { applySubmissionFilters, type SubmissionFilters } from "@/lib/submissions/filter";
-import type { Campaign, Profile, Submission } from "@/lib/db/types";
 import { cn, formatMoney, formatNumber } from "@/lib/utils";
 
 const PLATFORM_LABEL: Record<string, string> = {
@@ -42,6 +43,7 @@ export function BrandSubmissionQueue({
   submissions: allSubmissions,
   campaigns,
   profiles,
+  ledgerEntries,
   filters,
   action,
   lockCampaignId,
@@ -49,6 +51,7 @@ export function BrandSubmissionQueue({
   submissions: Submission[];
   campaigns: Campaign[];
   profiles: Profile[];
+  ledgerEntries: readonly LedgerEntry[];
   filters: SubmissionFilters;
   action: string;
   lockCampaignId?: string;
@@ -193,9 +196,10 @@ export function BrandSubmissionQueue({
             const clipper = profiles.find((p) => p.id === s.clipperId);
             const campaign = campaigns.find((c) => c.id === s.campaignId);
             const creatorName = clipper?.displayName ?? "Unknown creator";
+            const earned = clipEarnedCents(ledgerEntries, s);
             const paidOnCampaignToCreator = allSubmissions
               .filter((x) => x.campaignId === s.campaignId && x.clipperId === s.clipperId)
-              .reduce((sum, x) => sum + x.earningsCents, 0);
+              .reduce((sum, x) => sum + clipEarnedCents(ledgerEntries, x), 0);
 
             return (
               <li key={s.id}>
@@ -234,7 +238,7 @@ export function BrandSubmissionQueue({
                         Earned
                       </dt>
                       <dd className="mt-0.5 text-sm font-semibold tabular-nums">
-                        {formatMoney(s.earningsCents)}
+                        {formatMoney(earned)}
                       </dd>
                     </div>
                     <div className="px-2" title="Everything this creator earned on this campaign">

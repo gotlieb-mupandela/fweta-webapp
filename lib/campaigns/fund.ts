@@ -87,3 +87,89 @@ export function allocateCampaignFunds(store: DatabaseStore, campaign: Campaign) 
   }
   campaign.feeReservedCents = fee;
 }
+
+/** Move a funded campaign's budget. Also adjusts the fee reserve that was locked at publish. */
+export function adjustFundedBudget(store: DatabaseStore, campaign: Campaign, nextBudget: number) {
+  if (!Number.isInteger(nextBudget) || nextBudget <= 0) {
+    throw new Error("Budget must be greater than zero.");
+  }
+  if (nextBudget < campaign.budgetSpentCents) {
+    throw new Error(
+      `Budget can't go below the ${formatMoney(campaign.budgetSpentCents)} already paid out.`,
+    );
+  }
+  if (!isCampaignFunded(store, campaign.id)) return;
+
+  const bps = Number.isInteger(campaign.feeBps) ? (campaign.feeBps as number) : feeBpsFromStore(store);
+  const nextFee = Math.max(feeReserveForBudget(nextBudget, bps), campaign.feeChargedCents);
+  const budgetDelta = nextBudget - campaign.budgetTotalCents;
+  const feeDelta = nextFee - campaign.feeReservedCents;
+  const need = budgetDelta + feeDelta;
+  if (need > 0) {
+    const wallet = store.wallets.find((w) => w.userId === campaign.brandId);
+    if (!wallet || wallet.availableCents < need) {
+      throw new Error(
+        `Insufficient wallet balance. Raising the budget needs ${formatMoney(need)} available. Record a deposit and wait for an admin to credit it.`,
+      );
+    }
+  }
+  if (budgetDelta !== 0) {
+    applyWalletDelta(store, {
+      userId: campaign.brandId,
+      availableDelta: -budgetDelta,
+      type: budgetDelta > 0 ? "debit" : "credit",
+      reason: budgetDelta > 0 ? "Campaign budget increased" : "Campaign budget reduced, returned",
+      referenceType: "campaign_fund",
+      referenceId: campaign.id,
+    });
+  }
+  if (feeDelta !== 0) {
+    applyWalletDelta(store, {
+      userId: campaign.brandId,
+      availableDelta: -feeDelta,
+      type: feeDelta > 0 ? "debit" : "credit",
+      reason: feeDelta > 0 ? "Platform fee set aside for the new budget" : "Platform fee reserve returned",
+      referenceType: "campaign_fee",
+      referenceId: campaign.id,
+    });
+    campaign.feeReservedCents = nextFee;
+    if (!Number.isInteger(campaign.feeBps)) campaign.feeBps = bps;
+  }
+}
+
+/** Return unused creator budget and unused fee reserve once. Safe to call again. */
+export function returnUnusedCampaignFunds(store: DatabaseStore, campaign: Campaign): {
+  budgetCents: number;
+  feeCents: number;
+} {
+  if (!isCampaignFunded(store, campaign.id)) return { budgetCents: 0, feeCents: 0 };
+  const budget = Math.max(
+    0,
+    campaign.budgetTotalCents - campaign.budgetSpentCents - campaign.unspentReturnedCents,
+  );
+  const fee = Math.max(0, campaign.feeReservedCents - campaign.feeChargedCents - campaign.feeRefundedCents);
+  if (budget > 0) {
+    applyWalletDelta(store, {
+      userId: campaign.brandId,
+      availableDelta: budget,
+      type: "credit",
+      reason: `Unused campaign budget returned, ${campaign.title}`,
+      referenceType: "campaign_fund",
+      referenceId: campaign.id,
+    });
+    campaign.unspentReturnedCents += budget;
+    campaign.budgetTotalCents = campaign.budgetSpentCents;
+  }
+  if (fee > 0) {
+    applyWalletDelta(store, {
+      userId: campaign.brandId,
+      availableDelta: fee,
+      type: "credit",
+      reason: `Unused platform fee returned, ${campaign.title}`,
+      referenceType: "campaign_fee",
+      referenceId: campaign.id,
+    });
+    campaign.feeRefundedCents += fee;
+  }
+  return { budgetCents: budget, feeCents: fee };
+}

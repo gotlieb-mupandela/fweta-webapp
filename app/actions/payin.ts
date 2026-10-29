@@ -19,7 +19,9 @@ export async function requestPayInAction(amountCents: number, note?: string) {
   const session = await requireSession();
   if (!session.roles.includes("brand")) return { ok: false as const, error: "Brand role required." };
   const parsed = payInRequestSchema.safeParse({ amountCents, note });
-  if (!parsed.success) return { ok: false as const, error: "Enter a valid amount." };
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Enter a valid amount." };
+  }
 
   const id = newId();
   await updateStore((store) => {

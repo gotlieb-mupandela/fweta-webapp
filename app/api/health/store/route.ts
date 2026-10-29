@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 
+import { getSession } from "@/lib/auth/session";
 import { diagnoseLocalStore } from "@/lib/db/store";
 import {
   diagnoseSupabaseStore,
   isSupabaseStoreEnabled,
 } from "@/lib/db/supabase-store";
+import { authorizeCron } from "@/lib/security/cron";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const session = await getSession();
+  const admin = Boolean(session?.roles.includes("admin"));
+  if (!admin && !authorizeCron(request)) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
   if (!isSupabaseStoreEnabled()) {
     const local = await diagnoseLocalStore();
     return NextResponse.json({

@@ -1,22 +1,16 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-import { settleRewardsJob } from "@/app/actions/jobs";
+import { settleRewards } from "@/lib/jobs/settle-rewards";
+import { authorizeCron } from "@/lib/security/cron";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function authorizeCron(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret) return process.env.NODE_ENV !== "production";
-  const header = request.headers.get("authorization") ?? "";
-  return header === `Bearer ${secret}`;
-}
-
 async function run(asOf?: string) {
   try {
-    const result = await settleRewardsJob(asOf);
+    const result = await settleRewards(asOf);
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
     return NextResponse.json(
@@ -26,7 +20,7 @@ async function run(asOf?: string) {
   }
 }
 
-/** Ledger-only. Closes ended campaigns and releases holds. Does not fetch views. */
+/** Ledger-only. Closes ended campaigns and releases holds that are due. Does not fetch views. */
 export async function GET(request: NextRequest) {
   if (!authorizeCron(request)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });

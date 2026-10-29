@@ -3,29 +3,14 @@
 import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
-import { creditSubmissionEarnings } from "@/lib/campaigns/earnings";
+import { postUrlMatchesPlatform } from "@/lib/clips/post-url";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
-import type { ViewSnapshot } from "@/lib/db/types";
-import { hydrateSubmission } from "@/lib/rewards/content-rewards";
+import { verifiedAccountsForPlatform } from "@/lib/onboarding/accounts";
+import { campaignIsDiscoverable, hydrateSubmission } from "@/lib/rewards/content-rewards";
 import { recordAppeal } from "@/lib/rewards/fraud";
+import { applyClipReview, recordApprovedViews } from "@/lib/rewards/review";
 import { bioContainsCode, localBioConfirmAllowed, observeBio } from "@/lib/social/observe";
 import { fraudAppealSchema, linkAccountSchema, manualViewsSchema, submissionReviewSchema, submissionSchema, verifyAccountSchema } from "@/lib/validations/submission";
-
-function confirmedSnapshot(submissionId: string, views: number, at: string, source: ViewSnapshot["source"]): ViewSnapshot {
-  return {
-    id: newId(),
-    submissionId,
-    views,
-    likes: null,
-    comments: null,
-    note: null,
-    screenshotPath: null,
-    recordedAt: at,
-    checkedBy: null,
-    source,
-    status: "confirmed",
-  };
-}
 
 function makeBioCode(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -63,21 +48,27 @@ export async function submitClipAction(raw: unknown) {
     return { ok: false as const, error: "Creator role required." };
   }
   const parsed = submissionSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Invalid submission." };
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid submission." };
+  }
 
   const postUrl = normalizePostUrl(parsed.data.postUrl);
-  if (!postUrl) return { ok: false as const, error: "Enter a valid post URL." };
+  if (!postUrl || !postUrlMatchesPlatform(postUrl, parsed.data.platform)) {
+    return { ok: false as const, error: "That link is not a post on the selected platform." };
+  }
 
   const store = await readStore();
   const campaign = store.campaigns.find((c) => c.id === parsed.data.campaignId);
-  if (!campaign || campaign.status !== "active") {
-    return { ok: false as const, error: "Campaign is not accepting submissions." };
+  if (!campaign || !campaignIsDiscoverable(campaign)) {
+    return { ok: false as const, error: "This campaign is no longer accepting clips." };
   }
   if (!campaign.platforms.includes(parsed.data.platform)) {
     return { ok: false as const, error: "Platform not allowed for this campaign." };
   }
-  if (campaign.budgetSpentCents >= campaign.budgetTotalCents) {
-    return { ok: false as const, error: "This campaign's budget is exhausted." };
+  if (
+    verifiedAccountsForPlatform(store.socialAccounts ?? [], session.id, parsed.data.platform).length === 0
+  ) {
+    return { ok: false as const, error: "Only a verified account on this platform can submit a clip." };
   }
   const alreadySubmitted = store.submissions.some(
     (s) =>
@@ -125,8 +116,16 @@ export async function submitClipAction(raw: unknown) {
   try {
     await updateStore((s) => {
       const camp = s.campaigns.find((c) => c.id === parsed.data.campaignId);
-      if (!camp || camp.status !== "active") {
-        throw new Error("Campaign is not accepting submissions.");
+      if (!camp || !campaignIsDiscoverable(camp)) {
+        throw new Error("This campaign is no longer accepting clips.");
+      }
+      if (
+        verifiedAccountsForPlatform(s.socialAccounts ?? [], session.id, parsed.data.platform).length === 0
+      ) {
+        throw new Error("Only a verified account on this platform can submit a clip.");
+      }
+      if (!postUrlMatchesPlatform(postUrl, parsed.data.platform)) {
+        throw new Error("That link is not a post on the selected platform.");
       }
       const duplicate = s.submissions.some(
         (x) =>
@@ -160,31 +159,35 @@ export async function reviewSubmissionAction(id: string, raw: unknown) {
     return { ok: false as const, error: "Not allowed." };
   }
 
-  await updateStore((s) => {
-    const sub = s.submissions.find((x) => x.id === id);
-    if (!sub) return;
-    sub.status = parsed.data.status;
-    sub.reviewNote = parsed.data.reviewNote ?? null;
-    sub.updatedAt = nowIso();
-    if (parsed.data.status === "approved" && parsed.data.views != null) {
-      sub.views = parsed.data.views;
-      s.viewSnapshots.push(confirmedSnapshot(sub.id, parsed.data.views, nowIso(), "admin"));
-      creditSubmissionEarnings(s, sub.id);
-    }
-    if (parsed.data.status === "flagged") {
-      s.fraudFlags.push({
-        id: newId(),
-        submissionId: id,
-        reason: parsed.data.reviewNote || "Flagged by brand",
-        status: "open",
-        kind: "manual",
-        score: null,
-        appealNote: null,
-        createdAt: nowIso(),
-        resolvedAt: null,
-      });
-    }
-  });
+  try {
+    await updateStore((s) => {
+      applyClipReview(
+        s,
+        id,
+        {
+          status: parsed.data.status,
+          reviewNote: parsed.data.reviewNote ?? null,
+          views: parsed.data.views ?? null,
+        },
+        Date.now(),
+      );
+      if (parsed.data.status === "flagged") {
+        s.fraudFlags.push({
+          id: newId(),
+          submissionId: id,
+          reason: parsed.data.reviewNote || "Flagged by brand",
+          status: "open",
+          kind: "manual",
+          score: null,
+          appealNote: null,
+          createdAt: nowIso(),
+          resolvedAt: null,
+        });
+      }
+    });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Could not review the clip." };
+  }
 
   revalidatePath(`/dashboard/brand/campaigns/${campaign.id}/submissions`);
   revalidatePath("/dashboard/brand/submissions");
@@ -213,12 +216,7 @@ export async function recordCheckedViewsAction(raw: unknown) {
   let credited = 0;
   try {
     await updateStore((s) => {
-      const sub = s.submissions.find((item) => item.id === parsed.data.submissionId);
-      if (!sub || sub.status !== "approved") throw new Error("Approve the clip before recording views.");
-      sub.views = parsed.data.views;
-      sub.updatedAt = nowIso();
-      s.viewSnapshots.push(confirmedSnapshot(sub.id, parsed.data.views, nowIso(), "admin"));
-      credited = creditSubmissionEarnings(s, sub.id);
+      credited = recordApprovedViews(s, parsed.data.submissionId, parsed.data.views, Date.now());
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Could not record views." };

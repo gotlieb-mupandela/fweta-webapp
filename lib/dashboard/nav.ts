@@ -486,6 +486,13 @@ export const ROLE_NAV: Record<UserRole, RoleNavConfig> = {
             icon: Landmark,
             match: "prefix",
           },
+          {
+            href: "/dashboard/admin/bookings",
+            label: "Bookings",
+            shortLabel: "Bookings",
+            icon: CalendarDays,
+            match: "prefix",
+          },
         ],
       },
       {

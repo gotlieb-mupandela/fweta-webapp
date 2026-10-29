@@ -12,11 +12,14 @@ import {
   updateStore,
 } from "@/lib/db/store";
 import type { PayoutMethod, WithdrawalRequest } from "@/lib/db/types";
-import { adjustWallet, applyWalletDelta, getWallet } from "@/lib/wallet/ledger";
+import { pushAudit } from "@/lib/marketplace/audit";
+import { depositAmountError, nadToCents } from "@/lib/money/cents";
+import { bankReferenceTaken, normalizeBankReference } from "@/lib/payments/references";
+import { maskAccountNumber } from "@/lib/utils";
 import { payoutMethodSchema } from "@/lib/validations/payout-method";
 import { kycSchema, withdrawalSchema } from "@/lib/validations/withdrawal";
-import { nadToCents } from "@/lib/money/cents";
-import { maskAccountNumber } from "@/lib/utils";
+import { applyWalletDelta, getWallet } from "@/lib/wallet/ledger";
+import { withdrawalIdentityError } from "@/lib/wallet/payout-guard";
 
 const MIN_WITHDRAWAL_CENTS = 10000; // N$100
 
@@ -41,23 +44,30 @@ export async function adminCreditWalletAction(userId: string, amountCents: numbe
     return { ok: false as const, error: "Enter a valid amount in NAD." };
   }
 
-  const store = await readStore();
-  const user = store.profiles.find((profile) => profile.id === userId);
-  if (!user) return { ok: false as const, error: "User not found." };
-
   const note = reason.trim() || "Manual EFT credit";
   let availableCents = 0;
   let entryId = "";
   try {
-    const result = await adjustWallet({
-      userId,
-      availableDelta: cents,
-      type: "credit",
-      reason: `${note} (confirmed by ${session.email})`,
-      referenceType: "admin_credit",
+    await updateStore((s) => {
+      const user = s.profiles.find((profile) => profile.id === userId);
+      if (!user) throw new Error("User not found.");
+      const result = applyWalletDelta(s, {
+        userId,
+        availableDelta: cents,
+        type: "credit",
+        reason: `${note} (confirmed by ${session.email})`,
+        referenceType: "admin_credit",
+      });
+      availableCents = result.wallet.availableCents;
+      entryId = result.entry.id;
+      pushAudit(s, {
+        actorId: session.id,
+        action: "wallet.credit",
+        summary: "Manual wallet credit",
+        targetType: "wallet",
+        targetId: userId,
+      });
     });
-    availableCents = result.wallet.availableCents;
-    entryId = result.entry.id;
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Could not credit wallet." };
   }
@@ -74,7 +84,9 @@ export async function adminCreditWalletAction(userId: string, amountCents: numbe
 export async function savePayoutMethodAction(raw: unknown) {
   const session = await requireSession();
   const parsed = payoutMethodSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false as const, error: "Invalid bank details." };
+  if (!parsed.success) {
+    return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid bank details." };
+  }
 
   const now = nowIso();
   await updateStore((s) => {
@@ -175,6 +187,9 @@ export async function requestWithdrawalAction(raw: unknown) {
   // Atomic: wallet move + withdrawal record + ledger link in one write.
   try {
     await updateStore((s) => {
+      const profile = s.profiles.find((item) => item.id === session.id);
+      const identityError = withdrawalIdentityError(profile?.kyc);
+      if (identityError) throw new Error(identityError);
       const { entry } = applyWalletDelta(s, {
         userId: session.id,
         availableDelta: -parsed.data.amountCents,
@@ -229,6 +244,13 @@ export async function markWithdrawalPaidAction(
 
   try {
     await updateStore((s) => {
+      const profile = s.profiles.find((item) => item.id === req.userId);
+      const identityError = withdrawalIdentityError(profile?.kyc);
+      if (identityError) throw new Error(identityError);
+      const reference = normalizeBankReference(bankReference);
+      if (reference && bankReferenceTaken(s, reference, { withdrawalId: id })) {
+        throw new Error("That bank reference is already used.");
+      }
       applyWalletDelta(s, {
         userId: req.userId,
         availableDelta: 0,
@@ -241,9 +263,16 @@ export async function markWithdrawalPaidAction(
       const w = s.withdrawalRequests.find((x) => x.id === id);
       if (!w) throw new Error("Withdrawal not found.");
       w.status = "paid";
-      w.bankReference = bankReference || null;
+      w.bankReference = reference;
       w.paidAt = nowIso();
       w.updatedAt = nowIso();
+      pushAudit(s, {
+        actorId: session.id,
+        action: "withdrawal.paid",
+        summary: "Marked a withdrawal paid",
+        targetType: "withdrawal",
+        targetId: id,
+      });
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
@@ -276,6 +305,13 @@ export async function rejectWithdrawalAction(id: string, note?: string) {
       w.status = "rejected";
       w.adminNote = note || null;
       w.updatedAt = nowIso();
+      pushAudit(s, {
+        actorId: session.id,
+        action: "withdrawal.reject",
+        summary: "Rejected a withdrawal",
+        targetType: "withdrawal",
+        targetId: id,
+      });
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Failed." };
@@ -292,10 +328,14 @@ export async function brandDepositAction(amountCents: number, note?: string) {
   if (cents == null || cents !== amountCents) {
     return { ok: false as const, error: "Enter a valid amount in NAD." };
   }
+  const capped = depositAmountError(cents);
+  if (capped) return { ok: false as const, error: capped };
 
   const id = newId();
   try {
     await updateStore((s) => {
+      const again = depositAmountError(cents);
+      if (again) throw new Error(again);
       s.brandDeposits.push({
         id,
         brandId: session.id,
@@ -327,11 +367,14 @@ export async function confirmBrandDepositAction(id: string, bankReference?: stri
   if (deposit.status === "credited") return { ok: false as const, error: "This deposit is already credited." };
   if (deposit.status === "rejected") return { ok: false as const, error: "This deposit was rejected." };
 
-  const reference = bankReference?.trim() || null;
+  const reference = normalizeBankReference(bankReference);
   try {
     await updateStore((s) => {
       const row = s.brandDeposits.find((item) => item.id === id);
       if (!row || row.status !== "pending") throw new Error("Deposit is no longer pending.");
+      if (reference && bankReferenceTaken(s, reference, { depositId: id })) {
+        throw new Error("That bank reference is already used.");
+      }
       applyWalletDelta(s, {
         userId: row.brandId,
         availableDelta: row.amountCents,
@@ -344,6 +387,13 @@ export async function confirmBrandDepositAction(id: string, bankReference?: stri
       row.bankReference = reference;
       row.confirmedBy = session.id;
       row.confirmedAt = nowIso();
+      pushAudit(s, {
+        actorId: session.id,
+        action: "deposit.confirm",
+        summary: "Confirmed an EFT deposit",
+        targetType: "brand_deposit",
+        targetId: row.id,
+      });
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Could not confirm the deposit." };
@@ -371,6 +421,13 @@ export async function rejectBrandDepositAction(id: string, note?: string) {
       row.confirmedBy = session.id;
       row.confirmedAt = nowIso();
       if (note?.trim()) row.note = note.trim();
+      pushAudit(s, {
+        actorId: session.id,
+        action: "deposit.reject",
+        summary: "Rejected an EFT deposit",
+        targetType: "brand_deposit",
+        targetId: row.id,
+      });
     });
   } catch (e) {
     return { ok: false as const, error: e instanceof Error ? e.message : "Could not reject the deposit." };

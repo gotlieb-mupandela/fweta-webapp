@@ -1,10 +1,10 @@
-import { nowIso } from "@/lib/db/store";
 import type { DatabaseStore } from "@/lib/db/types";
-import { applyWalletDelta } from "@/lib/wallet/ledger";
+import { applyConfirmedViews, markApprovedForPayout } from "@/lib/rewards/earnings";
 
 /**
- * CPM: floor(views / 1000 * cpm), capped by the per-video max and the budget
- * still left. Only positive deltas are credited. Already-paid earnings are not clawed back.
+ * CPM earnings go to the reserve (pending), then the 7 day window and 3 day hold.
+ * This used to credit Available immediately, which paid a clip twice when an admin
+ * later saved a view count.
  */
 export function creditSubmissionEarnings(store: DatabaseStore, submissionId: string): number {
   const submission = store.submissions.find((item) => item.id === submissionId);
@@ -12,30 +12,18 @@ export function creditSubmissionEarnings(store: DatabaseStore, submissionId: str
   const campaign = store.campaigns.find((item) => item.id === submission.campaignId);
   if (!campaign) return 0;
 
-  const raw = Math.floor((submission.views / 1000) * campaign.cpmCents);
-  const cappedByVideo = Math.min(raw, campaign.maxPayoutPerSubmissionCents);
-  const remainingBudget = campaign.budgetTotalCents - campaign.budgetSpentCents;
-  const targetEarnings = Math.max(
-    0,
-    Math.min(cappedByVideo, remainingBudget + submission.earningsCents),
+  const nowMs = Date.now();
+  if (!submission.approvedAt) markApprovedForPayout(submission, campaign, nowMs);
+  const wallet = store.wallets.find((row) => row.userId === submission.clipperId);
+  const pendingBefore = wallet?.pendingCents ?? 0;
+  applyConfirmedViews(
+    store,
+    submissionId,
+    submission.views,
+    submission.likes,
+    submission.comments,
+    nowMs,
   );
-  const delta = targetEarnings - submission.earningsCents;
-  if (delta <= 0) return 0;
-
-  applyWalletDelta(store, {
-    userId: submission.clipperId,
-    availableDelta: delta,
-    type: "credit",
-    reason: `Campaign earnings: ${campaign.title}`,
-    referenceType: "campaign_earning",
-    referenceId: submission.id,
-  });
-  submission.earningsCents = targetEarnings;
-  submission.updatedAt = nowIso();
-  campaign.budgetSpentCents += delta;
-  if (campaign.budgetSpentCents >= campaign.budgetTotalCents) {
-    campaign.status = "completed";
-  }
-  campaign.updatedAt = nowIso();
-  return delta;
+  const pendingAfter = store.wallets.find((row) => row.userId === submission.clipperId)?.pendingCents ?? 0;
+  return Math.max(0, pendingAfter - pendingBefore);
 }

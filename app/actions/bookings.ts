@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/session";
+import { refundUndeliveredBooking } from "@/lib/bookings/refund";
 import { newId, nowIso, readStore, updateStore } from "@/lib/db/store";
+import { pushAudit } from "@/lib/marketplace/audit";
 import {
   notifyBookingAccepted,
   notifyBookingCompleted,
@@ -345,6 +347,31 @@ export async function approveBookingAction(id: string) {
   revalidatePath("/dashboard/brand/bookings");
   revalidatePath("/dashboard/influencer/bookings");
   await notifyBookingCompleted(id);
+  return { ok: true as const };
+}
+
+export async function adminRefundBookingAction(id: string) {
+  const session = await requireSession();
+  if (!session.roles.includes("admin")) return { ok: false as const, error: "Admin only." };
+  try {
+    await updateStore((s) => {
+      const refunded = refundUndeliveredBooking(s, id);
+      if (!refunded) throw new Error("Only an accepted booking with no delivery can be refunded.");
+      pushAudit(s, {
+        actorId: session.id,
+        action: "booking.refund",
+        summary: "Refunded an accepted booking with no delivery",
+        targetType: "booking",
+        targetId: id,
+      });
+    });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Could not refund the booking." };
+  }
+  revalidatePath("/dashboard/admin/bookings");
+  revalidatePath("/dashboard/brand/bookings");
+  revalidatePath("/dashboard/influencer/bookings");
+  revalidatePath("/dashboard/brand");
   return { ok: true as const };
 }
 

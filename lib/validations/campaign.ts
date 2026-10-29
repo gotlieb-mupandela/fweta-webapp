@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { endDateHasPassed } from "@/lib/campaigns/dates";
+
 import { accountTypeSchema, campaignTypeSchema, socialPlatformSchema } from "./shared";
 
 export const campaignStatusSchema = z.enum([
@@ -49,6 +51,13 @@ function refineCampaign(
     ctx.addIssue({
       code: "custom",
       message: "End date must be on or after the start date.",
+      path: ["endDate"],
+    });
+  }
+  if (value.endDate && endDateHasPassed(value.endDate)) {
+    ctx.addIssue({
+      code: "custom",
+      message: "End date must be in the future.",
       path: ["endDate"],
     });
   }

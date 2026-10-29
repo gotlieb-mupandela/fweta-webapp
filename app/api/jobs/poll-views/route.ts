@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { pollSubmissionViewsJob } from "@/app/actions/jobs";
+import { pollSubmissionViews } from "@/lib/jobs/poll-submission-views";
 import { authorizeCron } from "@/lib/security/cron";
 import { isApifyConfigured } from "@/lib/social/apify";
 
@@ -24,7 +24,7 @@ async function handle(request: Request) {
       { status: 410 },
     );
   }
-  const result = await pollSubmissionViewsJob();
+  const result = await pollSubmissionViews();
   return NextResponse.json({ ok: true, ...result });
 }
 
