@@ -11,6 +11,7 @@ import { SaveCampaignButton } from "@/components/rewards/save-campaign-button";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
+import { getPublicCampaign } from "@/lib/campaigns/public";
 import { readStore } from "@/lib/db/store";
 import { accountsForUser } from "@/lib/onboarding/accounts";
 import { toPublicCampaign } from "@/lib/public/campaigns";
@@ -35,7 +36,8 @@ export default async function PublicCampaignPage({
   // Touch the session first so a logged-out visit is still rendered on demand.
   const session = await getSession();
   const store = await readStore();
-  const source = store.campaigns.find((row) => row.id === id) ?? null;
+  // getPublicCampaign (PR 56) keeps drafts and pending campaigns private.
+  const source = await getPublicCampaign(id);
   const campaign = source ? toPublicCampaign(source) : null;
   // Drafts stay private. A closed or paused campaign still has a public link.
   if (!campaign || !source) notFound();

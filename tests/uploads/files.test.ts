@@ -72,7 +72,7 @@ test("kyc round trip uses a private object key", async () => {
     },
   });
   try {
-    const png = new File([Uint8Array.from([137, 80, 78, 71])], "id.png", { type: "image/png" });
+    const png = new File([Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0])], "id.png", { type: "image/png" });
     const name = await saveKycDocument(USER, png);
     assert.match(name, /^[0-9a-f-]{36}\.png$/);
     const read = await readKycDocument(USER, name);
@@ -89,7 +89,7 @@ test("kyc round trip uses a private object key", async () => {
 test("unconfigured kyc storage does not throw a filesystem error", async () => {
   if (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL) return;
   useKycStoreForTests(null);
-  const png = new File([Uint8Array.from([1, 2, 3])], "id.png", { type: "image/png" });
+  const png = new File([Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0])], "id.png", { type: "image/png" });
   await assert.rejects(
     () => saveKycDocument(USER, png),
     (err: unknown) => {

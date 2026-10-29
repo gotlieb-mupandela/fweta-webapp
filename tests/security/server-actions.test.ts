@@ -5,7 +5,14 @@ import test from "node:test";
 
 import { isUseServerModule, readRepo, repoRoot, serverActions } from "./scan-actions";
 
-const PUBLIC_ACTIONS = new Set(["loginAction", "signupAction", "logoutAction"]);
+// Password reset runs logged out by design. It is gated by a signed single-use token and a rate limit (PR 53).
+const PUBLIC_ACTIONS = new Set([
+  "loginAction",
+  "signupAction",
+  "logoutAction",
+  "requestPasswordResetAction",
+  "resetPasswordAction",
+]);
 const GATES = ["requireSession(", "getSession(", "verifyPrefsToken("];
 const FORBIDDEN = [
   "settleRewardsJob",
