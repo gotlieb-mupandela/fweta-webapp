@@ -133,6 +133,7 @@ export function SignupForm({ presetRole }: { presetRole?: string }) {
                     <button
                       key={opt.id}
                       type="button"
+                      aria-pressed={active}
                       onClick={() => toggleRole(opt.id)}
                       className={cn(
                         "flex items-center justify-between rounded-2xl border px-4 py-3.5 text-left transition",
