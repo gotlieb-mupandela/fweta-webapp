@@ -480,6 +480,7 @@ export function lastCheckedLabel(iso: string | null): string {
   return `Last checked ${new Date(parsed).toLocaleString("en-NA", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "Africa/Windhoek",
   })}`;
 }
 

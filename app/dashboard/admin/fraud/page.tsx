@@ -1,3 +1,4 @@
+import { formatAppDateTime } from "@/lib/format/time";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -54,7 +55,7 @@ export default async function AdminFraudPage() {
                         {submission ? ` · ${submission.postUrl}` : ""}
                       </p>
                       <p className="text-xs text-muted">
-                        {new Date(f.createdAt).toLocaleString()}
+                        {formatAppDateTime(f.createdAt)}
                       </p>
                     </div>
                     <Badge tone={f.status === "open" ? "gold" : "muted"}>{f.status}</Badge>

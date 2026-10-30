@@ -1,3 +1,4 @@
+import { formatAppDateTime } from "@/lib/format/time";
 import { redirect } from "next/navigation";
 
 import { listPendingWithdrawalsAdmin, getPayoutMethodForAdmin } from "@/app/actions/wallet";
@@ -64,7 +65,7 @@ export default async function AdminWithdrawalsPage() {
                     <p className="mt-1 text-sm text-muted">
                       {idStatusLabel(user?.kyc?.status, Boolean(user?.kyc))}
                     </p>
-                    <p className="text-xs text-muted">{new Date(w.createdAt).toLocaleString()}</p>
+                    <p className="text-xs text-muted">{formatAppDateTime(w.createdAt)}</p>
                   </div>
                   <Badge
                     tone={

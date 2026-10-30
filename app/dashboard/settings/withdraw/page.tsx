@@ -1,3 +1,4 @@
+import { formatAppDateTime } from "@/lib/format/time";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -102,7 +103,7 @@ export default async function SettingsWithdrawPage() {
               <li key={w.id} className="list-row">
                 <div>
                   <p className="font-medium">{formatMoney(w.amountCents)}</p>
-                  <p className="text-xs text-muted">{new Date(w.createdAt).toLocaleString()}</p>
+                  <p className="text-xs text-muted">{formatAppDateTime(w.createdAt)}</p>
                 </div>
                 <Badge
                   tone={

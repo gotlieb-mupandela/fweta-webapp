@@ -1,5 +1,7 @@
 "use client";
 
+import { formatAppDateTime } from "@/lib/format/time";
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -88,7 +90,7 @@ function AccountRow({ account }: { account: LinkedSocialAccount }) {
         Put <span className="font-medium">{account.bioCode}</span> in the public bio, then confirm.
       </p>
       <p className="mt-1 text-xs text-muted">
-        {account.verifiedAt ? `Verified ${new Date(account.verifiedAt).toLocaleString()}` : "Not verified yet"}
+        {account.verifiedAt ? `Verified ${formatAppDateTime(account.verifiedAt)}` : "Not verified yet"}
       </p>
       {account.verifiedAt ? null : (
         <form

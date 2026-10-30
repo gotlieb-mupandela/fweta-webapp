@@ -18,7 +18,7 @@ import { formatMoney, formatNumber } from "@/lib/utils";
 function joinedLabel(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso || "Unknown";
-  return date.toLocaleDateString("en-NA", { day: "numeric", month: "short", year: "numeric" });
+  return date.toLocaleDateString("en-NA", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Windhoek" });
 }
 
 export default async function AdminUsersPage({

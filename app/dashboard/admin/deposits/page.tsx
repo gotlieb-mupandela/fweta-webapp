@@ -1,3 +1,4 @@
+import { formatAppDateTime } from "@/lib/format/time";
 import { redirect } from "next/navigation";
 
 import { DepositReviewButtons } from "@/components/forms/deposit-review-buttons";
@@ -44,7 +45,7 @@ export default async function AdminDepositsPage() {
                   </p>
                   <p className="text-sm text-muted">{deposit.note}</p>
                   <p className="text-xs text-muted-light">
-                    {new Date(deposit.createdAt).toLocaleString("en-NA")}
+                    {formatAppDateTime(deposit.createdAt)}
                   </p>
                 </div>
                 <DepositReviewButtons depositId={deposit.id} />

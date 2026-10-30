@@ -1,3 +1,4 @@
+import { formatAppDateTime } from "@/lib/format/time";
 import { redirect } from "next/navigation";
 
 import { FeeForm } from "@/components/forms/fee-form";
@@ -36,7 +37,7 @@ export default async function AdminFeesPage() {
                   <div>
                     <p className="text-sm font-medium">{entry.summary}</p>
                     <p className="text-xs text-muted">
-                      {entry.action} · {actor?.displayName || "Admin"} · {new Date(entry.createdAt).toLocaleString()}
+                      {entry.action} · {actor?.displayName || "Admin"} · {formatAppDateTime(entry.createdAt)}
                     </p>
                   </div>
                 </li>

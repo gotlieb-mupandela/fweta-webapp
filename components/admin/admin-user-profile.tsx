@@ -27,7 +27,7 @@ function formatWhen(iso: string | null | undefined): string {
   if (!iso) return "Not set";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString("en-NA", { dateStyle: "medium", timeStyle: "short" });
+  return date.toLocaleString("en-NA", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Windhoek" });
 }
 
 function onboardingLabel(value: string | null | undefined): string {

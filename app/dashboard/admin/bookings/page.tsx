@@ -1,3 +1,4 @@
+import { formatAppDateTime } from "@/lib/format/time";
 import { redirect } from "next/navigation";
 
 import { BookingAdminRefund } from "@/components/forms/booking-admin-refund";
@@ -44,7 +45,7 @@ export default async function AdminBookingsPage() {
                   <p className="mt-1 text-sm text-muted">
                     {brand?.displayName ?? "Brand"} to {influencer?.displayName ?? "Creator"}
                   </p>
-                  <p className="text-xs text-muted">{new Date(booking.createdAt).toLocaleString()}</p>
+                  <p className="text-xs text-muted">{formatAppDateTime(booking.createdAt)}</p>
                 </div>
                 <BookingAdminRefund bookingId={booking.id} />
               </div>

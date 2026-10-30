@@ -4,7 +4,7 @@ function when(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const parsed = Date.parse(iso);
   if (Number.isNaN(parsed)) return null;
-  return new Date(parsed).toLocaleString("en-NA", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(parsed).toLocaleString("en-NA", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Windhoek" });
 }
 
 export function ClipTimeline({ submission }: { submission: Submission }) {
