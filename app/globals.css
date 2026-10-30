@@ -844,8 +844,8 @@ ul:has(> li.list-row) > li.list-row {
 }
 
 @media (max-width: 639px) {
-  .list-row:not(:has(> [aria-hidden])) > .min-w-0:first-child,
-  .list-row:not(:has(> [aria-hidden])) > div:first-child {
+  .list-row:has(> :not(:first-child) button, > button, > form, > a:not(:first-child)) > .min-w-0:first-child,
+  .list-row:has(> :not(:first-child) button, > button, > form, > a:not(:first-child)) > div:first-child {
     flex-basis: 100%;
   }
   .list-row:has(> [aria-hidden]) {
