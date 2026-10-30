@@ -129,7 +129,7 @@ export default async function AdminUsersPage({
                     <Link href={`/dashboard/admin/users/${row.id}`} className="font-medium hover:underline">
                       {row.displayName}
                     </Link>
-                    <p className="text-xs text-muted">{row.email}</p>
+                    <p className="whitespace-nowrap text-xs text-muted">{row.email}</p>
                     {row.suspended ? <Badge tone="danger">Suspended</Badge> : null}
                   </td>
                   <td className="px-3 py-3 text-muted">{row.phone || "None"}</td>
@@ -143,7 +143,7 @@ export default async function AdminUsersPage({
                     </div>
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap">{joinedLabel(row.joinedAt)}</td>
-                  <td className="px-3 py-3 text-xs text-muted">{row.verification}</td>
+                  <td className="min-w-[10rem] px-3 py-3 text-xs text-muted">{row.verification}</td>
                   <td className="px-3 py-3">{row.socialCount}</td>
                   <td className="px-3 py-3">{row.clips}</td>
                   <td className="px-3 py-3">{formatNumber(row.views)}</td>

@@ -10,7 +10,7 @@ export function Card({
   className?: string;
   children: React.ReactNode;
 }) {
-  return <div className={cn("panel p-5 md:p-6", className)}>{children}</div>;
+  return <div className={cn("panel p-5 md:p-7", className)}>{children}</div>;
 }
 
 export function Badge({
@@ -23,7 +23,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-medium tracking-wide wrap-anywhere",
+        "inline-flex max-w-full items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium",
         tone === "neutral" && "bg-surface-2 text-foreground",
         tone === "gold" && "bg-gold-soft text-foreground",
         tone === "success" && "bg-success-soft text-success",
@@ -77,11 +77,11 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-5 flex min-w-0 flex-col gap-3.5 sm:mb-7 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between md:mb-8">
+    <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
       <div className="min-w-0 flex-1 space-y-1.5 max-lg:basis-full">
         <p className="sr-only">{title}</p>
         {description ? (
-          <p className="max-w-2xl text-[13px] leading-relaxed text-muted md:text-sm md:text-[15px] wrap-anywhere">
+          <p className="max-w-xl text-sm leading-relaxed text-muted wrap-anywhere">
             {description}
           </p>
         ) : null}
@@ -96,15 +96,15 @@ export function PageHeader({
 export function SectionHeader({
   title,
   href,
-  linkLabel = "View all →",
+  linkLabel = "View all",
 }: {
   title: string;
   href?: string;
   linkLabel?: string;
 }) {
   return (
-    <div className="mb-3.5 flex items-end justify-between gap-3">
-      <h2 className="font-display text-[1.7rem] leading-none tracking-tight text-foreground md:text-2xl">
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <h2 className="text-base font-semibold tracking-tight text-foreground md:text-lg">
         {title}
       </h2>
       {href ? (
@@ -150,8 +150,8 @@ export function Stat({
 }) {
   const body = (
     <>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{label}</p>
-      <p className="mt-2.5 font-display text-[1.85rem] leading-none tracking-tight text-foreground md:text-[2.05rem]">
+      <p className="text-[13px] font-medium text-muted">{label}</p>
+      <p className="mt-3 font-display text-[1.75rem] leading-none tracking-tight text-foreground md:text-[2.25rem]">
         {value}
       </p>
       {hint ? <p className="mt-2 text-xs leading-snug text-muted">{hint}</p> : null}
@@ -159,12 +159,12 @@ export function Stat({
   );
   if (href) {
     return (
-      <Link href={href} className={cn("stat-card block pl-5 transition hover:border-gold/40", className)}>
+      <Link href={href} className={cn("stat-card block transition hover:shadow-[var(--shadow-lift)]", className)}>
         {body}
       </Link>
     );
   }
-  return <div className={cn("stat-card pl-5", className)}>{body}</div>;
+  return <div className={cn("stat-card", className)}>{body}</div>;
 }
 
 export function StatGrid({ children }: { children: React.ReactNode }) {

@@ -48,7 +48,7 @@ export default async function InfluencerDashboardPage() {
         action={
           <div className="flex flex-wrap gap-2">
             <Link href="/dashboard/settings/withdraw">
-              <Button variant="secondary">Withdraw</Button>
+              <Button variant="ghost">Withdraw</Button>
             </Link>
             <Link href="/dashboard/influencer/profile">
               <Button>Edit profile</Button>
@@ -57,52 +57,42 @@ export default async function InfluencerDashboardPage() {
         }
       />
 
-      <section>
-        <SectionHeader title="Your public offer" />
-        <ul className="grid gap-3 sm:grid-cols-3">
-          <li className="panel p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">Profile</p>
-            <p className="mt-2 font-display text-2xl tracking-tight">{profile?.published ? "Public" : "Draft"}</p>
-            <Link href="/dashboard/influencer/profile" className="section-link mt-2 inline-block">
-              Edit profile
-            </Link>
-          </li>
-          <li className="panel p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">Rate card</p>
-            <p className="mt-2 font-display text-2xl tracking-tight">{activeRates} live</p>
-            <Link href="/dashboard/influencer/rate-cards" className="section-link mt-2 inline-block">
-              Set rates
-            </Link>
-          </li>
-          <li className="panel p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">Requests</p>
-            <p className="mt-2 font-display text-2xl tracking-tight">{pendingBookings} waiting</p>
-            <Link href="/dashboard/influencer/bookings" className="section-link mt-2 inline-block">
-              Open bookings
-            </Link>
-          </li>
-        </ul>
-        {listedPlatforms.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {listedPlatforms.map((platform) => (
-              <PlatformChip key={platform} platform={platform} />
-            ))}
-          </div>
-        ) : (
-          <p className="mt-3 text-sm text-muted">Add TikTok, Instagram, YouTube, or X on your profile so brands know where you post.</p>
-        )}
-      </section>
-
       <StatGrid>
         <Stat label="Available" value={formatMoney(wallet.availableCents)} hint="Ready to withdraw" />
         <Stat label="Pending" value={formatMoney(wallet.pendingCents)} hint="Held until a booking clears" />
-        <Stat label="Bookings waiting" value={String(pendingBookings)} />
+        <Stat label="Bookings waiting" value={String(pendingBookings)} hint="Open bookings" href="/dashboard/influencer/bookings" />
         <Stat
           label="Active rates"
           value={String(activeRates)}
           hint={profile?.published ? "Profile is public" : "Profile is still a draft"}
+          href="/dashboard/influencer/rate-cards"
         />
       </StatGrid>
+
+      <section className="panel flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
+        <div className="min-w-0 space-y-2">
+          <p className="eyebrow">Your public offer</p>
+          <p className="text-sm text-foreground">
+            Profile <span className="font-semibold">{profile?.published ? "Public" : "Draft"}</span>
+            <span className="text-muted"> · </span>
+            Rate card <span className="font-semibold">{activeRates} live</span>
+            <span className="text-muted"> · </span>
+            Requests <span className="font-semibold">{pendingBookings} waiting</span>
+          </p>
+          {listedPlatforms.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {listedPlatforms.map((platform) => (
+                <PlatformChip key={platform} platform={platform} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted">Add TikTok, Instagram, YouTube, or X on your profile so brands know where you post.</p>
+          )}
+        </div>
+        <Link href="/dashboard/influencer/rate-cards" className="section-link shrink-0">
+          Set rates
+        </Link>
+      </section>
 
       <section>
         <SectionHeader title="Recent bookings" href="/dashboard/influencer/bookings" />

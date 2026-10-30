@@ -51,7 +51,7 @@ export function AppShell({
         />
         <DesktopTopBar unreadCount={unreadCount} displayName={displayName} avatarUrl={avatarUrl} />
 
-        <main id="main" className="app-main mx-auto w-full max-w-6xl flex-1 px-4 py-5 md:px-8 md:py-8 lg:px-10">
+        <main id="main" className="app-main mx-auto w-full max-w-6xl flex-1 px-4 py-5 md:px-8 md:pb-10 md:pt-2 lg:px-10">
           <div className="animate-fade-up">{children}</div>
         </main>
 

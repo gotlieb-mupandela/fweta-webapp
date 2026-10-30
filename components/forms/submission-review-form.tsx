@@ -47,10 +47,10 @@ export function SubmissionReviewForm({ submissionId }: { submissionId: string })
             min={0}
             step={1}
             placeholder="0"
-            className="h-9 w-32"
+            className="h-10 w-32"
           />
         </div>
-        <Button size="sm" variant="gold" type="submit" disabled={pending}>
+        <Button size="sm" variant="primary" type="submit" disabled={pending}>
           Approve
         </Button>
         <Button
@@ -79,10 +79,10 @@ export function SubmissionReviewForm({ submissionId }: { submissionId: string })
             id={`flag-${submissionId}`}
             name="note"
             placeholder="Flag reason"
-            className="h-9 w-40"
+            className="h-10 w-40"
           />
         </div>
-        <Button size="sm" variant="danger" type="submit" disabled={pending}>
+        <Button size="sm" variant="ghost" className="text-danger hover:text-danger" type="submit" disabled={pending}>
           Flag
         </Button>
       </form>

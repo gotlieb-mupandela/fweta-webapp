@@ -67,7 +67,7 @@ export default async function ClipperCampaignsPage({
           }
         />
       ) : (
-        <ul className="space-y-3.5">
+        <ul className="space-y-4">
           {campaigns.map((c) => {
             const remaining = Math.max(0, c.budgetTotalCents - c.budgetSpentCents);
             const cleaned = campaignCardExcerpt(c);
@@ -80,14 +80,16 @@ export default async function ClipperCampaignsPage({
                     <div className="min-w-0 flex-1">
                       <h3 className="font-display text-xl tracking-tight">{c.title}</h3>
                       <p className="mt-1.5 text-sm leading-relaxed text-muted">{excerpt}</p>
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
                         <Badge tone="gold">{campaignTypeLabel(c.type)}</Badge>
                         <Badge>{c.category}</Badge>
-                        <Badge tone="muted">CPM {formatMoney(c.cpmCents)}</Badge>
-                        <Badge tone="muted">Max {formatMoney(c.maxPayoutPerSubmissionCents)}</Badge>
-                        <Badge tone="muted">Left {formatMoney(remaining)}</Badge>
                       </div>
-                      <p className="mt-2.5 text-xs text-muted">
+                      <p className="mt-3 text-sm text-foreground">
+                        CPM {formatMoney(c.cpmCents)}
+                        <span className="text-muted"> · </span>Max {formatMoney(c.maxPayoutPerSubmissionCents)}
+                        <span className="text-muted"> · </span>Left {formatMoney(remaining)}
+                      </p>
+                      <p className="mt-1.5 text-xs text-muted">
                         {c.platforms.map((platform) => PLATFORM_LABEL[platform] ?? platform).join(" · ")}
                         {c.endDate ? ` · Ends ${c.endDate.slice(0, 10)}` : ""}
                       </p>
@@ -110,7 +112,13 @@ export default async function ClipperCampaignsPage({
                       ({mine.map((s) => s.status).join(", ")}).
                     </p>
                   ) : null}
-                  <div className="mt-4 border-t border-border/80 pt-4">
+                  <details className="group mt-5 rounded-2xl bg-surface-2/60 px-4 open:pb-4">
+                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-medium">
+                      Submit a clip
+                      <span className="text-muted transition group-open:rotate-180" aria-hidden>
+                        ⌄
+                      </span>
+                    </summary>
                     <PostingGuide platforms={c.platforms} />
                     <div className="mt-4">
                       <SubmitClipForm
@@ -119,7 +127,7 @@ export default async function ClipperCampaignsPage({
                         remainingBudgetCents={remaining}
                       />
                     </div>
-                  </div>
+                  </details>
                 </Card>
               </li>
             );

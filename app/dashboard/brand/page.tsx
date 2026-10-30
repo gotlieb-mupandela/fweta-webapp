@@ -46,7 +46,7 @@ export default async function BrandDashboardPage() {
         action={
           <div className="flex flex-wrap gap-2">
             <Link href="/dashboard/brand/deposits">
-              <Button variant="secondary">Deposits</Button>
+              <Button variant="ghost">Deposits</Button>
             </Link>
             <Link href="/dashboard/brand/campaigns/new">
               <Button>New campaign</Button>
@@ -54,17 +54,6 @@ export default async function BrandDashboardPage() {
           </div>
         }
       />
-
-      {session.roles.includes("brand") && me ? (
-        <section className="panel p-4 sm:p-5">
-          <AvatarUpload
-            avatarUrl={me.avatarUrl}
-            displayName={me.displayName}
-            kind="profile"
-            label="Business logo"
-          />
-        </section>
-      ) : null}
 
       <StatGrid>
         <Stat label="Active campaigns" value={String(active)} />
@@ -93,7 +82,7 @@ export default async function BrandDashboardPage() {
                   <Link href={`/dashboard/brand/campaigns/${c.id}`} className="list-row">
                     <div className="min-w-0">
                       <p className="text-sm font-medium">{c.title}</p>
-                      <p className="text-xs text-muted">
+                      <p className="text-xs capitalize text-muted">
                         {c.status} · {formatMoney(c.budgetSpentCents)} / {formatMoney(c.budgetTotalCents)}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -138,6 +127,17 @@ export default async function BrandDashboardPage() {
           )}
         </section>
       </div>
+      {session.roles.includes("brand") && me ? (
+        <section className="panel p-5 sm:p-6">
+          <AvatarUpload
+            avatarUrl={me.avatarUrl}
+            displayName={me.displayName}
+            kind="profile"
+            label="Business logo"
+          />
+        </section>
+      ) : null}
+
     </div>
   );
 }

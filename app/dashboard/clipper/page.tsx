@@ -93,29 +93,17 @@ export default async function ClipperDashboardPage() {
         }
       />
 
-      <section>
-        <SectionHeader title="Where to post" href="/dashboard/clipper/campaigns" linkLabel="All campaigns" />
-        <PlatformPicker basePath="/dashboard/clipper/campaigns" params={{ platform: "none" }} />
-      </section>
-
       <StatGrid>
         <Stat label="Available" value={formatMoney(wallet.availableCents)} hint="Ready to pay out" />
         <Stat label="Pending" value={formatMoney(wallet.pendingCents)} hint="Set aside until the hold ends" />
         <Stat label="Verified views" value={formatNumber(views)} hint="Across your clips" />
-        <Stat label="Clips" value={String(submissions.length)} hint="All statuses" />
+        <Stat
+          label="Clips"
+          value={String(submissions.length)}
+          hint={`${counts.pending} ${STATUS_LABEL.pending.toLowerCase()}, ${counts.approved} ${STATUS_LABEL.approved.toLowerCase()}, ${counts.rejected} ${STATUS_LABEL.rejected.toLowerCase()}, ${counts.flagged} ${STATUS_LABEL.flagged.toLowerCase()}`}
+          href="/dashboard/clipper/submissions"
+        />
       </StatGrid>
-
-      <section>
-        <SectionHeader title="Clips by status" href="/dashboard/clipper/submissions" linkLabel="Open clips" />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {(["pending", "approved", "rejected", "flagged"] as const).map((status) => (
-            <div key={status} className="panel px-4 py-3">
-              <p className="text-xs font-medium text-muted">{STATUS_LABEL[status]}</p>
-              <p className="mt-1 font-display text-3xl tracking-tight">{counts[status]}</p>
-            </div>
-          ))}
-        </div>
-      </section>
 
       <div className="dash-split">
         <section>
@@ -175,6 +163,11 @@ export default async function ClipperDashboardPage() {
           )}
         </section>
       </div>
+      <section>
+        <SectionHeader title="Where to post" href="/dashboard/clipper/campaigns" linkLabel="All campaigns" />
+        <PlatformPicker basePath="/dashboard/clipper/campaigns" params={{ platform: "none" }} />
+      </section>
+
     </div>
   );
 }

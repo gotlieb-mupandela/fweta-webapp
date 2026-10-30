@@ -17,7 +17,7 @@ export function PlatformPicker({
   const options = [{ id: "", label: "All" }, ...PLATFORMS.map((platform) => ({ id: platform, label: PLATFORM_GUIDES[platform].label }))];
 
   return (
-    <ul className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+    <ul className="grid min-w-0 grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
       {options.map((option) => {
         const active = current === option.id;
         const guide = option.id ? PLATFORM_GUIDES[option.id as keyof typeof PLATFORM_GUIDES] : null;
@@ -27,10 +27,10 @@ export function PlatformPicker({
               href={platformFilterHref(basePath, params, option.id)}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex h-full min-h-[4.75rem] min-w-0 flex-col justify-between rounded-[1.35rem] border p-3 shadow-[var(--shadow-soft)]",
+                "flex h-full min-h-[4.25rem] min-w-0 flex-col justify-between gap-1 rounded-2xl p-3.5",
                 active
-                  ? "border-[#12110f] bg-[#12110f] text-white"
-                  : "border-border bg-white panel-interactive",
+                  ? "bg-[#12110f] text-white"
+                  : "bg-white shadow-[var(--shadow-card)] panel-interactive",
               )}
             >
               <span className="flex min-w-0 items-center gap-2 wrap-anywhere text-sm font-medium">

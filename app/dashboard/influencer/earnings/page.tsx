@@ -30,8 +30,11 @@ export default async function InfluencerEarningsPage() {
           label="Booking earnings"
           value={formatMoney(bookingEarnings.reduce((s, e) => s + e.amountCents, 0))}
         />
-        <Stat label="View earnings" value={formatMoney(income.viewCents)} />
-        <Stat label="UGC fees" value={formatMoney(income.ugcCents)} />
+        <Stat
+          label="Other income"
+          value={formatMoney(income.viewCents + income.ugcCents)}
+          hint={`View earnings ${formatMoney(income.viewCents)} · UGC fees ${formatMoney(income.ugcCents)}`}
+        />
       </StatGrid>
 
       <section>

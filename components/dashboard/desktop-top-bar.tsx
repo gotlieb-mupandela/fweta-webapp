@@ -20,8 +20,8 @@ export function DesktopTopBar({
   const title = getScreenTitle(pathname);
 
   return (
-    <header className="sticky top-0 z-30 hidden h-16 items-center justify-between border-b border-border bg-white/90 px-8 backdrop-blur-md md:flex lg:px-10">
-      <h1 className="font-display text-2xl tracking-tight text-foreground">{title}</h1>
+    <header className="sticky top-0 z-30 hidden h-[4.5rem] items-center justify-between bg-background/85 px-8 backdrop-blur-md md:flex lg:px-10">
+      <h1 className="font-display text-[1.75rem] tracking-tight text-foreground">{title}</h1>
       <div className="flex items-center gap-3">
         <Link href="/dashboard/settings/profile" aria-label="Profile photo" className="rounded-full">
           <AvatarCircle src={avatarUrl} name={displayName} size="sm" />

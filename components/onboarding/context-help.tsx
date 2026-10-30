@@ -10,7 +10,7 @@ export function ContextHelp({
   hint?: string;
 }) {
   return (
-    <aside className="rounded-2xl border border-border bg-white px-4 py-3.5">
+    <aside className="rounded-2xl bg-surface-2/70 px-5 py-4">
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-medium">{title}</p>
         {hint ? <Hint text={hint} label="More" /> : null}

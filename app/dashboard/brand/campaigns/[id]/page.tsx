@@ -102,13 +102,16 @@ export default async function CampaignDetailPage({
       </Card>
 
       <StatGrid>
-        <Stat label="Per 1,000 views" value={formatMoney(campaign.cpmCents)} />
-        <Stat label="Max per post" value={formatMoney(campaign.maxPayoutPerSubmissionCents)} />
         <Stat
-          label="Minimum to review"
-          value={campaign.minPayoutCents > 0 ? formatMoney(campaign.minPayoutCents) : "None"}
+          label="Per 1,000 views"
+          value={formatMoney(campaign.cpmCents)}
+          hint={`Max per post ${formatMoney(campaign.maxPayoutPerSubmissionCents)}`}
         />
-        <Stat label="View floor" value={String(campaign.minViews)} />
+        <Stat
+          label="View floor"
+          value={String(campaign.minViews)}
+          hint={`Minimum to review ${campaign.minPayoutCents > 0 ? formatMoney(campaign.minPayoutCents) : "None"}`}
+        />
         <Stat label={campaign.payModel === "pool" ? "Pot" : "Clipper rate"} value={campaign.payModel === "pool" ? formatMoney(campaign.budgetTotalCents) : formatMoney(campaign.cpmCents)} />
         <Stat label="Verified views" value={formatNumber(views)} />
       </StatGrid>
