@@ -151,7 +151,7 @@ export function Stat({
   const body = (
     <>
       <p className="text-[13px] font-medium text-muted">{label}</p>
-      <p className="mt-3 font-display text-[clamp(1.15rem,5.4vw,1.75rem)] leading-none tracking-tight text-foreground tabular-nums md:text-[2rem] lg:text-[2.15rem]">
+      <p className="mt-3 font-display text-[clamp(1.15rem,5.4vw,1.75rem)] leading-none tracking-tight text-foreground tabular-nums md:text-[clamp(1.4rem,2.6vw,2rem)] lg:text-[clamp(1.4rem,2vw,2.15rem)]">
         {value}
       </p>
       {hint ? <p className="mt-2 text-xs leading-snug text-muted">{hint}</p> : null}
