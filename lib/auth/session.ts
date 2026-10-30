@@ -124,6 +124,15 @@ export async function signup(input: {
     return { ok: false, error: "Admin role cannot be self-assigned." };
   }
 
+  // Check the session secret before writing anything, so a missing AUTH_SECRET
+  // can never leave an account that was saved but could not be signed in.
+  try {
+    getAuthSecretKey();
+  } catch (error) {
+    console.error("[fweta] signup refused: session secret not configured", error);
+    return { ok: false, error: "Sign up is unavailable right now. Please try again later." };
+  }
+
   const store = await readStore();
   if (store.profiles.some((p) => p.email === email)) {
     return { ok: false, error: "An account with this email already exists.", code: "email_taken" };
