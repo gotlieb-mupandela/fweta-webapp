@@ -107,7 +107,7 @@ export default async function AdminUsersPage({
         />
       ) : (
         <div className="overflow-x-auto rounded-[1.35rem] border border-border bg-white">
-          <table className="stack-table w-full text-left text-sm md:min-w-[980px]">
+          <table className="stack-table w-full text-left text-sm md:min-w-[900px]">
             <thead className="border-b border-border text-[11px] uppercase tracking-[0.12em] text-muted">
               <tr>
                 <th className="px-4 py-3 font-semibold">Name</th>
@@ -147,7 +147,7 @@ export default async function AdminUsersPage({
                   <td data-label="Socials" className="px-3 py-3 max-md:hidden">{row.socialCount}</td>
                   <td data-label="Clips" className="px-3 py-3">{row.clips}</td>
                   <td data-label="Views" className="px-3 py-3 max-md:hidden">{formatNumber(row.views)}</td>
-                  <td data-label="Wallet" className="px-3 py-3 whitespace-nowrap">
+                  <td data-label="Wallet" className="px-3 py-3">
                     <p>{formatMoney(row.availableCents)}</p>
                     <p className="text-xs text-muted">
                       {formatMoney(row.pendingCents)} pending · {formatMoney(row.earningsCents)} earned

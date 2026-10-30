@@ -768,11 +768,6 @@ ul:has(> li.list-row) > li.list-row {
   background: #fff;
 }
 
-@media (min-width: 1024px) {
-  .stat-grid {
-    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  }
-}
 
 /* Tables become card lists on phones: each row is a block, each cell a label/value line. */
 @media (max-width: 767px) {
@@ -835,7 +830,16 @@ ul:has(> li.list-row) > li.list-row {
 }
 @media (min-width: 1024px) {
   .stat-grid {
-    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .stat-grid:has(> :last-child:nth-child(3)),
+  .stat-grid:has(> :last-child:nth-child(5)),
+  .stat-grid:has(> :last-child:nth-child(6)),
+  .stat-grid:has(> :last-child:nth-child(9)) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .stat-grid:has(> :last-child:nth-child(2)) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
