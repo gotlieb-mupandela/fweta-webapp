@@ -126,7 +126,7 @@ export function RateCardForm() {
       </div>
       <FieldError>{error}</FieldError>
       <FieldSuccess>{success}</FieldSuccess>
-      <Button type="submit" size="sm" disabled={pending}>
+      <Button type="submit" size="sm" className="sticky-submit" disabled={pending}>
         {pending ? "Adding…" : "Add item"}
       </Button>
     </form>

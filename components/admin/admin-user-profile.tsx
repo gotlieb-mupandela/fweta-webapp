@@ -12,7 +12,7 @@ import type {
   AdminUserDossier,
   SocialLink,
 } from "@/lib/admin/user-profile";
-import { formatMoney, formatNumber } from "@/lib/utils";
+import { formatMoney, formatNumber, shortUrl } from "@/lib/utils";
 import type { SocialPlatform } from "@/types/enums";
 
 const RATE_LABEL: Record<string, string> = {
@@ -84,6 +84,8 @@ function QuietEmpty({ children }: { children: React.ReactNode }) {
   );
 }
 
+const OPEN_SECTIONS = new Set(["account", "verification", "wallet"]);
+
 function Section({
   id,
   kicker,
@@ -96,15 +98,18 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} className="scroll-mt-28">
-      <div className="mb-3">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep">{kicker}</p>
-        <h2 className="mt-1 font-display text-[1.65rem] leading-none tracking-tight text-foreground md:text-[1.85rem]">
-          {title}
-        </h2>
-      </div>
-      <div className="panel p-4 sm:p-5 md:p-6">{children}</div>
-    </section>
+    <details id={id} className="group scroll-mt-28 rounded-[var(--radius-card)] bg-white shadow-[var(--shadow-card)]" open={OPEN_SECTIONS.has(id)}>
+      <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 md:px-6">
+        <span className="min-w-0">
+          <span className="eyebrow block">{kicker}</span>
+          <span className="mt-1 block text-lg font-semibold tracking-tight text-foreground">{title}</span>
+        </span>
+        <span className="text-muted transition group-open:rotate-180" aria-hidden>
+          ⌄
+        </span>
+      </summary>
+      <div className="px-4 pb-5 sm:px-5 md:px-6">{children}</div>
+    </details>
   );
 }
 
@@ -218,7 +223,7 @@ export function AdminUserProfile({
             <h1 className="mt-3 font-display text-[2.15rem] leading-[0.95] tracking-tight text-foreground sm:text-5xl">
               {profile.displayName}
             </h1>
-            <p className="mt-2 text-sm text-muted sm:text-[15px]">{profile.email}</p>
+            <p className="mt-2 text-[13px] text-muted sm:text-[15px]">{profile.email}</p>
             {dossier.influencer?.slug ? (
               <p className="mt-1 font-mono text-xs text-muted-light">/{dossier.influencer.slug}</p>
             ) : null}
@@ -237,7 +242,7 @@ export function AdminUserProfile({
           </div>
         </div>
 
-        <dl className="mt-5 grid grid-cols-2 divide-x divide-y divide-border border-t border-border sm:grid-cols-3 lg:grid-cols-6">
+        <dl className="mt-5 grid grid-cols-2 divide-x divide-y divide-border border-t border-border sm:grid-cols-3 xl:grid-cols-6">
           <Stat
             label="Available"
             value={dossier.wallet ? formatMoney(dossier.wallet.availableCents) : "Not set"}
@@ -285,7 +290,7 @@ export function AdminUserProfile({
           {optionalFacts.map((fact) => (
             <Field key={fact.label} label={fact.label}>
               {fact.label === "Website" ? (
-                <a href={fact.value} className="section-link break-all" target="_blank" rel="noreferrer">
+                <a href={fact.value} className="section-link break-words" target="_blank" rel="noreferrer">
                   {fact.value}
                 </a>
               ) : (
@@ -307,7 +312,7 @@ export function AdminUserProfile({
             <li key={`${row.label}-${row.detail}`} className="list-row items-start">
               <div className="min-w-0">
                 <p className="font-medium">{row.label}</p>
-                <p className="break-all text-sm text-muted">{row.detail}</p>
+                <p className="break-words text-sm text-muted">{row.detail}</p>
               </div>
               <Badge tone={statusTone(row.status.toLowerCase())}>{row.status}</Badge>
             </li>
@@ -458,7 +463,7 @@ export function AdminUserProfile({
                   <p className="font-medium">{entry.reason}</p>
                   <p className="text-sm text-muted">
                     {humanize(entry.referenceType)}
-                    {entry.referenceId ? ` · ${entry.referenceId}` : ""}
+                    {entry.referenceId ? ` · ${entry.referenceId.slice(0, 8)}` : ""}
                   </p>
                   <p className="mt-1 text-xs text-muted-light">
                     {formatWhen(entry.createdAt)} · available{" "}
@@ -633,8 +638,8 @@ export function AdminUserProfile({
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="bg-white px-4 py-4 sm:px-5">
-      <dt className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{label}</dt>
-      <dd className="mt-1.5 font-display text-[1.65rem] leading-none tracking-tight text-foreground sm:text-[1.85rem]">
+      <dt className="text-xs font-medium text-muted">{label}</dt>
+      <dd className="mt-2 font-display text-[clamp(1.2rem,5vw,1.6rem)] leading-none tracking-tight tabular-nums text-foreground">
         {value}
       </dd>
       {hint ? <p className="mt-1 text-[11px] text-muted-light">{hint}</p> : null}
@@ -711,8 +716,8 @@ function SubmissionRow({ submission }: { submission: AdminSubmissionRow }) {
     <li className="list-row items-start">
       <div className="min-w-0">
         <p className="font-medium">{submission.campaignTitle ?? "Unknown campaign"}</p>
-        <a href={submission.postUrl} className="section-link break-all" target="_blank" rel="noreferrer">
-          {submission.postUrl}
+        <a href={submission.postUrl} className="section-link break-words" target="_blank" rel="noreferrer">
+          {shortUrl(submission.postUrl)}
         </a>
         <p className="mt-1 text-sm text-muted">
           {PLATFORM_LABEL[submission.platform]} · {formatNumber(submission.views)} views ·{" "}
@@ -745,7 +750,7 @@ function BookingRow({ booking }: { booking: AdminBookingRow }) {
         </p>
         {booking.brief ? <p className="mt-1 text-sm leading-relaxed text-muted">{booking.brief}</p> : null}
         {booking.deliverableUrl ? (
-          <a href={booking.deliverableUrl} className="section-link break-all" target="_blank" rel="noreferrer">
+          <a href={booking.deliverableUrl} className="section-link break-words" target="_blank" rel="noreferrer">
             {booking.deliverableUrl}
           </a>
         ) : null}
@@ -769,8 +774,8 @@ function FraudRow({ flag }: { flag: AdminFraudRow }) {
           {flag.campaignTitle ? ` · ${flag.campaignTitle}` : ""}
         </p>
         {flag.postUrl ? (
-          <a href={flag.postUrl} className="section-link break-all" target="_blank" rel="noreferrer">
-            {flag.postUrl}
+          <a href={flag.postUrl} className="section-link break-words" target="_blank" rel="noreferrer">
+            {shortUrl(flag.postUrl)}
           </a>
         ) : null}
         <p className="mt-1 text-xs text-muted-light">

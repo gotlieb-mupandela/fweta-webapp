@@ -107,7 +107,7 @@ export default async function AdminUsersPage({
         />
       ) : (
         <div className="overflow-x-auto rounded-[1.35rem] border border-border bg-white">
-          <table className="min-w-[980px] w-full text-left text-sm">
+          <table className="stack-table w-full text-left text-sm md:min-w-[980px]">
             <thead className="border-b border-border text-[11px] uppercase tracking-[0.12em] text-muted">
               <tr>
                 <th className="px-4 py-3 font-semibold">Name</th>
@@ -125,15 +125,15 @@ export default async function AdminUsersPage({
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3">
+                  <td data-label="Name" className="px-4 py-3">
                     <Link href={`/dashboard/admin/users/${row.id}`} className="font-medium hover:underline">
                       {row.displayName}
                     </Link>
                     <p className="whitespace-nowrap text-xs text-muted">{row.email}</p>
                     {row.suspended ? <Badge tone="danger">Suspended</Badge> : null}
                   </td>
-                  <td className="px-3 py-3 text-muted">{row.phone || "None"}</td>
-                  <td className="px-3 py-3">
+                  <td data-label="Phone" className="px-3 py-3 text-muted max-md:hidden">{row.phone || "None"}</td>
+                  <td data-label="Roles" className="px-3 py-3">
                     <div className="flex flex-wrap gap-1">
                       {row.roles.map((role) => (
                         <Badge key={role} tone={role === row.primaryRole ? "gold" : "muted"}>
@@ -142,18 +142,18 @@ export default async function AdminUsersPage({
                       ))}
                     </div>
                   </td>
-                  <td className="px-3 py-3 whitespace-nowrap">{joinedLabel(row.joinedAt)}</td>
-                  <td className="min-w-[10rem] px-3 py-3 text-xs text-muted">{row.verification}</td>
-                  <td className="px-3 py-3">{row.socialCount}</td>
-                  <td className="px-3 py-3">{row.clips}</td>
-                  <td className="px-3 py-3">{formatNumber(row.views)}</td>
-                  <td className="px-3 py-3 whitespace-nowrap">
+                  <td data-label="Joined" className="px-3 py-3 whitespace-nowrap">{joinedLabel(row.joinedAt)}</td>
+                  <td data-label="Verification" className="min-w-[10rem] px-3 py-3 text-xs text-muted">{row.verification}</td>
+                  <td data-label="Socials" className="px-3 py-3 max-md:hidden">{row.socialCount}</td>
+                  <td data-label="Clips" className="px-3 py-3">{row.clips}</td>
+                  <td data-label="Views" className="px-3 py-3 max-md:hidden">{formatNumber(row.views)}</td>
+                  <td data-label="Wallet" className="px-3 py-3 whitespace-nowrap">
                     <p>{formatMoney(row.availableCents)}</p>
                     <p className="text-xs text-muted">
                       {formatMoney(row.pendingCents)} pending · {formatMoney(row.earningsCents)} earned
                     </p>
                   </td>
-                  <td className="px-3 py-3">
+                  <td data-label="" className="px-3 py-3">
                     <UserSuspendButton userId={row.id} suspended={row.suspended} />
                   </td>
                 </tr>

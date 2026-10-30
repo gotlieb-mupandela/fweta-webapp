@@ -33,3 +33,14 @@ export function maskAccountNumber(accountNumber: string) {
   if (accountNumber.length <= 4) return "****";
   return `${"*".repeat(Math.max(0, accountNumber.length - 4))}${accountNumber.slice(-4)}`;
 }
+
+/** Short, readable label for a post link: host plus first path segment. The full URL stays in the href. */
+export function shortUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const first = u.pathname.split("/").filter(Boolean)[0];
+    return `${u.hostname.replace(/^www\./, "")}${first ? `/${first}` : ""}`;
+  } catch {
+    return url.length > 32 ? `${url.slice(0, 32)}...` : url;
+  }
+}

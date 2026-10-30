@@ -75,7 +75,7 @@ export default async function ClipperLeaderboardPage() {
           <EmptyState title="No checks this week" description="Confirmed view counts from this week rank here." />
         ) : (
           <div className="panel mt-3 overflow-x-auto">
-            <table className="data-table">
+            <table className="data-table stack-table">
               <thead>
                 <tr>
                   <th scope="col">Place</th>
@@ -87,10 +87,10 @@ export default async function ClipperLeaderboardPage() {
               <tbody>
                 {weekly.map((row, index) => (
                   <tr key={row.userId}>
-                    <td>{index + 1}</td>
-                    <td>{row.name}</td>
-                    <td>{formatNumber(row.views)}</td>
-                    <td>{row.prizeCents > 0 ? formatMoney(row.prizeCents) : ""}</td>
+                    <td data-label="Place">{index + 1}</td>
+                    <td data-label="Creator">{row.name}</td>
+                    <td data-label="Views checked">{formatNumber(row.views)}</td>
+                    <td data-label="Prize">{row.prizeCents > 0 ? formatMoney(row.prizeCents) : ""}</td>
                   </tr>
                 ))}
               </tbody>
@@ -103,7 +103,7 @@ export default async function ClipperLeaderboardPage() {
         <EmptyState title="No ranked clips yet" description="Approved clips with a view count show up here." />
       ) : (
         <div className="panel overflow-x-auto">
-          <table className="data-table">
+          <table className="data-table stack-table">
             <thead>
               <tr>
                 <th scope="col">Rank</th>
@@ -116,14 +116,14 @@ export default async function ClipperLeaderboardPage() {
             <tbody>
               {ranked.map(([id, row], index) => (
                 <tr key={id} className={id === session.id ? "bg-gold-soft/60" : undefined}>
-                  <td>{index + 1}</td>
-                  <td>
+                  <td data-label="Rank">{index + 1}</td>
+                  <td data-label="Creator">
                     <span className="font-medium">{row.name}</span>
                     {row.handle ? <span className="ml-2 text-muted">{row.handle}</span> : null}
                   </td>
-                  <td>{row.clips}</td>
-                  <td>{formatNumber(row.views)}</td>
-                  <td>{formatMoney(row.earningsCents)}</td>
+                  <td data-label="Clips">{row.clips}</td>
+                  <td data-label="Views">{formatNumber(row.views)}</td>
+                  <td data-label="Earnings">{formatMoney(row.earningsCents)}</td>
                 </tr>
               ))}
             </tbody>

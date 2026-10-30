@@ -205,7 +205,7 @@ export function CampaignForm({ mode, campaign, walletAvailableCents }: Props) {
         ) : null}
       </div>
       <FieldError>{error}</FieldError>
-      <div className="flex flex-wrap gap-3">
+      <div className="sticky-submit-row flex flex-wrap gap-3">
         {mode === "create" ? (
           <Button type="submit" name="intent" value="publish" disabled={pending || platforms.length === 0}>
             {pending && intent === "publish" ? "Publishing…" : "Publish to clippers"}

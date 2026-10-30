@@ -80,7 +80,7 @@ export function PrivateDealForm({
         />
       </div>
       <FieldError>{error}</FieldError>
-      <div className="flex flex-wrap gap-2">
+      <div className="sticky-submit-row flex flex-wrap gap-2">
         <Button type="submit" disabled={pending}>
           {pending ? "Sending…" : "Send private offer"}
         </Button>

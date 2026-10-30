@@ -212,7 +212,7 @@ export function BrandSubmissionQueue({
                           <p className="font-medium text-foreground">{creatorName}</p>
                           <StatusBadge status={s.status} />
                         </div>
-                        <p className="mt-0.5 truncate text-xs text-muted">
+                        <p className="mt-0.5 text-xs text-muted">
                           {campaign && !lockCampaignId ? `${campaign.title} · ` : ""}
                           {PLATFORM_LABEL[s.platform] ?? s.platform} ·{" "}
                           {formatDistanceToNow(new Date(s.createdAt), { addSuffix: true })}

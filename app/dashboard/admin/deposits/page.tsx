@@ -41,7 +41,7 @@ export default async function AdminDepositsPage() {
                 <div className="min-w-0">
                   <p className="font-medium">{formatMoney(deposit.amountCents)}</p>
                   <p className="text-sm text-foreground">
-                    {brand?.displayName ?? "Unknown brand"} · {brand?.email ?? deposit.brandId}
+                    {brand?.displayName ?? "Unknown brand"} · <span className="whitespace-nowrap">{brand?.email ?? deposit.brandId}</span>
                   </p>
                   <p className="text-sm text-muted">{deposit.note}</p>
                   <p className="text-xs text-muted-light">

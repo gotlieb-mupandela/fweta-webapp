@@ -30,7 +30,7 @@ export default async function AdminSupportPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="font-medium">{ticket.subject}</p>
-                    <p className="text-xs text-muted">{person?.displayName} · {person?.email}</p>
+                    <p className="text-xs text-muted">{person?.displayName} · <span className="whitespace-nowrap">{person?.email}</span></p>
                   </div>
                   <Badge tone={ticket.status === "open" ? "gold" : "muted"}>{ticket.status}</Badge>
                 </div>

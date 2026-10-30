@@ -31,7 +31,7 @@ export default async function AdminKycPage() {
                   <div>
                     <p className="font-medium">{profile.kyc?.legalName}</p>
                     <p className="text-sm text-muted">
-                      {profile.displayName} · {profile.email} · {profile.kyc?.country}
+                      {profile.displayName} · <span className="whitespace-nowrap">{profile.email}</span> · {profile.kyc?.country}
                     </p>
                     {profile.kyc?.reviewNote ? <p className="mt-1 text-xs text-muted">{profile.kyc.reviewNote}</p> : null}
                   </div>

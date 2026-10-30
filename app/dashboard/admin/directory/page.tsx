@@ -27,7 +27,7 @@ export default async function AdminDirectoryPage() {
       <section>
         <SectionHeader title="Businesses" />
         {listings.length === 0 ? (
-          <p className="text-sm text-muted">No listings yet.</p>
+          <p className="rounded-2xl bg-white px-5 py-6 text-sm text-muted shadow-[var(--shadow-card)]">No listings yet.</p>
         ) : (
           <ul className="space-y-3">
             {listings.map((listing) => (
@@ -59,7 +59,7 @@ export default async function AdminDirectoryPage() {
       <section>
         <SectionHeader title="Reviews" />
         {reviews.length === 0 ? (
-          <p className="text-sm text-muted">No reviews yet.</p>
+          <p className="rounded-2xl bg-white px-5 py-6 text-sm text-muted shadow-[var(--shadow-card)]">No reviews yet.</p>
         ) : (
           <ul className="space-y-3">
             {reviews.map((review) => {

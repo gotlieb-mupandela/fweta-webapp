@@ -37,7 +37,7 @@ export function MobileTopBar({
   return (
     <header className="public-header sticky top-0 z-[60] md:hidden">
       <div
-        className="flex h-12 items-center gap-2 px-3"
+        className="flex h-14 items-center gap-1.5 px-2.5"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <MobileMenu
@@ -62,14 +62,14 @@ export function MobileTopBar({
         <span className="sr-only">{displayName}</span>
         <h1
           className={cn(
-            "min-w-0 flex-1 truncate font-display text-[1.35rem] leading-none tracking-tight text-foreground",
+            "min-w-0 flex-1 truncate font-display text-[1.15rem] leading-tight tracking-tight text-foreground min-[400px]:text-[1.3rem]",
             backHref ? "text-center" : "text-left",
           )}
         >
           {title}
         </h1>
 
-        <Link href="/dashboard/settings/profile" aria-label="Profile photo" className="rounded-full">
+        <Link href="/dashboard/settings/profile" aria-label="Profile photo" className="rounded-full max-[379px]:hidden">
           <AvatarCircle src={avatarUrl} name={displayName} size="sm" />
         </Link>
         <NotificationBell count={unreadCount} className="md:hidden" />

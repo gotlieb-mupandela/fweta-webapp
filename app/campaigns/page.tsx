@@ -43,12 +43,12 @@ export default async function CampaignsPage({
           <PostingGuide platforms={[platform]} />
         </div>
       ) : null}
-      <form className="mt-4 flex flex-wrap gap-3" action="/campaigns" method="get">
+      <form className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_10rem_auto]" action="/campaigns" method="get">
         <input
           name="q"
           defaultValue={params.q}
           placeholder="Search…"
-          className="input-capsule h-11 min-w-[200px] flex-1"
+          className="input-capsule col-span-2 h-11 sm:col-span-1"
         />
         <select name="type" defaultValue={params.type ?? ""} className="input-capsule h-11">
           <option value="">All types</option>
@@ -63,7 +63,7 @@ export default async function CampaignsPage({
           <option value="facebook">Facebook</option>
           <option value="x">X</option>
         </select>
-        <Button type="submit" size="sm">
+        <Button type="submit" size="sm" className="col-span-2 h-11 sm:col-span-1">
           Filter
         </Button>
       </form>

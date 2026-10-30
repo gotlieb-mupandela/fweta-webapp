@@ -87,7 +87,7 @@ export function PayoutMethodForm({
       </div>
       <FieldError>{error}</FieldError>
       <FieldSuccess>{success ? "Payout method saved." : null}</FieldSuccess>
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" className="sticky-submit" disabled={pending}>
         {pending ? "Saving…" : "Save payout method"}
       </Button>
     </form>

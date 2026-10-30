@@ -23,9 +23,9 @@ export function SubmissionReviewForm({ submissionId }: { submissionId: string })
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <form
-        className="flex flex-wrap items-end gap-2"
+        className="grid grid-cols-[1fr_auto_auto] items-end gap-2 max-sm:grid-cols-2"
         onSubmit={(e) => {
           e.preventDefault();
           const fd = new FormData(e.currentTarget);
@@ -38,7 +38,7 @@ export function SubmissionReviewForm({ submissionId }: { submissionId: string })
           review("approved", undefined, views);
         }}
       >
-        <div>
+        <div className="max-sm:col-span-2">
           <Label htmlFor={`views-${submissionId}`}>Checked views</Label>
           <Input
             id={`views-${submissionId}`}
@@ -47,31 +47,36 @@ export function SubmissionReviewForm({ submissionId }: { submissionId: string })
             min={0}
             step={1}
             placeholder="0"
-            className="h-10 w-32"
+            className="h-11 w-full sm:max-w-[12rem]"
           />
         </div>
-        <Button size="sm" variant="primary" type="submit" disabled={pending}>
+        <Button size="sm" variant="primary" type="submit" className="h-11" disabled={pending}>
           Approve
         </Button>
         <Button
           size="sm"
           variant="secondary"
           type="button"
+          className="h-11"
           disabled={pending}
           onClick={() => review("rejected")}
         >
           Reject
         </Button>
       </form>
+      <details className="group">
+        <summary className="inline-flex min-h-11 cursor-pointer list-none items-center text-sm text-muted hover:text-foreground">
+          Flag this clip
+        </summary>
       <form
-        className="flex flex-wrap items-end gap-2"
+        className="flex items-end gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           const fd = new FormData(e.currentTarget);
           review("flagged", String(fd.get("note") || "Flagged"));
         }}
       >
-        <div>
+        <div className="min-w-0 flex-1">
           <Label htmlFor={`flag-${submissionId}`} className="sr-only">
             Flag note
           </Label>
@@ -79,13 +84,14 @@ export function SubmissionReviewForm({ submissionId }: { submissionId: string })
             id={`flag-${submissionId}`}
             name="note"
             placeholder="Flag reason"
-            className="h-10 w-40"
+            className="h-11 w-full"
           />
         </div>
-        <Button size="sm" variant="ghost" className="text-danger hover:text-danger" type="submit" disabled={pending}>
+        <Button size="sm" variant="ghost" className="h-11 text-danger hover:text-danger" type="submit" disabled={pending}>
           Flag
         </Button>
       </form>
+      </details>
       <FieldError>{error}</FieldError>
     </div>
   );

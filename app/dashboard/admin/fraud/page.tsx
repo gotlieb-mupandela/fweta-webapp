@@ -1,3 +1,4 @@
+import { shortUrl } from "@/lib/utils";
 import { formatAppDateTime } from "@/lib/format/time";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -52,7 +53,7 @@ export default async function AdminFraudPage() {
                       </p>
                       <p className="text-sm text-muted">
                         {campaign?.title ?? "Unknown campaign"}
-                        {submission ? ` · ${submission.postUrl}` : ""}
+                        {submission ? ` · ${shortUrl(submission.postUrl)}` : ""}
                       </p>
                       <p className="text-xs text-muted">
                         {formatAppDateTime(f.createdAt)}

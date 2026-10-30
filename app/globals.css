@@ -194,9 +194,9 @@ h3,
 .auth-brand::after {
   content: "";
   position: absolute;
-  inset: auto -20% -30% auto;
-  width: 70%;
-  height: 70%;
+  inset: auto 0 0 auto;
+  width: 60%;
+  height: 55%;
   background: radial-gradient(circle, color-mix(in srgb, var(--gold) 35%, transparent), transparent 70%);
   pointer-events: none;
 }
@@ -771,5 +771,113 @@ ul:has(> li.list-row) > li.list-row {
 @media (min-width: 1024px) {
   .stat-grid {
     grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  }
+}
+
+/* Tables become card lists on phones: each row is a block, each cell a label/value line. */
+@media (max-width: 767px) {
+  .app-main table.stack-table,
+  .app-main table.stack-table tbody,
+  .app-main table.stack-table tr,
+  .app-main table.stack-table td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .app-main table.stack-table thead {
+    display: none;
+  }
+  .app-main table.stack-table tr {
+    padding: 0.85rem 0.25rem;
+  }
+  .app-main table.stack-table tbody tr + tr {
+    border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  }
+  .app-main table.stack-table td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.3rem 0.85rem !important;
+    border: 0 !important;
+    text-align: right;
+  }
+  .app-main table.stack-table td > * {
+    min-width: 0;
+  }
+  .app-main table.stack-table td:first-child {
+    display: block;
+    text-align: left;
+    padding-bottom: 0.5rem !important;
+  }
+  .app-main table.stack-table td:first-child::before {
+    display: none;
+  }
+  .app-main table.stack-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 0.8125rem;
+    color: var(--muted);
+    text-align: left;
+  }
+  .app-main table.stack-table td[data-label=""]::before {
+    display: none;
+  }
+  .app-main div:has(> table.stack-table) {
+    overflow-x: visible;
+  }
+}
+
+/* Row text takes its own line before it gets squeezed into mid-word breaks. */
+.list-row > .min-w-0:first-child,
+.list-row > div:first-child {
+  flex: 1 1 13rem;
+}
+@media (min-width: 1024px) {
+  .stat-grid {
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .list-row:not(:has(> [aria-hidden])) > .min-w-0:first-child,
+  .list-row:not(:has(> [aria-hidden])) > div:first-child {
+    flex-basis: 100%;
+  }
+  .list-row:has(> [aria-hidden]) {
+    flex-wrap: nowrap;
+  }
+  .list-row:has(> [aria-hidden]) > :first-child {
+    flex: 1 1 auto;
+  }
+}
+@media (max-width: 399px) {
+  .stat-grid .stat-card {
+    padding: 0.9rem 0.85rem 0.95rem;
+  }
+}
+
+/* Long forms on phones: the main action stays in reach above the tab bar. */
+@media (max-width: 767px) {
+  .sticky-submit,
+  .sticky-submit-row {
+    position: sticky;
+    bottom: calc(var(--tab-bar-h) + var(--safe-bottom) + 0.75rem);
+    z-index: 20;
+  }
+  .sticky-submit {
+    width: 100%;
+    min-height: 3rem;
+    box-shadow: 0 10px 28px rgba(18, 17, 15, 0.18);
+  }
+  .sticky-submit-row {
+    margin: 0 -0.5rem;
+    padding: 0.6rem 0.5rem;
+    border-radius: 1.25rem;
+    background: color-mix(in srgb, var(--background) 92%, transparent);
+    backdrop-filter: blur(12px);
+  }
+  .sticky-submit-row > button {
+    flex: 1 1 auto;
   }
 }

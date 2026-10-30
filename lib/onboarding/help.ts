@@ -32,7 +32,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     group: "Campaigns",
     question: "How do I run a first campaign?",
     answer:
-      "Create a draft with the rate per 1,000 views, the budget, a minimum view floor, and a per-clip cap. Request a bank transfer confirmation. After an admin credits the wallet, activate the campaign so creators can submit.",
+      "Create a draft with the rate per 1,000 views, the budget, a minimum view floor, and a per‑clip cap. Request a bank transfer confirmation. After an admin credits the wallet, activate the campaign so creators can submit.",
   },
   {
     id: "funding",
@@ -81,7 +81,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     group: "Earnings and payouts",
     question: "When do clip earnings show up?",
     answer:
-      "After a clip is approved, an admin records the qualified view count. Earnings are calculated from the campaign rate per 1,000 views, then capped by the per-clip maximum and the remaining budget. The amount is added to the creator wallet.",
+      "After a clip is approved, an admin records the qualified view count. Earnings are calculated from the campaign rate per 1,000 views, then capped by the per‑clip maximum and the remaining budget. The amount is added to the creator wallet.",
   },
   {
     id: "payout",

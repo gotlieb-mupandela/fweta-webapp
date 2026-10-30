@@ -53,7 +53,7 @@ export default async function ClipperEarningsPage() {
       />
       <ContextHelp
         title="Earnings follow a view check"
-        body="Approved clips earn after an admin records qualified views. The amount is the rate per 1,000 views, capped by the per-clip maximum and the budget still left."
+        body="Approved clips earn after an admin records qualified views. The amount is the rate per 1,000 views, capped by the per‑clip maximum and the budget still left."
         hint="A rejection does not earn. The note on the submission explains why."
       />
 

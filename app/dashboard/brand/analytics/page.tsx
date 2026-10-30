@@ -6,7 +6,7 @@ import { Card, EmptyState, PageHeader, SectionHeader, Stat, StatGrid } from "@/c
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { qualifiedViewCount } from "@/lib/rewards/content-rewards";
-import { formatMoney, formatNumber } from "@/lib/utils";
+import { formatMoney, formatNumber, shortUrl } from "@/lib/utils";
 
 export default async function BrandAnalyticsPage() {
   const session = await getSession();
@@ -103,7 +103,7 @@ export default async function BrandAnalyticsPage() {
             <ul className="space-y-2">
               {topClips.map((item) => (
                 <li key={item.id} className="list-row">
-                  <p className="min-w-0 truncate text-sm">{item.postUrl}</p>
+                  <a href={item.postUrl} target="_blank" rel="noopener noreferrer" title={item.postUrl} className="min-w-0 text-sm hover:underline">{shortUrl(item.postUrl)}</a>
                   <p className="shrink-0 text-sm">{formatNumber(qualifiedViewCount(item))}</p>
                 </li>
               ))}

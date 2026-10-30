@@ -47,7 +47,7 @@ export default async function AdminAccountsPage() {
                     <p className="font-medium">
                       {PLATFORM_LABEL[account.platform]} @{account.handle}
                     </p>
-                    <p className="text-sm text-muted">{user?.email}</p>
+                    <p className="text-[13px] text-muted">{user?.email}</p>
                     <p className="mt-1 font-mono text-sm tracking-wide">{account.code}</p>
                     {url ? (
                       <a
@@ -81,7 +81,7 @@ export default async function AdminAccountsPage() {
                   <p className="font-medium">
                     {PLATFORM_LABEL[account.platform]} @{account.handle}
                   </p>
-                  <p className="text-sm text-muted">{user?.email}</p>
+                  <p className="text-[13px] text-muted">{user?.email}</p>
                   <p className="mt-1 text-xs text-muted">
                     {account.code}
                     {account.isDefault ? " · Default" : ""}

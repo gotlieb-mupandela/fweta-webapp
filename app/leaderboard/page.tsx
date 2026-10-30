@@ -45,7 +45,7 @@ export default async function LeaderboardPage() {
                 <span className="w-6 text-sm font-medium text-muted">{index + 1}</span>
                 <AvatarCircle src={row.profile.avatarUrl} name={row.profile.displayName} size="sm" />
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{row.profile.displayName}</p>
+                  <p className="font-medium">{row.profile.displayName}</p>
                   <p className="text-sm text-muted">
                     {formatNumber(row.views)} views · {formatMoney(row.earningsCents)}
                   </p>

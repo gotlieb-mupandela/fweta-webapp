@@ -18,7 +18,7 @@ import {
   pendingCreatorSnapshot,
   qualifiedViewCount,
 } from "@/lib/rewards/content-rewards";
-import { formatMoney, formatNumber } from "@/lib/utils";
+import { formatMoney, formatNumber, shortUrl } from "@/lib/utils";
 
 export default async function ClipperSubmissionsPage() {
   const session = await getSession();
@@ -67,12 +67,12 @@ export default async function ClipperSubmissionsPage() {
                   <div className="min-w-0">
                     <p className="font-medium">{campaign?.title ?? "Campaign"}</p>
                     <a
-                      href={s.postUrl}
+                      href={shortUrl(s.postUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-1 block break-all text-sm text-gold-deep hover:underline"
+                      className="mt-1 block break-words text-sm text-gold-deep hover:underline"
                     >
-                      {s.postUrl}
+                      {shortUrl(s.postUrl)}
                     </a>
                     <div className="mt-2">
                       <PlatformChip platform={s.platform} />

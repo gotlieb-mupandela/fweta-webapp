@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
 import { clipEarnedCents } from "@/lib/rewards/paid";
-import { formatMoney, formatNumber } from "@/lib/utils";
+import { formatMoney, formatNumber, shortUrl } from "@/lib/utils";
 
 export default async function CampaignSubmissionsPage({
   params,
@@ -64,12 +64,12 @@ export default async function CampaignSubmissionsPage({
                     <div className="min-w-0">
                       <p className="text-sm font-medium">{clipper?.displayName ?? "Creator"}</p>
                       <a
-                        href={s.postUrl}
+                        href={shortUrl(s.postUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-1 block break-all text-sm text-gold-deep hover:underline"
+                        className="mt-1 block break-words text-sm text-gold-deep hover:underline"
                       >
-                        {s.postUrl}
+                        {shortUrl(s.postUrl)}
                       </a>
                       <p className="mt-1 text-xs text-muted">
                         {s.platform} · {formatNumber(s.views)} views ·{" "}

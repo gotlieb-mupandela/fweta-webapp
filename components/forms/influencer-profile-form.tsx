@@ -137,7 +137,7 @@ export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile 
         </label>
         <FieldError>{error}</FieldError>
         <FieldSuccess>{success ? "Profile saved." : null}</FieldSuccess>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" className="sticky-submit" disabled={pending}>
           {pending ? "Saving…" : "Save profile"}
         </Button>
       </form>

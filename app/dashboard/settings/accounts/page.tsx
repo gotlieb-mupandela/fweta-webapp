@@ -36,7 +36,7 @@ export default async function SocialAccountsPage() {
       <Card>
         <h2 className="font-display text-xl tracking-tight">Bio check</h2>
         <p className="mt-1.5 text-sm text-muted">
-          Use this when a campaign asks for a one-time bio code before the first clip.
+          Use this when a campaign asks for a one‑time bio code before the first clip.
         </p>
         <div className="mt-4">
           <LinkedAccountForm accounts={linked} />

@@ -18,7 +18,7 @@ export default async function AdminDisputesPage() {
         description="A dispute does not move money by itself. Resolve it with a note both sides can read."
       />
       {disputes.length === 0 ? (
-        <p className="text-sm text-muted">No disputes.</p>
+        <p className="rounded-2xl bg-white px-5 py-6 text-sm text-muted shadow-[var(--shadow-card)]">No disputes.</p>
       ) : (
         <ul className="space-y-4">
           {disputes.map((dispute) => {

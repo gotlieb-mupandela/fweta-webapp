@@ -19,10 +19,10 @@ export async function PublicChrome({
   return (
     <div className="bg-atmosphere min-h-dvh">
       <header className="public-header relative top-0 z-40 md:sticky">
-        <div className="mx-auto flex min-w-0 max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-4 md:px-8">
-          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-4">
+        <div className="mx-auto grid min-w-0 max-w-5xl grid-cols-[1fr_auto] items-center gap-x-3 px-4 pt-3 md:flex md:justify-between md:px-8 md:py-4">
+          <div className="contents md:flex md:min-w-0 md:items-center md:gap-6">
             <Logo href={session ? "/dashboard" : "/login"} />
-            <nav aria-label="Public" className="flex flex-wrap gap-3 text-sm text-muted">
+            <nav aria-label="Public" className="order-last col-span-2 -mx-4 flex gap-1 overflow-x-auto px-3 pb-1 text-sm text-muted md:order-none md:mx-0 md:gap-5 md:overflow-visible md:p-0 [&>a]:flex [&>a]:min-h-11 [&>a]:shrink-0 [&>a]:items-center [&>a]:px-2 md:[&>a]:min-h-0 md:[&>a]:px-0">
               <Link href="/campaigns" className="hover:text-foreground">
                 Campaigns
               </Link>

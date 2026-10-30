@@ -19,7 +19,8 @@ export function UserSuspendButton({
   return (
     <Button
       size="sm"
-      variant={suspended ? "secondary" : "danger"}
+      variant="secondary"
+      className={suspended ? undefined : "text-danger hover:text-danger"}
       disabled={pending}
       onClick={() =>
         startTransition(async () => {

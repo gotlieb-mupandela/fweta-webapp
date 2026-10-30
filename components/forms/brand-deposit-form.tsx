@@ -51,7 +51,7 @@ export function BrandDepositForm() {
       </div>
       <FieldError>{error}</FieldError>
       <FieldSuccess>{success}</FieldSuccess>
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" className="sticky-submit" disabled={pending}>
         {pending ? "Submitting…" : "Submit EFT deposit"}
       </Button>
     </form>
