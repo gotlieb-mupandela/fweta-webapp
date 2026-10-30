@@ -87,7 +87,7 @@ export function PageHeader({
         ) : null}
       </div>
       {action ? (
-        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 max-lg:basis-full">{action}</div>
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 max-lg:basis-full max-sm:[&>a]:flex-1 max-sm:[&>div]:w-full max-sm:[&>div>a]:flex-1 max-sm:[&_button]:w-full">{action}</div>
       ) : null}
     </div>
   );
