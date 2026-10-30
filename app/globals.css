@@ -885,3 +885,9 @@ ul:has(> li.list-row) > li.list-row {
     flex: 1 1 auto;
   }
 }
+@media (max-width: 767px) {
+  /* The top bar back button covers Cancel on phones; keep the pinned row to the real actions. */
+  .sticky-submit-row > button[type="button"]:last-child:not(:first-child) {
+    display: none;
+  }
+}
