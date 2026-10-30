@@ -309,7 +309,7 @@ export function AdminUserProfile({
       <Section id="verification" kicker="Trust" title="Verification">
         <ul className="space-y-2.5">
           {dossier.verification.map((row) => (
-            <li key={`${row.label}-${row.detail}`} className="list-row items-start">
+            <li key={`${row.label}-${row.detail}`} className="list-row items-start max-sm:flex-col">
               <div className="min-w-0">
                 <p className="font-medium">{row.label}</p>
                 <p className="break-words text-[13px] text-muted">{row.detail}</p>
