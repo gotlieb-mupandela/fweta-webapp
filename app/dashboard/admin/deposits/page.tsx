@@ -67,7 +67,7 @@ export default async function AdminDepositsPage() {
                     <p className="font-medium">{formatMoney(deposit.amountCents)}</p>
                     <p className="text-sm text-muted">
                       {brand?.displayName ?? "Unknown brand"}
-                      {deposit.bankReference ? ` · ${deposit.bankReference}` : ""}
+                      {deposit.bankReference ? <> · <span className="whitespace-nowrap">{deposit.bankReference}</span></> : ""}
                     </p>
                     <p className="text-sm text-muted">{deposit.note}</p>
                   </div>

@@ -277,7 +277,7 @@ export function AdminUserProfile({
       <Section id="account" kicker="Identity" title="Account">
         <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Display name">{profile.displayName}</Field>
-          <Field label="Email">{profile.email}</Field>
+          <Field label="Email"><span className="text-[13px]">{profile.email}</span></Field>
           <Field label="User id">
             <span className="font-mono text-xs">{profile.id}</span>
           </Field>
