@@ -312,7 +312,7 @@ export function AdminUserProfile({
             <li key={`${row.label}-${row.detail}`} className="list-row items-start">
               <div className="min-w-0">
                 <p className="font-medium">{row.label}</p>
-                <p className="break-words text-sm text-muted">{row.detail}</p>
+                <p className="break-words text-[13px] text-muted">{row.detail}</p>
               </div>
               <Badge tone={statusTone(row.status.toLowerCase())}>{row.status}</Badge>
             </li>
