@@ -32,7 +32,7 @@ export default function HelpPage() {
               <h2 className="font-display text-2xl tracking-tight">{group}</h2>
               <div className="mt-3 space-y-3">
                 {HELP_ARTICLES.filter((article) => article.group === group).map((article) => (
-                  <article key={article.id} id={article.id} className="rounded-2xl border border-border bg-white px-4 py-4">
+                  <article key={article.id} id={article.id} className="rounded-2xl bg-white px-5 py-5 shadow-[var(--shadow-card)]">
                     <h3 className="text-sm font-medium">{article.question}</h3>
                     <p className="mt-2 text-sm leading-relaxed text-muted">{article.answer}</p>
                   </article>

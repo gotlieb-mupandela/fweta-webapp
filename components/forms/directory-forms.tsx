@@ -88,11 +88,11 @@ export function BusinessListingForm({
           <Input id={`${idPrefix}-address`} name="address" defaultValue={listing?.address} />
         </div>
       </div>
-      <label className="inline-flex items-center gap-2 text-sm">
+      <label className="flex min-h-11 items-center gap-2 text-sm">
         <input type="checkbox" name="optInReviews" defaultChecked={listing?.optInReviews ?? false} />
         Opt in to public creator reviews
       </label>
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" className="sticky-submit block" disabled={pending}>
         {pending ? "Saving" : listing ? "Save listing" : "Create listing"}
       </Button>
       <FieldError>{error}</FieldError>
