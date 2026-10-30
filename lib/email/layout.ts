@@ -62,7 +62,7 @@ function oneLine(value: string): string {
 export function renderEmail(doc: EmailDocument): RenderedEmail {
   const subject = oneLine(doc.subject);
   const base = appUrl();
-  const logo = `${base}/brand/fweta-mark.webp`;
+  const logo = `${base}/brand/fweta-mark.png`;
   const preheader = escapeHtml(oneLine(doc.preheader));
 
   const paragraphs = doc.paragraphs
@@ -167,7 +167,7 @@ export function renderEmail(doc: EmailDocument): RenderedEmail {
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td valign="middle" style="padding-right:10px;">
-                    <img src="${escapeHtml(logo)}" width="28" height="31" alt="" style="display:block;border:0;outline:none;" />
+                    <img src="${escapeHtml(logo)}" width="29" height="32" alt="fweta" style="display:block;border:0;outline:none;text-decoration:none;" />
                   </td>
                   <td valign="middle" style="font-family:'Karla',Helvetica,Arial,sans-serif;font-size:18px;font-weight:700;letter-spacing:-0.02em;color:#12110f;">fweta</td>
                 </tr>
