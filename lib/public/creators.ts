@@ -1,4 +1,6 @@
 import type { InfluencerProfile, Profile, ProfileSocials } from "@/lib/db/types";
+import { displaySocialUrl, visibleSocial } from "@/lib/social/profile-url";
+import type { SocialPlatform } from "@/types/enums";
 
 const TEST_LOCAL =
   /(?:^|[.+_-])(?:test|qa|demo)(?:[.+_-]|$)|fwetalive|fweta[_-]?live/i;
@@ -29,28 +31,23 @@ function namesEqual(a: string, b: string): boolean {
   return a.trim().toLowerCase().replace(/\s+/g, " ") === b.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function handleLabel(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : trimmed.includes(".") ? `https://${trimmed}` : "";
-  if (withScheme) {
-    try {
-      const part = new URL(withScheme).pathname.split("/").filter(Boolean).pop() ?? "";
-      const bare = part.replace(/^@/, "").trim();
-      if (bare.length >= 2 && !bare.includes(" ")) return `@${bare}`;
-    } catch {
-      // Fall through to a plain handle.
-    }
+function handleLabel(platform: SocialPlatform, value: string): string | null {
+  const url = displaySocialUrl(platform, value);
+  if (!url) return null;
+  try {
+    const part = new URL(url).pathname.split("/").filter(Boolean).pop() ?? "";
+    const bare = decodeURIComponent(part).replace(/^@/, "");
+    if (bare.length >= 2 && !bare.includes(" ") && bare !== "profile.php") return `@${bare}`;
+  } catch {
+    return null;
   }
-  const bare = trimmed.replace(/^@/, "").trim();
-  if (bare.length >= 2 && !/\s/.test(bare) && !bare.includes("/")) return `@${bare}`;
   return null;
 }
 
 function firstHandle(socials: ProfileSocials | undefined): string | null {
   if (!socials) return null;
   for (const key of ["tiktok", "instagram", "youtube", "facebook", "x"] as const) {
-    const handle = socials[key] ? handleLabel(socials[key]!) : null;
+    const handle = socials[key] ? handleLabel(key, socials[key]!) : null;
     if (handle) return handle;
   }
   return null;
@@ -78,7 +75,9 @@ export function publicCreatorName(
 }
 
 function richness(profile: InfluencerProfile): number {
-  const socials = Object.values(profile.socials ?? {}).filter((value) => value && String(value).trim()).length;
+  const socials = (["tiktok", "instagram", "youtube", "facebook", "x"] as const).filter((key) =>
+    visibleSocial(key, profile.socials?.[key]),
+  ).length;
   return socials * 10 + (profile.bio?.trim().length ?? 0) / 100;
 }
 

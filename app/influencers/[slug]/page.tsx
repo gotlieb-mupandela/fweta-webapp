@@ -9,7 +9,8 @@ import { Badge, Card, ListRow } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { RATE_TYPE_LABEL, ratePlatformLabel } from "@/lib/platforms/guides";
-import { PLATFORM_LABEL, SOCIAL_PLATFORMS, profileUrl } from "@/lib/social/platforms";
+import { displaySocialUrl } from "@/lib/social/profile-url";
+import { PLATFORM_LABEL, SOCIAL_PLATFORMS } from "@/lib/social/platforms";
 import { cleanDisplayName } from "@/lib/text/display-name";
 import { formatMoney } from "@/lib/utils";
 
@@ -43,7 +44,7 @@ export default async function PublicInfluencerPage({
             <p className="mt-2 wrap-anywhere text-lg text-muted">{profile.headline}</p>
             <p className="mt-1 wrap-anywhere text-sm text-muted-light">{profile.location}</p>
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {SOCIAL_PLATFORMS.filter((platform) => profile.socials?.[platform]).map((platform) => (
+              {SOCIAL_PLATFORMS.filter((platform) => displaySocialUrl(platform, profile.socials?.[platform])).map((platform) => (
                 <PlatformChip key={platform} platform={platform} />
               ))}
             </div>
@@ -55,12 +56,12 @@ export default async function PublicInfluencerPage({
           <p className="mt-2 whitespace-pre-wrap wrap-anywhere text-sm leading-relaxed text-muted">{profile.bio}</p>
           <ul className="mt-4 flex flex-wrap gap-2">
             {SOCIAL_PLATFORMS.map((platform) => {
-              const value = profile.socials[platform];
-              if (!value) return null;
+              const href = displaySocialUrl(platform, profile.socials[platform]);
+              if (!href) return null;
               return (
                 <li key={platform}>
                   <a
-                    href={profileUrl(platform, value)}
+                    href={href}
                     target="_blank"
                     rel="noreferrer"
                     className="text-sm font-medium text-gold-deep hover:underline"

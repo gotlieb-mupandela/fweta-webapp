@@ -12,7 +12,7 @@ import { needsOnboarding } from "@/lib/onboarding/steps";
 import { encryptSecret, newId, nowIso, readStore, updateStore } from "@/lib/db/store";
 import type { InfluencerProfile, ProfileSocials } from "@/lib/db/types";
 import { onboardingCompleteSchema } from "@/lib/validations/onboarding";
-import { profileUrl } from "@/lib/social/platforms";
+import { normalizeSocialProfileUrl } from "@/lib/social/profile-url";
 import { slugify } from "@/lib/utils";
 import type { SocialPlatform } from "@/types/enums";
 
@@ -30,7 +30,6 @@ import {
   markStep,
   nadToCents,
   publicProfileUrl,
-  sanitizeHandle,
   socialsFromChecks,
   stepIdsFor,
   upsertSocialCheck,
@@ -50,25 +49,22 @@ import {
 
 const PLATFORM_ORDER: SocialPlatform[] = ["tiktok", "instagram", "facebook", "youtube", "x"];
 
-function normalizeHandle(platform: SocialPlatform, raw: string): string {
-  return profileUrl(platform, raw);
-}
-
 function socialsFromAnswers(socials: {
   tiktok?: string;
   instagram?: string;
   facebook?: string;
   youtube?: string;
   x?: string;
-}): ProfileSocials {
+}): { socials: ProfileSocials; error: string | null } {
   const out: ProfileSocials = {};
   for (const platform of PLATFORM_ORDER) {
     const raw = socials[platform]?.trim() ?? "";
-    if (raw.length >= 2) {
-      out[platform] = normalizeHandle(platform, raw);
-    }
+    if (!raw) continue;
+    const parsed = normalizeSocialProfileUrl(platform, raw);
+    if (!parsed.ok) return { socials: {}, error: parsed.message };
+    if (parsed.url) out[platform] = parsed.url;
   }
-  return out;
+  return { socials: out, error: null };
 }
 
 function firstFilledPlatform(socials: ProfileSocials): SocialPlatform | undefined {
@@ -99,7 +95,9 @@ export async function completeOnboardingAction(raw: unknown) {
 
   const data = parsed.data;
   const displayName = cleanDisplayName(`${data.firstName} ${data.lastName}`);
-  const socials = socialsFromAnswers(data.socials);
+  const collected = socialsFromAnswers(data.socials);
+  if (collected.error) return { ok: false as const, error: collected.error };
+  const socials = collected.socials;
   const now = nowIso();
 
   let updatedId = session.id;
@@ -243,9 +241,11 @@ function cleanSocialInput(input: {
   const next: ProfileSocials = {};
   if (!input) return next;
   (["tiktok", "instagram", "facebook", "youtube", "x"] as const).forEach((platform) => {
-    const handle = sanitizeHandle(input[platform] ?? "");
-    const url = handle ? publicProfileUrl(platform, handle) : null;
-    if (url) next[platform] = url;
+    const raw = input[platform] ?? "";
+    if (!raw.trim()) return;
+    const parsed = normalizeSocialProfileUrl(platform, raw);
+    if (!parsed.ok) throw new Error(parsed.message);
+    if (parsed.url) next[platform] = parsed.url;
   });
   return next;
 }
@@ -420,11 +420,17 @@ export async function setSocialHandleAction(raw: unknown): Promise<
   if (!parsed.success) {
     return { ok: false, error: "Enter a handle or profile link." };
   }
-  const handle = sanitizeHandle(parsed.data.handle);
-  const profileUrl = handle ? publicProfileUrl(parsed.data.platform, handle) : null;
-  if (!handle || !profileUrl) {
-    return { ok: false, error: "Use a public handle with letters, numbers, dots, or underscores." };
+  const parsedUrl = normalizeSocialProfileUrl(parsed.data.platform, parsed.data.handle);
+  if (!parsedUrl.ok || !parsedUrl.handle || !parsedUrl.url) {
+    return {
+      ok: false,
+      error: parsedUrl.ok
+        ? "Use a public handle with letters, numbers, dots, or underscores."
+        : parsedUrl.message,
+    };
   }
+  const handle = parsedUrl.handle;
+  const profileUrl = parsedUrl.url;
 
   let savedDraft: OnboardingDraft | null = null;
   try {

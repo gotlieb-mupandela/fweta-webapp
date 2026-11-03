@@ -1,6 +1,22 @@
 import { z } from "zod";
 
+import { normalizeSocialProfileUrl } from "@/lib/social/profile-url";
+import type { SocialPlatform } from "@/types/enums";
+
 import { socialPlatformSchema } from "./shared";
+
+function profileUrlField(platform: SocialPlatform) {
+  return z
+    .string()
+    .trim()
+    .max(500, "Paste a profile link or @handle.")
+    .superRefine((value, ctx) => {
+      const parsed = normalizeSocialProfileUrl(platform, value);
+      if (!parsed.ok) {
+        ctx.addIssue({ code: "custom", message: parsed.message });
+      }
+    });
+}
 
 export const influencerProfileSchema = z.object({
   displayName: z.string().trim().min(2, "Display name must be at least 2 characters.").max(80, "Display name must be 80 characters or fewer."),
@@ -10,11 +26,11 @@ export const influencerProfileSchema = z.object({
   location: z.string().trim().min(2, "Location must be at least 2 characters.").max(80, "Location must be 80 characters or fewer."),
   socials: z
     .object({
-      tiktok: z.string().url().optional().or(z.literal("")),
-      youtube: z.string().url().optional().or(z.literal("")),
-      instagram: z.string().url().optional().or(z.literal("")),
-      facebook: z.string().url().optional().or(z.literal("")),
-      x: z.string().url().optional().or(z.literal("")),
+      tiktok: profileUrlField("tiktok").optional(),
+      youtube: profileUrlField("youtube").optional(),
+      instagram: profileUrlField("instagram").optional(),
+      facebook: profileUrlField("facebook").optional(),
+      x: profileUrlField("x").optional(),
     })
     .optional(),
   published: z.boolean().optional(),

@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { readStore } from "@/lib/db/store";
+import { visibleSocial } from "@/lib/social/profile-url";
 import { formatMoney } from "@/lib/utils";
 import type { SocialPlatform } from "@/types/enums";
 
@@ -37,7 +38,7 @@ export default async function InfluencerDashboardPage() {
   const pendingBookings = bookings.filter((b) => b.status === "requested").length;
   const activeRates = rates.filter((r) => r.active).length;
   const listedPlatforms = (["tiktok", "instagram", "facebook", "youtube", "x"] as const).filter(
-    (platform): platform is SocialPlatform => Boolean(profile?.socials?.[platform]),
+    (platform): platform is SocialPlatform => visibleSocial(platform, profile?.socials?.[platform]),
   );
 
   return (

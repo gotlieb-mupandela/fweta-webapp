@@ -305,7 +305,7 @@ test("brand setup projects the company name onto the profile", () => {
   applyProfileFields(account, draft);
   assert.equal(account.displayName, "Desert Brands");
   assert.equal(account.website, "https://desertbrands.com");
-  assert.equal(account.socials?.instagram, "https://www.instagram.com/desert/");
+  assert.equal(account.socials?.instagram, "https://www.instagram.com/desert");
   assert.equal(allocateSlug(["desert-brands"], "Desert Brands", account.id), "desert-brands-1");
 });
 
