@@ -9,7 +9,7 @@ import { AvatarUpload } from "@/components/forms/avatar-upload";
 import { Button } from "@/components/ui/button";
 import { FieldError, FieldSuccess, Input, Label, Textarea } from "@/components/ui/input";
 import type { InfluencerProfile, ProfileSocials } from "@/lib/db/types";
-import { displaySocialUrl, normalizeSocialProfileUrl } from "@/lib/social/profile-url";
+import { displaySocialUrl, normalizeSocialProfileUrl, socialLookupNote } from "@/lib/social/profile-url";
 import { PLATFORM_LABEL } from "@/lib/social/platforms";
 import { cleanDisplayName } from "@/lib/text/display-name";
 import type { SocialPlatform } from "@/types/enums";
@@ -54,6 +54,7 @@ export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile 
   const [notes, setNotes] = useState<Partial<Record<SocialPlatform, SocialNote>>>(() => initialNotes(profile));
   const lastValid = useRef<ProfileSocials>(initialSocials(profile));
   const focused = useRef<ProfileSocials>(initialSocials(profile));
+  const savedUrls = useRef<ProfileSocials>(initialSocials(profile));
   const lookupGen = useRef<Partial<Record<SocialPlatform, number>>>({});
   const displayName = cleanDisplayName(profile?.displayName ?? "") || "Creator";
 
@@ -84,9 +85,14 @@ export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile 
     return blocked ? null : next;
   }
 
+  function cancelLookup(platform: SocialPlatform) {
+    lookupGen.current[platform] = (lookupGen.current[platform] ?? 0) + 1;
+  }
+
   function onSocialBlur(platform: SocialPlatform, raw: string) {
     const parsed = normalizeSocialProfileUrl(platform, raw);
     if (!parsed.ok) {
+      cancelLookup(platform);
       const restore = focused.current[platform] ?? lastValid.current[platform] ?? "";
       const restored = normalizeSocialProfileUrl(platform, restore);
       const keep = restored.ok ? restored.url : "";
@@ -97,8 +103,19 @@ export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile 
     rememberValid(platform, parsed.url);
     setSocials((current) => ({ ...current, [platform]: parsed.url }));
     if (!parsed.url) {
+      cancelLookup(platform);
       setNotes((current) => {
         if (!raw.trim() && current[platform]?.tone === "error") return current;
+        const next = { ...current };
+        delete next[platform];
+        return next;
+      });
+      return;
+    }
+    if (parsed.url === (savedUrls.current[platform] ?? "")) {
+      cancelLookup(platform);
+      setNotes((current) => {
+        if (!current[platform]) return current;
         const next = { ...current };
         delete next[platform];
         return next;
@@ -121,12 +138,19 @@ export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile 
         }
         if (preview.url !== parsed.url) return;
         setNotes((current) => {
-          if (preview.verified || !preview.message) {
+          const text = socialLookupNote({
+            platform,
+            attempted: preview.attempted,
+            failed: !preview.verified,
+            url: preview.url,
+            savedUrl: savedUrls.current[platform] ?? "",
+          });
+          if (!text) {
             const next = { ...current };
             delete next[platform];
             return next;
           }
-          return { ...current, [platform]: { tone: "muted", text: preview.message } };
+          return { ...current, [platform]: { tone: "muted", text } };
         });
       },
       () => {
@@ -185,6 +209,14 @@ export function InfluencerProfileForm({ profile }: { profile: InfluencerProfile 
               });
               if (!res.ok) setError(res.error);
               else {
+                savedUrls.current = nextSocials;
+                setNotes((current) => {
+                  const next = { ...current };
+                  for (const field of SOCIAL_FIELDS) {
+                    if (next[field.id]?.tone === "muted") delete next[field.id];
+                  }
+                  return next;
+                });
                 setSuccess(true);
                 router.refresh();
               }
