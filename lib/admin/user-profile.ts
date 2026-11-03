@@ -18,6 +18,7 @@ import type {
   WithdrawalRequest,
 } from "@/lib/db/types";
 import { maskAccountNumber } from "@/lib/utils";
+import { displaySocialUrl } from "@/lib/social/profile-url";
 import { isSocialPlatform, PLATFORM_LABEL, SOCIAL_PLATFORMS } from "@/lib/social/platforms";
 import type { AccountType, SocialPlatform } from "@/types/enums";
 
@@ -251,9 +252,8 @@ function collectSocials(
   const links: SocialLink[] = [];
   for (const platform of PLATFORMS) {
     const value = socials[platform];
-    if (typeof value === "string" && value.trim()) {
-      links.push({ platform, value: value.trim(), source });
-    }
+    const url = typeof value === "string" ? displaySocialUrl(platform, value) : "";
+    if (url) links.push({ platform, value: url, source });
   }
   return links;
 }

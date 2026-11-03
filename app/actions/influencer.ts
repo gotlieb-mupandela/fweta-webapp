@@ -11,7 +11,9 @@ import {
   rateCardSchema,
 } from "@/lib/validations/influencer";
 import { addRateCardOnce } from "@/lib/influencers/rate-cards";
+import { normalizeSocialProfileUrl } from "@/lib/social/profile-url";
 import { slugify } from "@/lib/utils";
+import type { SocialPlatform } from "@/types/enums";
 
 function socialsFromForm(socials?: {
   tiktok?: string;
@@ -20,16 +22,16 @@ function socialsFromForm(socials?: {
   facebook?: string;
   x?: string;
 }): ProfileSocials {
-  const pick = (value?: string) => {
-    const trimmed = value?.trim();
-    return trimmed ? trimmed : undefined;
+  const pick = (platform: SocialPlatform, value?: string) => {
+    const parsed = normalizeSocialProfileUrl(platform, value ?? "");
+    return parsed.ok && parsed.url ? parsed.url : undefined;
   };
   return {
-    tiktok: pick(socials?.tiktok),
-    youtube: pick(socials?.youtube),
-    instagram: pick(socials?.instagram),
-    facebook: pick(socials?.facebook),
-    x: pick(socials?.x),
+    tiktok: pick("tiktok", socials?.tiktok),
+    youtube: pick("youtube", socials?.youtube),
+    instagram: pick("instagram", socials?.instagram),
+    facebook: pick("facebook", socials?.facebook),
+    x: pick("x", socials?.x),
   };
 }
 

@@ -1,7 +1,8 @@
 import { randomBytes } from "crypto";
 
 import type { SocialAccount, Submission } from "@/lib/db/types";
-import { bioCodeFor, sanitizeHandle } from "@/lib/onboarding/model";
+import { bioCodeFor } from "@/lib/onboarding/model";
+import { normalizeSocialProfileUrl } from "@/lib/social/profile-url";
 import type { SocialPlatform } from "@/types/enums";
 
 const BIO_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -65,8 +66,11 @@ export function assertCanAddAccount(
   platform: SocialPlatform,
   handle: string,
 ): { handle: string } | { error: string } {
-  const cleaned = sanitizeHandle(handle);
-  if (!cleaned) return { error: "Use a public handle with letters, numbers, dots, or underscores." };
+  const parsed = normalizeSocialProfileUrl(platform, handle);
+  if (!parsed.ok || !parsed.handle) {
+    return { error: parsed.ok ? "Use a public handle with letters, numbers, dots, or underscores." : parsed.message };
+  }
+  const cleaned = parsed.handle;
   const mine = accounts.filter((account) => account.userId === userId && account.platform === platform);
   if (mine.some((account) => account.handle.toLowerCase() === cleaned.toLowerCase())) {
     return { error: "That account is already connected." };

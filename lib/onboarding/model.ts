@@ -5,6 +5,7 @@ import type {
   Profile,
   ProfileSocials,
 } from "@/lib/db/types";
+import { looseProfileHandle, normalizeSocialProfileUrl } from "@/lib/social/profile-url";
 import type { CampaignStatus, CampaignType, SocialPlatform, UserRole } from "@/types/enums";
 
 export const STEP_IDS: OnboardingStepId[] = [
@@ -274,44 +275,18 @@ export function normalizeWebsite(raw: string): string {
 }
 
 export function sanitizeHandle(raw: string): string | null {
-  let value = raw.trim();
-  if (!value) return null;
-  if (/^https?:\/\//i.test(value)) {
-    try {
-      const url = new URL(value);
-      const parts = url.pathname.split("/").filter(Boolean);
-      value = (parts[0] ?? "").replace(/^@/, "");
-    } catch {
-      return null;
-    }
-  }
-  value = value.replace(/^@/, "").trim();
-  if (!/^[A-Za-z0-9._]{2,40}$/.test(value)) return null;
-  return value;
+  return looseProfileHandle(raw);
 }
 
 export function publicProfileUrl(platform: SocialPlatform, handle: string): string | null {
-  const cleaned = sanitizeHandle(handle);
-  if (!cleaned) return null;
-  switch (platform) {
-    case "tiktok":
-      return `https://www.tiktok.com/@${cleaned}`;
-    case "instagram":
-      return `https://www.instagram.com/${cleaned}/`;
-    case "youtube":
-      return `https://www.youtube.com/@${cleaned}`;
-    case "facebook":
-      return `https://www.facebook.com/${cleaned}`;
-    case "x":
-      return `https://x.com/${cleaned}`;
-    default:
-      return null;
-  }
+  const parsed = normalizeSocialProfileUrl(platform, handle);
+  if (!parsed.ok || !parsed.url) return null;
+  return parsed.url;
 }
 
 export function profileUrlForStored(platform: SocialPlatform, stored: string): string {
-  if (/^https?:\/\//i.test(stored)) return stored;
-  return publicProfileUrl(platform, stored) ?? stored;
+  const parsed = normalizeSocialProfileUrl(platform, stored);
+  return parsed.ok ? parsed.url : "";
 }
 
 const BIO_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -353,7 +328,8 @@ export function upsertSocialCheck(
   platform: SocialPlatform,
   handle: string,
 ): OnboardingSocialCheck[] {
-  const cleaned = sanitizeHandle(handle);
+  const parsed = normalizeSocialProfileUrl(platform, handle);
+  const cleaned = parsed.ok && parsed.handle ? parsed.handle : null;
   const next = checks.filter((check) => check.platform !== platform);
   if (!cleaned) return next;
   const previous = checks.find((check) => check.platform === platform);
@@ -451,6 +427,18 @@ export function markStep(
   return next;
 }
 
+function canonicalSocials(socials: ProfileSocials | undefined): ProfileSocials {
+  const next: ProfileSocials = {};
+  if (!socials) return next;
+  for (const platform of PLATFORMS) {
+    const raw = socials[platform];
+    if (!raw?.trim()) continue;
+    const parsed = normalizeSocialProfileUrl(platform, raw);
+    if (parsed.ok && parsed.url) next[platform] = parsed.url;
+  }
+  return next;
+}
+
 export function applyProfileFields(profile: Profile, draft: OnboardingDraft): void {
   const first = draft.firstName.trim();
   const last = draft.lastName.trim();
@@ -478,9 +466,9 @@ export function applyProfileFields(profile: Profile, draft: OnboardingDraft): vo
 
   const creatorSocials = Object.keys(draft.socials).length ? draft.socials : socialsFromChecks(draft.checks);
   const merged: ProfileSocials = {
-    ...(profile.socials ?? {}),
-    ...(brand ? draft.brandSocials : {}),
-    ...(creator ? creatorSocials : {}),
+    ...canonicalSocials(profile.socials),
+    ...(brand ? canonicalSocials(draft.brandSocials) : {}),
+    ...(creator ? canonicalSocials(creatorSocials) : {}),
   };
   if (Object.keys(merged).length) profile.socials = merged;
 

@@ -6,6 +6,7 @@ import { PublicChrome } from "@/components/public-chrome";
 import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { Badge, Card, EmptyState } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { visibleSocial } from "@/lib/social/profile-url";
 import { cleanDisplayName } from "@/lib/text/display-name";
 import type { SocialPlatform } from "@/types/enums";
 
@@ -73,7 +74,7 @@ export default async function InfluencersPage({
                       <Badge tone="gold">{p.niche}</Badge>
                       <Badge tone="muted">{p.location}</Badge>
                       {(["tiktok", "instagram", "facebook", "youtube", "x"] as const)
-                        .filter((platform): platform is SocialPlatform => Boolean(p.socials?.[platform]))
+                        .filter((platform): platform is SocialPlatform => visibleSocial(platform, p.socials?.[platform]))
                         .map((platform) => (
                           <PlatformChip key={platform} platform={platform} />
                         ))}

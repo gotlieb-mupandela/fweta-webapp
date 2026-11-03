@@ -1,4 +1,5 @@
 import type { DatabaseStore } from "@/lib/db/types";
+import { displaySocialUrl, visibleSocial } from "@/lib/social/profile-url";
 import type { SocialPlatform } from "@/types/enums";
 
 export const USER_TABS = [
@@ -52,17 +53,9 @@ export function isUserTab(value: string | undefined): value is UserTab {
 }
 
 export function profileUrl(platform: string, value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  const handle = trimmed.replace(/^@/, "");
-  if (!handle || /\s/.test(handle)) return null;
-  if (platform === "tiktok") return `https://www.tiktok.com/@${handle}`;
-  if (platform === "instagram") return `https://www.instagram.com/${handle}/`;
-  if (platform === "youtube") return `https://www.youtube.com/@${handle}`;
-  if (platform === "facebook") return `https://www.facebook.com/${handle}`;
-  if (platform === "x") return `https://x.com/${handle}`;
-  return null;
+  if (!isSocialPlatform(platform)) return null;
+  const url = displaySocialUrl(platform, value);
+  return url || null;
 }
 
 export function isSocialPlatform(value: string): value is SocialPlatform {
@@ -72,7 +65,10 @@ export function isSocialPlatform(value: string): value is SocialPlatform {
 function socialKeys(socials: unknown): string[] {
   if (!socials || typeof socials !== "object") return [];
   return Object.entries(socials as Record<string, unknown>)
-    .filter(([, value]) => typeof value === "string" && value.trim())
+    .filter(
+      ([key, value]) =>
+        isSocialPlatform(key) && typeof value === "string" && visibleSocial(key, value),
+    )
     .map(([key]) => key);
 }
 

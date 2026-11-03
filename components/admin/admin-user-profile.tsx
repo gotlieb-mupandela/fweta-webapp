@@ -12,6 +12,7 @@ import type {
   AdminUserDossier,
   SocialLink,
 } from "@/lib/admin/user-profile";
+import { displaySocialUrl } from "@/lib/social/profile-url";
 import { formatMoney, formatNumber, shortUrl } from "@/lib/utils";
 import type { SocialPlatform } from "@/types/enums";
 
@@ -43,16 +44,8 @@ function humanize(value: string): string {
 }
 
 function socialHref(platform: SocialPlatform, value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  const handle = trimmed.replace(/^@/, "");
-  if (!handle || /\s/.test(handle)) return null;
-  if (platform === "tiktok") return `https://www.tiktok.com/@${handle}`;
-  if (platform === "youtube") return `https://www.youtube.com/@${handle}`;
-  if (platform === "instagram") return `https://www.instagram.com/${handle}/`;
-  if (platform === "facebook") return `https://www.facebook.com/${handle}`;
-  return `https://x.com/${handle}`;
+  const url = displaySocialUrl(platform, value);
+  return url || null;
 }
 
 function socialCaption(value: string): string {
