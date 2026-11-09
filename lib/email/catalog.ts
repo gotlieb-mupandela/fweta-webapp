@@ -14,6 +14,8 @@ import {
   welcomeEmail,
   withdrawalAdminEmail,
   passwordResetEmail,
+  loginAlertEmail,
+  passwordChangedEmail,
   withdrawalPaidEmail,
   withdrawalRejectedEmail,
   withdrawalRequestedEmail,
@@ -38,7 +40,9 @@ export type EmailTemplateId =
   | "withdrawal-rejected"
   | "withdrawal-admin"
   | "deposit-confirmed"
-  | "password-reset";
+  | "password-reset"
+  | "login-alert"
+  | "password-changed";
 
 export type EmailTemplateMeta = {
   id: EmailTemplateId;
@@ -66,7 +70,11 @@ export const EMAIL_TEMPLATES: EmailTemplateMeta[] = [
   { id: "withdrawal-rejected", group: "Wallet", label: "Withdrawal returned" },
   { id: "withdrawal-admin", group: "Wallet", label: "Withdrawal requested, admin" },
   { id: "password-reset", group: "Account", label: "Password reset" },
+  { id: "login-alert", group: "Account", label: "New sign-in alert" },
+  { id: "password-changed", group: "Account", label: "Password changed" },
 ];
+
+const PREVIEW_CONTEXT = { at: "2026-11-09T08:30:00.000Z", ip: "102.64.10.25", device: "Chrome on Windows" };
 
 export function isEmailTemplateId(value: string | undefined): value is EmailTemplateId {
   return EMAIL_TEMPLATES.some((item) => item.id === value);
@@ -187,6 +195,21 @@ export function renderEmailPreview(id: EmailTemplateId): RenderedEmail & { label
       case "password-reset":
         return passwordResetEmail({
           resetUrl: "https://app.fweta.com/reset-password?token=preview",
+          links,
+        });
+      case "login-alert":
+        return loginAlertEmail({
+          profile: previewWelcomeProfile("brand"),
+          context: PREVIEW_CONTEXT,
+          resetHref: "https://app.fweta.com/forgot-password",
+          links,
+        });
+      case "password-changed":
+        return passwordChangedEmail({
+          profile: previewWelcomeProfile("brand"),
+          context: PREVIEW_CONTEXT,
+          via: "reset",
+          resetHref: "https://app.fweta.com/forgot-password",
           links,
         });
       default:

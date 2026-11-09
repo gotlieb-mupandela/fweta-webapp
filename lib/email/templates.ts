@@ -54,9 +54,9 @@ export function welcomeEmail(input: {
     (input.profile.roles.includes("influencer") || input.profile.roles.includes("clipper"));
 
   const shared = {
-    subject: "Welcome to fweta",
-    preheader: "You are in. Stay close for campaigns and brand deals.",
-    eyebrow: "You're in",
+    subject: "Your fweta account is created",
+    preheader: `Your account for ${input.profile.email} is ready. Here is what to do next.`,
+    eyebrow: "Account created",
     ...linksFor("email", input.links),
     footnote: "Windhoek-built, for African creators and the brands who work with them.",
   };
@@ -570,5 +570,94 @@ export function passwordResetEmail(input: { resetUrl: string; links: PreferenceL
     preferencesHref: input.links.preferencesHref,
     unsubscribeHref: input.links.unsubscribeHref,
     unsubscribeLabel: unsubscribeLabel("email"),
+  };
+}
+
+export type SignInContext = {
+  /** ISO timestamp of the event. */
+  at: string;
+  /** Client IP, or "local" in development. */
+  ip: string;
+  /** Short browser/OS label, e.g. "Chrome on Windows". */
+  device: string;
+};
+
+function formatEventTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return `${date.toLocaleString("en-GB", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })} UTC`;
+}
+
+function contextDetails(context: SignInContext) {
+  return [
+    { label: "When", value: formatEventTime(context.at) },
+    { label: "Device", value: context.device },
+    { label: "IP address", value: context.ip === "local" ? "Local network" : context.ip },
+  ];
+}
+
+/** Security alert: sent after every successful sign-in. Not optional, so no unsubscribe link. */
+export function loginAlertEmail(input: {
+  profile: Pick<Profile, "displayName" | "email" | "firstName">;
+  context: SignInContext;
+  resetHref: string;
+  links: PreferenceLinks;
+}): EmailDocument {
+  const name = greetingName(input.profile);
+  return {
+    subject: "New sign-in to your fweta account",
+    preheader: `Signed in on ${input.context.device}. If this was you, no action is needed.`,
+    eyebrow: "Security alert",
+    headline: name ? `${name}, you just signed in.` : "You just signed in.",
+    kicker: "If this was you, there is nothing to do.",
+    paragraphs: [
+      `We noticed a new sign-in to the fweta account for ${input.profile.email}.`,
+      "If you don't recognise this sign-in, reset your password now. Resetting signs out every other session.",
+    ],
+    details: contextDetails(input.context),
+    actions: [
+      { label: "This wasn't me: reset password", href: input.resetHref, tone: "primary" },
+      { label: "Open fweta", href: absolute("/dashboard"), tone: "secondary" },
+    ],
+    footnote: "fweta will never ask you to send a password by email.",
+    preferencesHref: input.links.preferencesHref,
+  };
+}
+
+/** Confirmation after a password reset or change. Always sent. */
+export function passwordChangedEmail(input: {
+  profile: Pick<Profile, "displayName" | "email" | "firstName">;
+  context: SignInContext;
+  via: "reset" | "settings";
+  resetHref: string;
+  links: PreferenceLinks;
+}): EmailDocument {
+  const name = greetingName(input.profile);
+  return {
+    subject: "Your fweta password was changed",
+    preheader: "If you made this change, you're all set.",
+    eyebrow: "Password updated",
+    headline: name ? `${name}, your password is updated.` : "Your password is updated.",
+    kicker: "Every other session has been signed out.",
+    paragraphs: [
+      input.via === "reset"
+        ? `The password for ${input.profile.email} was reset using a link from your email.`
+        : `The password for ${input.profile.email} was changed from account settings.`,
+      "If you didn't do this, reset your password straight away, then contact fweta support from the Help page so we can secure your account.",
+    ],
+    details: contextDetails(input.context),
+    actions: [
+      { label: "Sign in", href: absolute("/login"), tone: "primary" },
+      { label: "I didn't do this", href: input.resetHref, tone: "secondary" },
+    ],
+    footnote: "fweta will never ask you to send a password by email.",
+    preferencesHref: input.links.preferencesHref,
   };
 }

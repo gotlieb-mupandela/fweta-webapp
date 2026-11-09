@@ -213,15 +213,16 @@ export async function signup(input: {
 export async function login(input: {
   email: string;
   password: string;
-}): Promise<{ ok: true } | { ok: false; error: string }> {
+}): Promise<{ ok: true; profile: Profile } | { ok: false; error: string }> {
   const email = input.email.trim().toLowerCase();
   const store = await readStore();
   const profile = store.profiles.find((p) => p.email === email);
   if (!profile) return { ok: false, error: "Invalid email or password." };
-  if (profile.suspended) return { ok: false, error: "Account suspended." };
 
   const valid = await bcrypt.compare(input.password, profile.passwordHash);
   if (!valid) return { ok: false, error: "Invalid email or password." };
+  // Only reveal suspension to someone who knows the password.
+  if (profile.suspended) return { ok: false, error: "Account suspended." };
 
   try {
     const token = await signSession({
@@ -237,7 +238,7 @@ export async function login(input: {
     console.warn("[fweta] login could not start a session:", err instanceof Error ? err.message : err);
     return { ok: false, error: "Sign-in is unavailable right now." };
   }
-  return { ok: true };
+  return { ok: true, profile };
 }
 
 export async function logout() {

@@ -7,7 +7,7 @@ export const loginSchema = z.object({
 
 export const signupSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(8).max(72, "Use 72 characters or fewer."),
   displayName: z.string().min(2).max(80).optional(),
   roles: z.array(z.enum(["brand", "influencer", "clipper"])).min(1),
 });

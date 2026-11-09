@@ -21,6 +21,7 @@ import {
   profileUpdateSchema,
   rolesUpdateSchema,
 } from "@/lib/validations/auth";
+import { currentSignInContext, queuePasswordChanged } from "@/lib/notifications/security";
 import type { UserRole } from "@/types/enums";
 
 export async function updateProfileAction(raw: unknown) {
@@ -141,6 +142,7 @@ export async function changePasswordAction(raw: unknown) {
         error: "Password updated. Sign in again with the new password.",
       };
     }
+    queuePasswordChanged(profile, await currentSignInContext(), "settings");
     return { ok: true as const };
   } catch {
     return { ok: false as const, error: "Could not update the password. Sign in and try again." };

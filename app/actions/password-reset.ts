@@ -22,6 +22,7 @@ import {
   unsubscribePageUrl,
 } from "@/lib/email/preferences";
 import { sendEmails } from "@/lib/email/send";
+import { currentSignInContext, queuePasswordChanged } from "@/lib/notifications/security";
 import { passwordResetEmail } from "@/lib/email/templates";
 import { clientIp } from "@/lib/security/client-ip";
 import { sharedRateLimit } from "@/lib/security/shared-rate-limit";
@@ -120,5 +121,6 @@ export async function resetPasswordAction(raw: unknown) {
   if (!applied) {
     return { ok: false as const, error: "This reset link is invalid or has expired. Request a new one." };
   }
+  queuePasswordChanged(profile, await currentSignInContext(), "reset");
   return { ok: true as const };
 }

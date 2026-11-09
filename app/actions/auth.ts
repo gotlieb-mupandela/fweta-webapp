@@ -13,6 +13,7 @@ import {
 } from "@/lib/auth/session";
 import { loginSchema, signupSchema } from "@/lib/validations/auth";
 import { updateStore, nowIso } from "@/lib/db/store";
+import { currentSignInContext, queueLoginAlert } from "@/lib/notifications/security";
 import { clientIp } from "@/lib/security/client-ip";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { sharedRateLimit } from "@/lib/security/shared-rate-limit";
@@ -33,7 +34,10 @@ export async function loginAction(input: { email: string; password: string }) {
   if (!limited.ok) {
     return { ok: false as const, error: `Too many attempts. Try again in ${limited.retryAfterSec}s.` };
   }
-  return login(parsed.data);
+  const result = await login(parsed.data);
+  if (!result.ok) return result;
+  queueLoginAlert(result.profile, await currentSignInContext());
+  return { ok: true as const };
 }
 
 export async function signupAction(input: {
